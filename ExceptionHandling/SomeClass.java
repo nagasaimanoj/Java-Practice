@@ -1,15 +1,10 @@
 public class SomeClass {
-    int i = 0;
 
-    public static void main(String[] args) throws Exception {
-        div();
-    }
-
-    static void div() throws Exception {
-        int a = 5, b = 0;
-        if (b == 0) {
-            throw new Exception("this is naga sai");
+    public static void main(String[] args) {
+        try {
+            System.out.println(5 / 0);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        int ddd = a / b;
     }
 }
