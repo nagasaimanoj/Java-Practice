@@ -10,7 +10,8 @@ public class DBConnect {
     String password = "";
     String url = "jdbc:mysql://localhost:3306/jdbcpractice";
 
-    public Connection createConnection() {
+    void runQuery(String name, String age, String phone) {
+
         try {
             Class.forName(driver);
             con = DriverManager.getConnection(url, user, password);
@@ -19,45 +20,29 @@ public class DBConnect {
         } catch (SQLException sqle) {
             sqle.printStackTrace();
         }
-        return con;
-    }
 
-    void runQuery(String name, String age, String phone) {
-
-        PreparedStatement ps = null;
         String sql = "INSERT INTO `studentdetials`(`name`, `age`, `phone`) VALUES ('" + name + "'," + age + "," + phone
                 + ")";
-        DBConnect dce = new DBConnect();
-        Connection connection = dce.createConnection();
-        if (connection != null) {
+
+        if (con != null) {
             System.out.println("Database Connection Is Established");
             try {
-                ps = connection.prepareStatement(sql);
-                int i = ps.executeUpdate();
-                if (i > 0) {
+                if (con.prepareStatement(sql).executeUpdate() > 0) {
                     System.out.println("Data Inserted into database table Successfully");
                 }
             } catch (SQLException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             } finally {
-                if (connection != null) {
+                if (con != null) {
                     try {
-                        connection.close();
+                        con.close();
                     } catch (SQLException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                }
-                if (ps != null) {
-                    try {
-                        ps.close();
-                    } catch (SQLException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
             }
+        } else {
+            System.out.println("error occoured while connecting to DB");
         }
     }
 }
