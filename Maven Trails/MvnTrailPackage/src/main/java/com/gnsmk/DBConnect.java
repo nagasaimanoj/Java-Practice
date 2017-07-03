@@ -8,7 +8,7 @@ public class DBConnect {
     String driver = "com.mysql.jdbc.Driver";
     String user = "root";
     String password = "";
-    String url = "10.100.8.134\\jdbcpractice";
+    String url = "jdbc:mysql://localhost:3306/jdbcpractice";
 
     public Connection createConnection() {
         try {
@@ -22,9 +22,11 @@ public class DBConnect {
         return con;
     }
 
-    public static void main(String args[]) {
+    void runQuery(String name, String age, String phone) {
+
         PreparedStatement ps = null;
-        String sql = "INSERT INTO `jdbcpractice`.`studentdetials` (`serial`, `name`, `age`, `phone`, `height`) VALUES ('121', 'son goku', '23', '9552', '5.8')";
+        String sql = "INSERT INTO `studentdetials`(`name`, `age`, `phone`) VALUES ('" + name + "'," + age + "," + phone
+                + ")";
         DBConnect dce = new DBConnect();
         Connection connection = dce.createConnection();
         if (connection != null) {
@@ -36,12 +38,14 @@ public class DBConnect {
                     System.out.println("Data Inserted into database table Successfully");
                 }
             } catch (SQLException e) {
+                // TODO Auto-generated catch block
                 e.printStackTrace();
             } finally {
                 if (connection != null) {
                     try {
                         connection.close();
                     } catch (SQLException e) {
+                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
@@ -49,6 +53,7 @@ public class DBConnect {
                     try {
                         ps.close();
                     } catch (SQLException e) {
+                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }

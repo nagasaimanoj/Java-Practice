@@ -6,7 +6,7 @@ public class DBConnect {
     String driver = "com.mysql.jdbc.Driver";
     String user = "root";
     String password = "";
-    String url = "localhost";
+    String url = "jdbc:mysql://localhost:3306/jdbcpractice";
 
     public Connection createConnection() {
         try {
@@ -22,8 +22,8 @@ public class DBConnect {
 
     public static void main(String args[]) {
         PreparedStatement ps = null;
-        String sql = "INSERT INTO `jdbcpractice`.`studentdetials` (`serial`, `name`, `age`, `phone`, `height`) VALUES ('1', 'manoj', '23', '9552', '5.8')";
-        DBConnect dce = new DBConnect();
+        String sql = "INSERT INTO `studentdetials`(`serial`, `name`, `age`, `phone`, `height`) VALUES (1,'manoj',22,999,7)";
+        DatabaseConnetivityExample dce = new DatabaseConnetivityExample();
         Connection connection = dce.createConnection();
         if (connection != null) {
             System.out.println("Database Connection Is Established");
