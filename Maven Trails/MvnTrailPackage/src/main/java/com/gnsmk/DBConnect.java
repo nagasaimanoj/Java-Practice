@@ -24,7 +24,7 @@ public class DBConnect {
 
     public static void main(String args[]) {
         PreparedStatement ps = null;
-        String sql = "INSERT INTO `jdbcpractice`.`studentdetials` (`serial`, `name`, `age`, `phone`, `height`) VALUES ('1', 'manoj', '23', '9552', '5.8')";
+        String sql = "INSERT INTO `jdbcpractice`.`studentdetials` (`serial`, `name`, `age`, `phone`, `height`) VALUES ('121', 'son goku', '23', '9552', '5.8')";
         DBConnect dce = new DBConnect();
         Connection connection = dce.createConnection();
         if (connection != null) {
@@ -36,14 +36,12 @@ public class DBConnect {
                     System.out.println("Data Inserted into database table Successfully");
                 }
             } catch (SQLException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             } finally {
                 if (connection != null) {
                     try {
                         connection.close();
                     } catch (SQLException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
@@ -51,7 +49,6 @@ public class DBConnect {
                     try {
                         ps.close();
                     } catch (SQLException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
