@@ -8,7 +8,7 @@ public class Csv {
     public static void main(String... a) {
         FileInputStream fis = null;
         int c;
-        boolean isSuccess = false;
+        boolean isSuccess = true;
 
         try {
             fis = new FileInputStream("users.csv");
@@ -31,7 +31,7 @@ public class Csv {
                     c = fis.read();
                 }
 
-                isSuccess = DBConnect.runQuery(name, age, phone);
+                isSuccess &= DBConnect.runQuery(name, age, phone);
 
             }
             if (isSuccess)
