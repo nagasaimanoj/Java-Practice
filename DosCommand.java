@@ -15,7 +15,8 @@ public class DosCommand {
             out.flush();
             out.write("dir /r/n".getBytes());
             out.close();
-        } catch (IOException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

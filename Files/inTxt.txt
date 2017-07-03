@@ -1,1 +1,1 @@
-this will erase contents of output file
+this is an the input file
