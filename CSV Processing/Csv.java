@@ -11,23 +11,20 @@ public class Csv {
             fis = new FileInputStream("users.csv");
             while ((c = fis.read()) != -1) {
                 while ((char) c != ',') {
-                    if ((char) c != ' ')
-                        name += (char) c;
+                    name += (char) c;
                     c = fis.read();
                 }
                 c = fis.read();
                 while ((char) c != ',') {
-                    if ((char) c != ' ')
-                        age += (char) c;
+                    age += (char) c;
                     c = fis.read();
                 }
                 c = fis.read();
-                while (!String.valueOf((char) c).matches("\n")) {
-                    if ((char) c != ' ')
-                        phone += (char) c;
+                while ((char) c != '\n') {
+                    phone += (char) c;
                     c = fis.read();
                 }
-                System.out.println(name + " is " + age + " year old. his/her phone number is - " + phone);
+                System.out.println(name + " is " + age + " years old. His/her phone number is - " + phone);
                 name = "";
                 age = "";
                 phone = "";

@@ -8,7 +8,7 @@ public class DBConnect {
     String driver = "com.mysql.jdbc.Driver";
     String user = "root";
     String password = "";
-    String url = "localhost";
+    String url = "10.100.8.134\\jdbcpractice";
 
     public Connection createConnection() {
         try {
