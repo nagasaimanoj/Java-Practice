@@ -4,32 +4,28 @@ import java.sql.*;
 
 public class DBConnect {
 
-    Connection con = null;
-    String driver = "com.mysql.jdbc.Driver";
-    String user = "root";
-    String password = "";
-    String url = "jdbc:mysql://localhost:3306/jdbcpractice";
+    static boolean runQuery(String name, String age, String phone) {
 
-    void runQuery(String name, String age, String phone) {
+        Connection con = null;
+        boolean isSuccess = false;
 
         try {
-            Class.forName(driver);
-            con = DriverManager.getConnection(url, user, password);
-        } catch (ClassNotFoundException cnfe) {
-            cnfe.printStackTrace();
-        } catch (SQLException sqle) {
-            sqle.printStackTrace();
+            Class.forName("com.mysql.jdbc.Driver");
+            con = DriverManager.getConnection("jdbc:mysql://localhost:3306/jdbcpractice", "root", "");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         String sql = "INSERT INTO `studentdetials`(`name`, `age`, `phone`) VALUES ('" + name + "'," + age + "," + phone
                 + ")";
 
         if (con != null) {
-            System.out.println("Database Connection Is Established");
             try {
-                if (con.prepareStatement(sql).executeUpdate() > 0) {
-                    System.out.println("Data Inserted into database table Successfully");
-                }
+                isSuccess = (con.prepareStatement(sql).executeUpdate() > 0);
             } catch (SQLException e) {
                 e.printStackTrace();
             } finally {
@@ -41,8 +37,7 @@ public class DBConnect {
                     }
                 }
             }
-        } else {
-            System.out.println("error occoured while connecting to DB");
         }
+        return isSuccess;
     }
 }

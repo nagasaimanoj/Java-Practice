@@ -3,16 +3,19 @@ package com.gnsmk;
 import java.io.*;
 
 public class Csv {
-    static String name = "", age = "", phone = "";
+    static String name, age, phone;
 
     public static void main(String... a) {
-        DBConnect dbc = new DBConnect();
         FileInputStream fis = null;
         int c;
+        boolean isSuccess = false;
 
         try {
             fis = new FileInputStream("users.csv");
             while ((c = fis.read()) != -1) {
+
+                name = age = phone = "";
+
                 while ((char) c != ',') {
                     name += (char) c;
                     c = fis.read();
@@ -27,12 +30,12 @@ public class Csv {
                     phone += (char) c;
                     c = fis.read();
                 }
-                System.out.println(name + " is " + age + " years old. His/her phone number is - " + phone);
-                dbc.runQuery(name, age, phone);
-                name = "";
-                age = "";
-                phone = "";
+
+                isSuccess = DBConnect.runQuery(name, age, phone);
+
             }
+            if (isSuccess)
+                System.out.println("Insertion Success");
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
