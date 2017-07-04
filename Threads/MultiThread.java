@@ -26,7 +26,7 @@ public class MultiThread {
 class SampleY implements Runnable {
     static int i;
 
-    public void run() {
+    public synchronized void run() {
         System.out.println("this is from thread " + (++i));
     }
 }
