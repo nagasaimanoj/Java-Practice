@@ -6,7 +6,6 @@ import java.util.*;
 import com.opencsv.CSVReader;
 
 class Csv1 {
-	DBConnect dbc = new DBConnect();
 
 	String name, age, phone;
 
@@ -25,9 +24,8 @@ class Csv1 {
 		return this;
 	}
 
-	@Override
 	public String toString() {
-		dbc.runQuery(name, age, phone);
+		DBConnect.runQuery(name, age, phone);
 		return "{" + name + "::" + age + "::" + phone + "}";
 	}
 }
@@ -38,12 +36,12 @@ class LineByLine {
 
 		CSVReader reader = new CSVReader(new FileReader("users.csv"), ',');
 
-		List<Csv1> emps = new ArrayList<Csv1>();
+		ArrayList<Csv1> emps = new ArrayList<Csv1>();
 
-		String[] record = null;
+		String[] arr = null;
 
-		while ((record = reader.readNext()) != null) {
-			emps.add(new Csv1().setPhone(record[2]).setName(record[0]).setAge(record[1]));
+		while ((arr = reader.readNext()) != null) {
+			emps.add(new Csv1().setPhone(arr[2]).setName(arr[0]).setAge(arr[1]));
 		}
 
 		System.out.println(emps);
