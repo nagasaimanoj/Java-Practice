@@ -1,7 +1,7 @@
 package net.gnsmk;
 
 public class Employee {
-	String name = "empty regestry";
+	String name = "-----";
 	String phone = "0000";
 	String age = "00";
 
@@ -15,10 +15,5 @@ public class Employee {
 
 	public void setAge(String temp) {
 		age = temp;
-	}
-
-	@Override
-	public String toString() {
-		return "{" + phone + "::" + name + "::" + age + "}";
 	}
 }

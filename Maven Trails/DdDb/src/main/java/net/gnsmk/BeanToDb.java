@@ -28,20 +28,20 @@ class BeanToDb {
 		}
 
 		if (con != null) {
-			System.out.println(query);
+			System.out.println("Connection Established");
 			try {
 				for (Employee e : emps) {
 					query = "INSERT INTO `jdbcpractice`.`studentdetials` (`name`, `age`, `phone`) VALUES (\"" + e.name
 							+ "\", \"" + e.age + "\", \"" + e.phone + "\");";
 					isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
 				}
-			} catch (SQLException exception) {
+			} catch (Exception exception) {
 				exception.printStackTrace();
 			} finally {
 				if (con != null) {
 					try {
 						con.close();
-					} catch (SQLException exception) {
+					} catch (Exception exception) {
 						exception.printStackTrace();
 					}
 				}

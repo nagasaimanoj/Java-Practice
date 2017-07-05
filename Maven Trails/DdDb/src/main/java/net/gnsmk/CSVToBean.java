@@ -13,7 +13,9 @@ public class CSVToBean {
 
 		try {
 			reader = new CSVReader(new FileReader(
-					"D://xampp//htdocs//Manoj//filesharing//javaTraining//Maven Trails//DdDb//users.csv"), ',');
+					"D://DdDb//src//main//java//net//gnsmk//Book1.csv"), ',');
+					
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
