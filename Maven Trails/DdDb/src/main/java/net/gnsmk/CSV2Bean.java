@@ -6,15 +6,14 @@ import java.util.*;
 import com.opencsv.*;
 import com.opencsv.bean.*;
 
-public class CSVToBean {
+public class CSV2Bean {
 
 	public List<Employee> getList() {
 		CSVReader reader = null;
 
 		try {
 			reader = new CSVReader(new FileReader(
-					"D://DdDb//src//main//java//net//gnsmk//Book1.csv"), ',');
-					
+					"D://xampp//htdocs//Manoj//filesharing//javaTraining//Maven Trails//DdDb//users.csv"), ',');
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -22,7 +21,7 @@ public class CSVToBean {
 
 		ColumnPositionMappingStrategy<Employee> beanStrategy = new ColumnPositionMappingStrategy<Employee>();
 		beanStrategy.setType(Employee.class);
-		beanStrategy.setColumnMapping(new String[] { "name", "age", "phone" });
+		beanStrategy.setColumnMapping(new String[] { "var1", "var2", "var3" });
 
 		CsvToBean<Employee> csvToBean = new CsvToBean<Employee>();
 

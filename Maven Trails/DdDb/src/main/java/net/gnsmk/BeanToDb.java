@@ -11,46 +11,42 @@ class BeanToDb {
 
 	public static void main(String[] args) throws IOException {
 
-		CSVToBean cbn = new CSVToBean();
-		List<Employee> emps = new ArrayList<Employee>();
-
-		emps = cbn.getList();
+		List<Employee> emps = new CSV2Bean().getList();
 
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			con = DriverManager.getConnection("jdbc:mysql://localhost/jdbcpractice", "root", "");
-		} catch (ClassNotFoundException exception) {
-			exception.printStackTrace();
-		} catch (SQLException exception) {
-			exception.printStackTrace();
-		} catch (Exception exception) {
-			exception.printStackTrace();
+		} catch (Exception ex) {
 		}
 
 		if (con != null) {
 			System.out.println("Connection Established");
+
 			try {
 				for (Employee e : emps) {
-					query = "INSERT INTO `jdbcpractice`.`studentdetials` (`name`, `age`, `phone`) VALUES (\"" + e.name
-							+ "\", \"" + e.age + "\", \"" + e.phone + "\");";
-					isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
+					query = "INSERT INTO `jdbcpractice`.`studentdetials` (`name`, `age`, `phone`) VALUES (\"" + e.var1
+							+ "\", \"" + e.var2 + "\", \"" + e.var3 + "\");";
+					System.out.println(query);
+					//isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
 				}
-			} catch (Exception exception) {
-				exception.printStackTrace();
+			} catch (Exception ex) {
 			} finally {
 				if (con != null) {
 					try {
 						con.close();
-					} catch (Exception exception) {
-						exception.printStackTrace();
+					} catch (Exception ex) {
 					}
 				}
 			}
-			if(isSuccess){
+
+			if (isSuccess) {
 				System.out.println("Insertion Success");
-			}else{
+			} else {
 				System.out.println("Insertion Failed");
 			}
+
+		} else {
+			System.out.println("Connection Failed");
 		}
 	}
 }
