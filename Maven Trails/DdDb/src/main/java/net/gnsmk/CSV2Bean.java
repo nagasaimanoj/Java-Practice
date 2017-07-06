@@ -13,8 +13,9 @@ public class CSV2Bean {
 		try {
 			reader = new CSVReader(new FileReader(
 					"D:\\xampp\\htdocs\\Manoj\\filesharing\\javaTraining\\Maven Trails\\DdDb\\users.csv"), ',');
-
-		} catch (Exception e) {}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
 
 		ColumnPositionMappingStrategy<Employee> beanStrategy = new ColumnPositionMappingStrategy<Employee>();
 		beanStrategy.setType(Employee.class);

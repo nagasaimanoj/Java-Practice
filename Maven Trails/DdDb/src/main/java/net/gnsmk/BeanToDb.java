@@ -6,8 +6,9 @@ import java.util.*;
 
 class BeanToDb {
 	static Connection con = null;
+
 	static boolean isSuccess = true;
-	static String query = "";
+	static String query = "INSERT INTO jdbcpractice.studentdetials (name, age, phone) VALUES ";
 
 	public static void main(String[] args) throws IOException {
 
@@ -16,24 +17,28 @@ class BeanToDb {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			con = DriverManager.getConnection("jdbc:mysql://localhost/jdbcpractice", "root", "");
+
 		} catch (Exception ex) {
+			ex.printStackTrace();
 		}
 
 		if (con != null) {
 			System.out.println("Connection Established");
 			try {
 				for (Employee e : emps) {
-					System.out.println(
-							(query = "INSERT INTO `jdbcpractice`.`studentdetials` (`name`, `age`, `phone`) VALUES (\""
-									+ e.name + "\", \"" + e.age + "\", \"" + e.phone + "\");"));
-					//isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
+					query += "(\"" + e.name + "\", \"" + e.age + "\", \"" + e.phone + "\"), ";
 				}
+				query += "(\"ENDED\",\"0909\",\"000\");";
+				isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
+				System.out.println((query));
 			} catch (Exception ex) {
+				ex.printStackTrace();
 			} finally {
 				if (con != null) {
 					try {
 						con.close();
 					} catch (Exception ex) {
+						ex.printStackTrace();
 					}
 				}
 			}
