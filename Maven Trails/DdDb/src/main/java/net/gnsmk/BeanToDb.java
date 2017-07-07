@@ -6,7 +6,6 @@ import java.util.*;
 
 class BeanToDb {
 	static Connection con = null;
-
 	static boolean isSuccess = true;
 	static String query = "INSERT INTO jdbcpractice.studentdetials (name, age, phone) VALUES ";
 
@@ -17,7 +16,6 @@ class BeanToDb {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			con = DriverManager.getConnection("jdbc:mysql://localhost/jdbcpractice", "root", "");
-
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -28,8 +26,8 @@ class BeanToDb {
 				for (Employee e : emps) {
 					query += "(\"" + e.name + "\", \"" + e.age + "\", \"" + e.phone + "\"), ";
 				}
-				query += "(\"ENDED\",\"0909\",\"000\");";
-				isSuccess &= (con.prepareStatement(query).executeUpdate() > 0);
+				query = query.substring(0, query.length() - 2) + ";";
+				isSuccess = (con.prepareStatement(query).executeUpdate() > 0);
 				System.out.println((query));
 			} catch (Exception ex) {
 				ex.printStackTrace();
