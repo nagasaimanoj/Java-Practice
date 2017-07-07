@@ -26,8 +26,7 @@ class BeanToDb {
 				for (Employee e : emps) {
 					query += "(\"" + e.name + "\", \"" + e.age + "\", \"" + e.phone + "\"), ";
 				}
-				query = query.substring(0, query.length() - 2) + ";";
-				isSuccess = (con.prepareStatement(query).executeUpdate() > 0);
+				isSuccess = (con.prepareStatement(query = query.substring(0, query.length() - 2) + ";").executeUpdate() > 0);
 				System.out.println((query));
 			} catch (Exception ex) {
 				ex.printStackTrace();
