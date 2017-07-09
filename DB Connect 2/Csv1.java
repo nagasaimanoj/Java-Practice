@@ -1,56 +1,36 @@
 package com.gnsmk.dbconnect;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+
+import java.io.*;
+import java.util.*;
 
 import com.opencsv.CSVReader;
-public class Csv1 {
 
-	private String id;
-	private String name;
-	private String age;
-	private String country;
+class Csv1 {
 
-	public String getId() {
-		return id;
+	String name, age, phone;
+
+	public Csv1 setPhone(String temp) {
+		phone = temp;
+		return this;
 	}
 
-	public void setId(String id) {
-		this.id = id;
+	public Csv1 setName(String temp) {
+		name = temp;
+		return this;
 	}
 
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getAge() {
-		return age;
-	}
-
-	public void setAge(String age) {
-		this.age = age;
-	}
-
-	public String getCountry() {
-		return country;
-	}
-
-	public void setCountry(String country) {
-		this.country = country;
+	public Csv1 setAge(String temp) {
+		age = temp;
+		return this;
 	}
 
 	@Override
 	public String toString() {
-		return "{" + id + "::" + name + "::" + age + "::" + country + "}";
+		return "{" + name + "::" + age + "::" + phone + "}";
 	}
 }
 
-public class OpenCSVReaderLineByLineExample {
+class LineByLine {
 
 	public static void main(String[] args) throws IOException {
 
@@ -58,21 +38,14 @@ public class OpenCSVReaderLineByLineExample {
 
 		List<Csv1> emps = new ArrayList<Csv1>();
 
-		// read line by line
 		String[] record = null;
 
 		while ((record = reader.readNext()) != null) {
-			Csv1 emp = new Csv1();
-			emp.setId(record[0]);
-			emp.setName(record[1]);
-			emp.setAge(record[2]);
-			emp.setCountry(record[3]);
-			emps.add(emp);
+			emps.add(new Csv1().setPhone(record[0]).setName(record[1]).setAge(record[2]));
 		}
 
 		System.out.println(emps);
-		
+
 		reader.close();
 	}
-
 }
