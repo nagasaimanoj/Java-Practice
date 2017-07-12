@@ -1,0 +1,5 @@
+
+MariaDB [jdbcpractice]> INSERT INTO studentdetials (name, age, phone) VALUES ('m
+anoj', '25', '955');INSERT INTO studentdetials (name, age, phone) VALUES ('dhivy
+a', '36', '785');INSERT INTO studentdetials (name, age, phone) VALUES ('aruna',
+'99', '741');INSERT INTO studentdetials (name, age, phone) VALUES ('Dhivyadharshini', '24', '245');
