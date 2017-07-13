@@ -6,6 +6,6 @@ public class Comedy1 {
     }
 
     public static void main(String[] args) {
-        Comedy2.main(args);
+        Comedy2.check();
     }
 }

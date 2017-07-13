@@ -13,7 +13,7 @@ class Demo2{
 			System.out.println("this is from 2");
 		}
 	};
-	
+
 	t1.display2();
   }
 
