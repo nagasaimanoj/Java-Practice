@@ -1,2 +1,5 @@
-com\gnsmk\Hello.class
+com\gnsmk\EmployeeTable.class
+com\gnsmk\ProjectTable.class
 com\gnsmk\DbConnect.class
+com\gnsmk\ProjectEmployeeTable.class
+com\gnsmk\TeamTable.class
