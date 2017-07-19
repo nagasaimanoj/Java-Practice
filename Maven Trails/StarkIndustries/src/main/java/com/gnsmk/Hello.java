@@ -2,16 +2,21 @@ package com.gnsmk;
 
 import java.sql.*;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.*;
+import java.text.*;
+import java.time.*;
+import java.util.Calendar ;
+
 
 public class Hello {
     static List<EmployeeTable> li = new ArrayList<EmployeeTable>();
 
     public static void main(String args[]) {
-        System.out.println("select an option : \n" + "1. All Employees\n" + "2. Employees in Team\n"
-                + "3. Employees joined in a month\n" + "4. Top 5 High paid\n" + "5. Range wise Salary\n");
         Scanner sc = new Scanner(System.in);
         Connection conn = DbConnect.getDbConnect();
+
+        System.out.println("select an option : \n" + "1. All Employees\n" + "2. Employees in Team\n"
+                + "3. Employees joined in a month\n" + "4. Top 5 High paid\n" + "5. Range wise Salary\n");
         try {
             ResultSet resultSet = conn.createStatement().executeQuery("Select * from employee");
 
@@ -26,7 +31,8 @@ public class Hello {
                 li.stream().collect(Collectors.toList()).forEach(System.out::println);
                 break;
             case 2:
-                System.out.println("select an option to display : ");
+                System.out.println("select an option to display : " + "\n1. TEAM 1" + "\n2. TEAM 2" + "\n3. TEAM 3"
+                        + "\n4. TEAM 4");
                 switch (sc.nextInt()) {
                 case 1:
                     li.stream().filter(n -> n.getTeam() == 1).collect(Collectors.toList()).forEach(System.out::println);
@@ -37,7 +43,6 @@ public class Hello {
                 case 3:
                     li.stream().filter(n -> n.getTeam() == 3).collect(Collectors.toList()).forEach(System.out::println);
                     break;
-
                 case 4:
                     li.stream().filter(n -> n.getTeam() == 4).collect(Collectors.toList()).forEach(System.out::println);
                     break;
@@ -46,9 +51,13 @@ public class Hello {
                 }
             case 3:
                 //Employees joined in a month
+               // System.out.println(new SimpleDateFormat("YYYY-MM-dd").parse("2017-07-17").getMonth());
+               LocalDate doj = LocalDate.of(2017,01,06);
+               int mm=doj.getMonthValue();
+               li.stream().filter((n->n.mm==01)).collect(Collectors.toList());
                 break;
             case 4:
-                li.stream().sorted(Comparator.comparing(EmployeeTable::getSalary).reversed()).limit(1)
+                li.stream().sorted(Comparator.comparing(EmployeeTable::getSalary).reversed()).limit(5)
                         .collect(Collectors.toList()).forEach(System.out::println);
                 break;
             case 5:
