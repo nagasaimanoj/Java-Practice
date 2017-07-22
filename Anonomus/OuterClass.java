@@ -2,6 +2,7 @@ class anonymous {
     public anonymous() {
         System.out.println("I am Excuting first");
     }
+
     public void anonymousM() {
     }
 }
@@ -14,8 +15,6 @@ public class OuterClass {
     }
 
     class inner {
-        private int b = 20;
-
         void InnerM() {
             System.out.println("I'm Inner'" + " " + a);
             OuterM();
@@ -24,8 +23,6 @@ public class OuterClass {
 
     void Local() {
         class LocalClass {
-            int c = 5000;
-
             void n() {
                 System.out.println("I'm Local'" + " " + a++);
             }
