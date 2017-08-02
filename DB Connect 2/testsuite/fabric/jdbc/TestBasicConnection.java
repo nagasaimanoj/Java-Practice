@@ -23,13 +23,12 @@
 
 package testsuite.fabric.jdbc;
 
+import com.mysql.fabric.jdbc.FabricMySQLDataSource;
+import testsuite.fabric.BaseFabricTestCase;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
-
-import com.mysql.fabric.jdbc.FabricMySQLDataSource;
-
-import testsuite.fabric.BaseFabricTestCase;
 
 public class TestBasicConnection extends BaseFabricTestCase {
 

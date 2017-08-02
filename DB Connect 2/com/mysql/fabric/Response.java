@@ -23,10 +23,10 @@
 
 package com.mysql.fabric;
 
+import com.mysql.fabric.proto.xmlrpc.ResultSetParser;
+
 import java.util.List;
 import java.util.Map;
-
-import com.mysql.fabric.proto.xmlrpc.ResultSetParser;
 
 /**
  * Response from Fabric request.

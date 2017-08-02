@@ -24,11 +24,7 @@
 package com.mysql.jdbc;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class ReplicationConnectionGroupManager {
     private static HashMap<String, ReplicationConnectionGroup> GROUP_MAP = new HashMap<String, ReplicationConnectionGroup>();

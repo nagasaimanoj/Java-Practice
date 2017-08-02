@@ -23,34 +23,21 @@
 
 package com.mysql.jdbc;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
-import java.io.Writer;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLXML;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.FactoryConfigurationError;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.transform.Result;
 import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXResult;
@@ -59,13 +46,10 @@ import javax.xml.transform.stax.StAXResult;
 import javax.xml.transform.stax.StAXSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
-
-import org.w3c.dom.DOMException;
-import org.w3c.dom.Document;
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.helpers.DefaultHandler;
-import org.xml.sax.SAXException;
+import java.io.*;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLXML;
 
 public class JDBC4MysqlSQLXML implements SQLXML {
 
@@ -132,19 +116,6 @@ public class JDBC4MysqlSQLXML implements SQLXML {
         return this.stringRep;
     }
 
-    private synchronized void checkClosed() throws SQLException {
-        if (this.isClosed) {
-            throw SQLError.createSQLException("SQLXMLInstance has been free()d", this.exceptionInterceptor);
-        }
-    }
-
-    private synchronized void checkWorkingWithResult() throws SQLException {
-        if (this.workingWithResult) {
-            throw SQLError.createSQLException("Can't perform requested operation after getResult() has been called to write XML data",
-                    SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
-        }
-    }
-
     /**
      * Sets the XML value designated by this SQLXML instance to the given String
      * representation. The format of this String is defined by
@@ -156,17 +127,14 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * designated column of the ResultSet has a type java.sql.Types of SQLXML.
      * <p>
      * The SQL XML object becomes not writeable when this method is called and may also become not readable depending on implementation.
-     * 
-     * @param value
-     *            the XML value
-     * @throws SQLException
-     *             if there is an error processing the XML value. The getCause()
-     *             method of the exception may provide a more detailed
-     *             exception, for example, if the stream does not contain valid
-     *             characters. An exception is thrown if the state is not
-     *             writable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     *
+     * @param value the XML value
+     * @throws SQLException                    if there is an error processing the XML value. The getCause()
+     *                                         method of the exception may provide a more detailed
+     *                                         exception, for example, if the stream does not contain valid
+     *                                         characters. An exception is thrown if the state is not
+     *                                         writable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
 
@@ -176,6 +144,19 @@ public class JDBC4MysqlSQLXML implements SQLXML {
 
         this.stringRep = str;
         this.fromResultSet = false;
+    }
+
+    private synchronized void checkClosed() throws SQLException {
+        if (this.isClosed) {
+            throw SQLError.createSQLException("SQLXMLInstance has been free()d", this.exceptionInterceptor);
+        }
+    }
+
+    private synchronized void checkWorkingWithResult() throws SQLException {
+        if (this.workingWithResult) {
+            throw SQLError.createSQLException("Can't perform requested operation after getResult() has been called to write XML data",
+                    SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
+        }
     }
 
     public synchronized boolean isEmpty() throws SQLException {
@@ -208,16 +189,14 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * SQLXML.
      * <p>
      * The SQL XML object becomes not readable when this method is called and may also become not writable depending on implementation.
-     * 
+     *
      * @return a stream containing the XML data.
-     * @throws SQLException
-     *             if there is an error processing the XML value. The getCause()
-     *             method of the exception may provide a more detailed
-     *             exception, for example, if the stream does not contain valid
-     *             characters. An exception is thrown if the state is not
-     *             readable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     * @throws SQLException                    if there is an error processing the XML value. The getCause()
+     *                                         method of the exception may provide a more detailed
+     *                                         exception, for example, if the stream does not contain valid
+     *                                         characters. An exception is thrown if the state is not
+     *                                         readable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
     public synchronized Reader getCharacterStream() throws SQLException {
@@ -238,37 +217,33 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * <p>
      * Note that SAX is a callback architecture, so a returned SAXSource should then be set with a content handler that will receive the SAX events from
      * parsing. The content handler will receive callbacks based on the contents of the XML.
-     * 
+     * <p>
      * <pre>
      * SAXSource saxSource = sqlxml.getSource(SAXSource.class);
      * XMLReader xmlReader = saxSource.getXMLReader();
      * xmlReader.setContentHandler(myHandler);
      * xmlReader.parse(saxSource.getInputSource());
      * </pre>
-     * 
-     * @param sourceClass
-     *            The class of the source, or null. If the class is null, a
-     *            vendor specifc Source implementation will be returned. The
-     *            following classes are supported at a minimum:
-     * 
-     *            (MySQL returns a SAXSource if sourceClass == null)
-     * 
-     *            <pre>
-     *    javax.xml.transform.dom.DOMSource - returns a DOMSource
-     *    javax.xml.transform.sax.SAXSource - returns a SAXSource
-     *    javax.xml.transform.stax.StAXSource - returns a StAXSource
-     *    javax.xml.transform.stream.StreamSource - returns a StreamSource
-     *            </pre>
-     * 
+     *
+     * @param sourceClass The class of the source, or null. If the class is null, a
+     *                    vendor specifc Source implementation will be returned. The
+     *                    following classes are supported at a minimum:
+     *                    <p>
+     *                    (MySQL returns a SAXSource if sourceClass == null)
+     *                    <p>
+     *                    <pre>
+     *                       javax.xml.transform.dom.DOMSource - returns a DOMSource
+     *                       javax.xml.transform.sax.SAXSource - returns a SAXSource
+     *                       javax.xml.transform.stax.StAXSource - returns a StAXSource
+     *                       javax.xml.transform.stream.StreamSource - returns a StreamSource
+     *                               </pre>
      * @return a Source for reading the XML value.
-     * @throws SQLException
-     *             if there is an error processing the XML value or if this
-     *             feature is not supported. The getCause() method of the
-     *             exception may provide a more detailed exception, for example,
-     *             if an XML parser exception occurs. An exception is thrown if
-     *             the state is not readable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     * @throws SQLException                    if there is an error processing the XML value or if this
+     *                                         feature is not supported. The getCause() method of the
+     *                                         exception may provide a more detailed exception, for example,
+     *                                         if an XML parser exception occurs. An exception is thrown if
+     *                                         the state is not readable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
     @SuppressWarnings("unchecked")
@@ -354,13 +329,11 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * ResultSet has a type java.sql.Types of SQLXML.
      * <p>
      * The SQL XML object becomes not writeable when this method is called and may also become not readable depending on implementation.
-     * 
+     *
      * @return a stream to which data can be written.
-     * @throws SQLException
-     *             if there is an error processing the XML value. An exception
-     *             is thrown if the state is not writable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     * @throws SQLException                    if there is an error processing the XML value. An exception
+     *                                         is thrown if the state is not writable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
     public synchronized OutputStream setBinaryStream() throws SQLException {
@@ -390,16 +363,14 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * SQLXML.
      * <p>
      * The SQL XML object becomes not writeable when this method is called and may also become not readable depending on implementation.
-     * 
+     *
      * @return a stream to which data can be written.
-     * @throws SQLException
-     *             if there is an error processing the XML value. The getCause()
-     *             method of the exception may provide a more detailed
-     *             exception, for example, if the stream does not contain valid
-     *             characters. An exception is thrown if the state is not
-     *             writable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     * @throws SQLException                    if there is an error processing the XML value. The getCause()
+     *                                         method of the exception may provide a more detailed
+     *                                         exception, for example, if the stream does not contain valid
+     *                                         characters. An exception is thrown if the state is not
+     *                                         writable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
     public synchronized Writer setCharacterStream() throws SQLException {
@@ -427,7 +398,7 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * <p>
      * Note that SAX is a callback architecture and the returned SAXResult has a content handler assigned that will receive the SAX events based on the contents
      * of the XML. Call the content handler with the contents of the XML document to assign the values.
-     * 
+     * <p>
      * <pre>
      * SAXResult saxResult = sqlxml.setResult(SAXResult.class);
      * ContentHandler contentHandler = saxResult.getXMLReader().getContentHandler();
@@ -435,28 +406,24 @@ public class JDBC4MysqlSQLXML implements SQLXML {
      * // set the XML elements and attributes into the result
      * contentHandler.endDocument();
      * </pre>
-     * 
-     * @param resultClass
-     *            The class of the result, or null. If resultClass is null, a
-     *            vendor specific Result implementation will be returned. The
-     *            following classes are supported at a minimum:
-     * 
-     *            <pre>
-     *    javax.xml.transform.dom.DOMResult - returns a DOMResult
-     *    javax.xml.transform.sax.SAXResult - returns a SAXResult
-     *    javax.xml.transform.stax.StAXResult - returns a StAXResult
-     *    javax.xml.transform.stream.StreamResult - returns a StreamResult
-     *            </pre>
-     * 
+     *
+     * @param resultClass The class of the result, or null. If resultClass is null, a
+     *                    vendor specific Result implementation will be returned. The
+     *                    following classes are supported at a minimum:
+     *                    <p>
+     *                    <pre>
+     *                       javax.xml.transform.dom.DOMResult - returns a DOMResult
+     *                       javax.xml.transform.sax.SAXResult - returns a SAXResult
+     *                       javax.xml.transform.stax.StAXResult - returns a StAXResult
+     *                       javax.xml.transform.stream.StreamResult - returns a StreamResult
+     *                               </pre>
      * @return Returns a Result for setting the XML value.
-     * @throws SQLException
-     *             if there is an error processing the XML value or if this
-     *             feature is not supported. The getCause() method of the
-     *             exception may provide a more detailed exception, for example,
-     *             if an XML parser exception occurs. An exception is thrown if
-     *             the state is not writable.
-     * @exception SQLFeatureNotSupportedException
-     *                if the JDBC driver does not support this method
+     * @throws SQLException                    if there is an error processing the XML value or if this
+     *                                         feature is not supported. The getCause() method of the
+     *                                         exception may provide a more detailed exception, for example,
+     *                                         if an XML parser exception occurs. An exception is thrown if
+     *                                         the state is not writable.
+     * @throws SQLFeatureNotSupportedException if the JDBC driver does not support this method
      * @since 1.6
      */
     @SuppressWarnings("unchecked")
@@ -656,6 +623,7 @@ public class JDBC4MysqlSQLXML implements SQLXML {
 
     class SimpleSaxToReader extends DefaultHandler {
         StringBuilder buf = new StringBuilder();
+        private boolean inCDATA = false;
 
         public void startDocument() throws SAXException {
             buf.append("<?xml version='1.0' encoding='UTF-8'?>");
@@ -693,8 +661,6 @@ public class JDBC4MysqlSQLXML implements SQLXML {
         public void ignorableWhitespace(char ch[], int start, int length) throws SAXException {
             characters(ch, start, length);
         }
-
-        private boolean inCDATA = false;
 
         public void startCDATA() throws SAXException {
             this.buf.append("<![CDATA[");

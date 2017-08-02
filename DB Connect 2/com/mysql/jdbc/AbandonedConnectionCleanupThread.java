@@ -23,12 +23,12 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.NonRegisteringDriver.ConnectionPhantomReference;
+
 import java.lang.ref.Reference;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-
-import com.mysql.jdbc.NonRegisteringDriver.ConnectionPhantomReference;
 
 /**
  * This class implements a thread that is responsible for closing abandoned MySQL connections, i.e., connections that are not explicitly closed.
@@ -57,8 +57,58 @@ public class AbandonedConnectionCleanupThread implements Runnable {
     private AbandonedConnectionCleanupThread() {
     }
 
+    /**
+     * Checks if the context ClassLoaders from this and the caller thread are the same.
+     *
+     * @return true if both threads share the same context ClassLoader, false otherwise
+     */
+    private static boolean consistentClassLoaders() {
+        ClassLoader callerCtxClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader threadCtxClassLoader = threadRef.getContextClassLoader();
+        return callerCtxClassLoader != null && threadCtxClassLoader != null && callerCtxClassLoader == threadCtxClassLoader;
+    }
+
+    /**
+     * Performs a checked shutdown, i.e., the context ClassLoaders from this and the caller thread are checked for consistency prior to performing the shutdown
+     * operation.
+     */
+    public static void checkedShutdown() {
+        shutdown(true);
+    }
+
+    /**
+     * Performs an unchecked shutdown, i.e., the shutdown is performed independently of the context ClassLoaders from the involved threads.
+     */
+    public static void uncheckedShutdown() {
+        shutdown(false);
+    }
+
+    /**
+     * Shuts down this thread either checking or not the context ClassLoaders from the involved threads.
+     *
+     * @param checked does a checked shutdown if true, unchecked otherwise
+     */
+    private static void shutdown(boolean checked) {
+        if (checked && !consistentClassLoaders()) {
+            // This thread can't be shutdown from the current thread's context ClassLoader. Doing so would most probably prevent from restarting this thread
+            // later on. An unchecked shutdown can still be done if needed by calling shutdown(false).
+            return;
+        }
+        cleanupThreadExcecutorService.shutdownNow();
+    }
+
+    /**
+     * Shuts down this thread.
+     *
+     * @deprecated use {@link #checkedShutdown()} instead.
+     */
+    @Deprecated
+    public static void shutdown() {
+        checkedShutdown();
+    }
+
     public void run() {
-        for (;;) {
+        for (; ; ) {
             try {
                 checkContextClassLoaders();
                 Reference<? extends ConnectionImpl> ref = NonRegisteringDriver.refQueue.remove(5000);
@@ -92,56 +142,5 @@ public class AbandonedConnectionCleanupThread implements Runnable {
             // Shutdown no matter what.
             uncheckedShutdown();
         }
-    }
-
-    /**
-     * Checks if the context ClassLoaders from this and the caller thread are the same.
-     * 
-     * @return true if both threads share the same context ClassLoader, false otherwise
-     */
-    private static boolean consistentClassLoaders() {
-        ClassLoader callerCtxClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader threadCtxClassLoader = threadRef.getContextClassLoader();
-        return callerCtxClassLoader != null && threadCtxClassLoader != null && callerCtxClassLoader == threadCtxClassLoader;
-    }
-
-    /**
-     * Performs a checked shutdown, i.e., the context ClassLoaders from this and the caller thread are checked for consistency prior to performing the shutdown
-     * operation.
-     */
-    public static void checkedShutdown() {
-        shutdown(true);
-    }
-
-    /**
-     * Performs an unchecked shutdown, i.e., the shutdown is performed independently of the context ClassLoaders from the involved threads.
-     */
-    public static void uncheckedShutdown() {
-        shutdown(false);
-    }
-
-    /**
-     * Shuts down this thread either checking or not the context ClassLoaders from the involved threads.
-     * 
-     * @param checked
-     *            does a checked shutdown if true, unchecked otherwise
-     */
-    private static void shutdown(boolean checked) {
-        if (checked && !consistentClassLoaders()) {
-            // This thread can't be shutdown from the current thread's context ClassLoader. Doing so would most probably prevent from restarting this thread
-            // later on. An unchecked shutdown can still be done if needed by calling shutdown(false).
-            return;
-        }
-        cleanupThreadExcecutorService.shutdownNow();
-    }
-
-    /**
-     * Shuts down this thread.
-     * 
-     * @deprecated use {@link #checkedShutdown()} instead.
-     */
-    @Deprecated
-    public static void shutdown() {
-        checkedShutdown();
     }
 }

@@ -23,14 +23,11 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.sql.SQLException;
-
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-
 import javax.sql.StatementEvent;
 import javax.sql.StatementEventListener;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This class is used to wrap and return a physical connection within a logical handle. It also registers and notifies ConnectionEventListeners of any
@@ -55,11 +52,9 @@ public class JDBC4MysqlPooledConnection extends MysqlPooledConnection {
      * wish to be notified when <code>PreparedStatement</code>s created by the
      * connection are closed or are detected to be invalid may use this method
      * to register a <code>StatementEventListener</code> with this <code>PooledConnection</code> object.
-     * 
-     * @param listener
-     *            an component which implements the <code>StatementEventListener</code> interface that is to be registered with this
-     *            <code>PooledConnection</code> object
-     * 
+     *
+     * @param listener an component which implements the <code>StatementEventListener</code> interface that is to be registered with this
+     *                 <code>PooledConnection</code> object
      * @since 1.6
      */
     public void addStatementEventListener(StatementEventListener listener) {
@@ -71,11 +66,9 @@ public class JDBC4MysqlPooledConnection extends MysqlPooledConnection {
     /**
      * Removes the specified <code>StatementEventListener</code> from the list of
      * components that will be notified when the driver detects that a <code>PreparedStatement</code> has been closed or is invalid.
-     * 
-     * @param listener
-     *            the component which implements the <code>StatementEventListener</code> interface that was previously
-     *            registered with this <code>PooledConnection</code> object
-     * 
+     *
+     * @param listener the component which implements the <code>StatementEventListener</code> interface that was previously
+     *                 registered with this <code>PooledConnection</code> object
      * @since 1.6
      */
     public void removeStatementEventListener(StatementEventListener listener) {

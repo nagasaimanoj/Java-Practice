@@ -1,8 +1,4 @@
 public class ThreadGroupDemo implements Runnable {
-    public void run() {
-        System.out.println(Thread.currentThread().getName());
-    }
-
     public static void main(String[] args) {
 
         ThreadGroup tg1 = new ThreadGroup("Thread Group");
@@ -15,6 +11,10 @@ public class ThreadGroupDemo implements Runnable {
         t3.start();
 
         tg1.list();
+    }
+
+    public void run() {
+        System.out.println(Thread.currentThread().getName());
     }
 }
 

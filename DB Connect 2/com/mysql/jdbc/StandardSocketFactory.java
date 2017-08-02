@@ -57,34 +57,43 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
 
     public static final String TCP_NO_DELAY_DEFAULT_VALUE = "true";
 
-    /** The hostname to connect to */
+    /**
+     * The hostname to connect to
+     */
     protected String host = null;
 
-    /** The port number to connect to */
+    /**
+     * The port number to connect to
+     */
     protected int port = 3306;
 
-    /** The underlying TCP/IP socket to use */
+    /**
+     * The underlying TCP/IP socket to use
+     */
     protected Socket rawSocket = null;
 
-    /** The remaining login time in milliseconds. Initial value set from defined DriverManager.setLoginTimeout() */
+    /**
+     * The remaining login time in milliseconds. Initial value set from defined DriverManager.setLoginTimeout()
+     */
     protected int loginTimeoutCountdown = DriverManager.getLoginTimeout() * 1000;
 
-    /** Time when last Login Timeout check occurred */
+    /**
+     * Time when last Login Timeout check occurred
+     */
     protected long loginTimeoutCheckTimestamp = System.currentTimeMillis();
 
-    /** Backup original Socket timeout to be restored after handshake */
+    /**
+     * Backup original Socket timeout to be restored after handshake
+     */
     protected int socketTimeoutBackup = 0;
 
     /**
      * Called by the driver after issuing the MySQL protocol handshake and
      * reading the results of the handshake.
-     * 
-     * @throws SocketException
-     *             if a socket error occurs
-     * @throws IOException
-     *             if an I/O error occurs
-     * 
+     *
      * @return The socket to use after the handshake
+     * @throws SocketException if a socket error occurs
+     * @throws IOException     if an I/O error occurs
      */
     public Socket afterHandshake() throws SocketException, IOException {
         resetLoginTimeCountdown();
@@ -95,13 +104,10 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
     /**
      * Called by the driver before issuing the MySQL protocol handshake. Should
      * return the socket instance that should be used during the handshake.
-     * 
-     * @throws SocketException
-     *             if a socket error occurs
-     * @throws IOException
-     *             if an I/O error occurs
-     * 
+     *
      * @return the socket to use before the handshake
+     * @throws SocketException if a socket error occurs
+     * @throws IOException     if an I/O error occurs
      */
     public Socket beforeHandshake() throws SocketException, IOException {
         resetLoginTimeCountdown();
@@ -113,8 +119,7 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
     /**
      * Create the raw socket.
      *
-     * @param props
-     *            properties available to affect behavior during socket creation.
+     * @param props properties available to affect behavior during socket creation.
      */
     protected Socket createSocket(Properties props) {
         return new Socket();
@@ -123,7 +128,7 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
     /**
      * Configures socket properties based on properties from the connection
      * (tcpNoDelay, snd/rcv buf, traffic class, etc).
-     * 
+     *
      * @param props
      * @throws SocketException
      * @throws IOException
@@ -237,9 +242,8 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
 
     /**
      * Decrements elapsed time since last reset from login timeout count down.
-     * 
-     * @throws SocketException
-     *             If the login timeout is reached or exceeded.
+     *
+     * @throws SocketException If the login timeout is reached or exceeded.
      */
     protected void resetLoginTimeCountdown() throws SocketException {
         if (this.loginTimeoutCountdown > 0) {
@@ -254,9 +258,8 @@ public class StandardSocketFactory implements SocketFactory, SocketMetadata {
 
     /**
      * Validates the connection/socket timeout that must really be used.
-     * 
-     * @param expectedTimeout
-     *            The timeout to validate.
+     *
+     * @param expectedTimeout The timeout to validate.
      * @return The timeout to be used.
      */
     protected int getRealTimeout(int expectedTimeout) {

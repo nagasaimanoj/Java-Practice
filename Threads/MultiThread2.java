@@ -9,16 +9,16 @@ public class MultiThread2 {
         tList.add(new Thread(new SampleX(3)));
         tList.add(new Thread(new SampleX(4)));
         tList.add(new Thread(new SampleX(5)));
-		
-		tList.get(0).setPriority(10);
+
+        tList.get(0).setPriority(10);
 
         for (Thread eachItem : tList) {
             eachItem.start();
-			try{
-				eachItem.sleep(500);
-			}catch(Exception e){
-			}
-		}
+            try {
+                eachItem.sleep(500);
+            } catch (Exception e) {
+            }
+        }
     }
 }
 

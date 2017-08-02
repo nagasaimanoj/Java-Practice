@@ -23,34 +23,25 @@
 
 package testsuite.regression.jdbc42;
 
+import testsuite.BaseTestCase;
+
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
-import com.mysql.jdbc.ConnectionImpl;
-import com.mysql.jdbc.MysqlIO;
-import com.mysql.jdbc.SQLError;
-
-import testsuite.BaseTestCase;
+import java.util.concurrent.*;
 
 public class ConnectionRegressionTest extends BaseTestCase {
 
-    public ConnectionRegressionTest(String name) {
-        super(name);
-    }
-
     /**
      * Tests fix for Bug#75615 - Incorrect implementation of Connection.setNetworkTimeout().
-     * 
+     * <p>
      * Note: this test exploits a non deterministic race condition. Usually the failure was observed under 10 consecutive executions, as such the siginficant
      * part of the test is run up to 25 times.
      */
     private Future<?> testBug75615Future = null;
+
+    public ConnectionRegressionTest(String name) {
+        super(name);
+    }
 
     public void testBug75615() throws Exception {
         // Main use case: although this could cause an exception due to a race condition in MysqlIO.mysqlConnection it is silently swallowed within the running

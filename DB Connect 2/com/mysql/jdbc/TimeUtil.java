@@ -39,17 +39,13 @@ import java.util.TimeZone;
  * Timezone conversion routines and other time related methods
  */
 public class TimeUtil {
+    protected final static Method systemNanoTimeMethod;
     static final TimeZone GMT_TIMEZONE = TimeZone.getTimeZone("GMT");
-
     // cache this ourselves, as the method call is statically-synchronized in all but JDK6!
     private static final TimeZone DEFAULT_TIMEZONE = TimeZone.getDefault();
-
     // Mappings from TimeZone identifications (prefixed by type: Windows, TZ name, MetaZone, TZ alias, ...), to standard TimeZone Ids
     private static final String TIME_ZONE_MAPPINGS_RESOURCE = "/com/mysql/jdbc/TimeZoneMapping.properties";
-
     private static Properties timeZoneMappings = null;
-
-    protected final static Method systemNanoTimeMethod;
 
     static {
         Method aMethod;
@@ -91,20 +87,15 @@ public class TimeUtil {
 
     /**
      * Change the given times from one timezone to another
-     * 
-     * @param conn
-     *            the current connection to the MySQL server
-     * @param t
-     *            the times to change
-     * @param fromTz
-     *            the timezone to change from
-     * @param toTz
-     *            the timezone to change to
-     * 
+     *
+     * @param conn   the current connection to the MySQL server
+     * @param t      the times to change
+     * @param fromTz the timezone to change from
+     * @param toTz   the timezone to change to
      * @return the times changed to the timezone 'toTz'
      */
     public static Time changeTimezone(MySQLConnection conn, Calendar sessionCalendar, Calendar targetCalendar, Time t, TimeZone fromTz, TimeZone toTz,
-            boolean rollForward) {
+                                      boolean rollForward) {
         if ((conn != null)) {
             if (conn.getUseTimezone() && !conn.getNoTimezoneConversionForTimeType()) {
                 // Convert the timestamp from GMT to the server's timezone
@@ -143,20 +134,15 @@ public class TimeUtil {
 
     /**
      * Change the given timestamp from one timezone to another
-     * 
-     * @param conn
-     *            the current connection to the MySQL server
-     * @param tstamp
-     *            the timestamp to change
-     * @param fromTz
-     *            the timezone to change from
-     * @param toTz
-     *            the timezone to change to
-     * 
+     *
+     * @param conn   the current connection to the MySQL server
+     * @param tstamp the timestamp to change
+     * @param fromTz the timezone to change from
+     * @param toTz   the timezone to change to
      * @return the timestamp changed to the timezone 'toTz'
      */
     public static Timestamp changeTimezone(MySQLConnection conn, Calendar sessionCalendar, Calendar targetCalendar, Timestamp tstamp, TimeZone fromTz,
-            TimeZone toTz, boolean rollForward) {
+                                           TimeZone toTz, boolean rollForward) {
         if ((conn != null)) {
             if (conn.getUseTimezone()) {
                 // Convert the timestamp from GMT to the server's timezone
@@ -356,7 +342,7 @@ public class TimeUtil {
     }
 
     final static Timestamp fastTimestampCreate(boolean useGmtConversion, Calendar gmtCalIfNeeded, Calendar cal, int year, int month, int day, int hour,
-            int minute, int seconds, int secondsPart) {
+                                               int minute, int seconds, int secondsPart) {
 
         synchronized (cal) {
             java.util.Date origCalDate = cal.getTime();
@@ -416,13 +402,10 @@ public class TimeUtil {
 
     /**
      * Returns the 'official' Java timezone name for the given timezone
-     * 
-     * @param timezoneStr
-     *            the 'common' timezone name
-     * 
+     *
+     * @param timezoneStr the 'common' timezone name
      * @return the Java timezone name for the given timezone
      * @throws SQLException
-     * 
      * @throws IllegalArgumentException
      */
     public static String getCanonicalTimezone(String timezoneStr, ExceptionInterceptor exceptionInterceptor) throws SQLException {
@@ -450,7 +433,7 @@ public class TimeUtil {
             return canonicalTz;
         }
 
-        throw SQLError.createSQLException(Messages.getString("TimeUtil.UnrecognizedTimezoneId", new Object[] { timezoneStr }),
+        throw SQLError.createSQLException(Messages.getString("TimeUtil.UnrecognizedTimezoneId", new Object[]{timezoneStr}),
                 SQLError.SQL_STATE_INVALID_CONNECTION_ATTRIBUTE, exceptionInterceptor);
     }
 
@@ -516,7 +499,7 @@ public class TimeUtil {
 
     /**
      * Loads a properties file that contains all kinds of time zone mappings.
-     * 
+     *
      * @param exceptionInterceptor
      * @throws SQLException
      */

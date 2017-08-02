@@ -33,14 +33,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -48,26 +41,23 @@ import java.util.concurrent.ConcurrentMap;
  * Various utility methods for the driver.
  */
 public class Util {
-    class RandStructcture {
-        long maxValue;
-
-        double maxValueDbl;
-
-        long seed1;
-
-        long seed2;
-    }
-
+    /**
+     * Cache for the JDBC interfaces already verified
+     */
+    private static final ConcurrentMap<Class<?>, Boolean> isJdbcInterfaceCache = new ConcurrentHashMap<Class<?>, Boolean>();
+    /**
+     * Main MySQL JDBC package name
+     */
+    private static final String MYSQL_JDBC_PACKAGE_ROOT;
+    /**
+     * Cache for the implemented interfaces searched.
+     */
+    private static final ConcurrentMap<Class<?>, Class<?>[]> implementedInterfacesCache = new ConcurrentHashMap<Class<?>, Class<?>[]>();
     private static Util enclosingInstance = new Util();
-
     private static boolean isJdbc4;
-
     private static boolean isJdbc42;
-
     private static int jvmVersion = -1;
-
     private static int jvmUpdateNumber = -1;
-
     private static boolean isColdFusion = false;
 
     static {
@@ -114,7 +104,7 @@ public class Util {
 
         //
         // Detect the ColdFusion MX environment
-        // 
+        //
         // Unfortunately, no easy-to-discern classes are available to our classloader to check...
         //
 
@@ -125,6 +115,12 @@ public class Util {
         } else {
             isColdFusion = false;
         }
+    }
+
+    static {
+        String packageName = Util.getPackageName(MultiHostConnectionProxy.class);
+        // assume that packageName contains "jdbc"
+        MYSQL_JDBC_PACKAGE_ROOT = packageName.substring(0, packageName.indexOf("jdbc") + 4);
     }
 
     public static boolean isJdbc4() {
@@ -301,14 +297,11 @@ public class Util {
      * Given a ResultSet and an index into the columns of that ResultSet, read
      * binary data from the column which represents a serialized object, and
      * re-create the object.
-     * 
-     * @param resultSet
-     *            the ResultSet to use.
-     * @param index
-     *            an index into the ResultSet.
+     *
+     * @param resultSet the ResultSet to use.
+     * @param index     an index into the ResultSet.
      * @return the object if it can be de-serialized
-     * @throws Exception
-     *             if an error occurs
+     * @throws Exception if an error occurs
      */
     public static Object readObject(java.sql.ResultSet resultSet, int index) throws Exception {
         ObjectInputStream objIn = new ObjectInputStream(resultSet.getBinaryStream(index));
@@ -366,12 +359,10 @@ public class Util {
 
     /**
      * Converts a nested exception into a nicer message
-     * 
-     * @param ex
-     *            the exception to expand into a message.
-     * 
+     *
+     * @param ex the exception to expand into a message.
      * @return a message containing the exception, the message (if any), and a
-     *         stacktrace.
+     * stacktrace.
      */
     public static String stackTraceToString(Throwable ex) {
         StringBuilder traceBuf = new StringBuilder();
@@ -446,36 +437,35 @@ public class Util {
 
     /**
      * Does a network interface exist locally with the given hostname?
-     * 
-     * @param hostname
-     *            the hostname (or IP address in string form) to check
+     *
+     * @param hostname the hostname (or IP address in string form) to check
      * @return true if it exists, false if no, or unable to determine due to VM
-     *         version support of java.net.NetworkInterface
+     * version support of java.net.NetworkInterface
      */
     public static boolean interfaceExists(String hostname) {
         try {
             Class<?> networkInterfaceClass = Class.forName("java.net.NetworkInterface");
-            return networkInterfaceClass.getMethod("getByName", (Class[]) null).invoke(networkInterfaceClass, new Object[] { hostname }) != null;
+            return networkInterfaceClass.getMethod("getByName", (Class[]) null).invoke(networkInterfaceClass, new Object[]{hostname}) != null;
         } catch (Throwable t) {
             return false;
         }
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void resultSetToMap(Map mappedValues, java.sql.ResultSet rs) throws SQLException {
         while (rs.next()) {
             mappedValues.put(rs.getObject(1), rs.getObject(2));
         }
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void resultSetToMap(Map mappedValues, java.sql.ResultSet rs, int key, int value) throws SQLException {
         while (rs.next()) {
             mappedValues.put(rs.getObject(key), rs.getObject(value));
         }
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static void resultSetToMap(Map mappedValues, java.sql.ResultSet rs, String key, String value) throws SQLException {
         while (rs.next()) {
             mappedValues.put(rs.getObject(key), rs.getObject(value));
@@ -533,7 +523,7 @@ public class Util {
     /**
      * Returns initialized instances of classes listed in extensionClassNames.
      * There is no need to call Extension.init() method after that if you don't change connection or properties.
-     * 
+     *
      * @param conn
      * @param props
      * @param extensionClassNames
@@ -542,7 +532,7 @@ public class Util {
      * @throws SQLException
      */
     public static List<Extension> loadExtensions(Connection conn, Properties props, String extensionClassNames, String errorMessageKey,
-            ExceptionInterceptor exceptionInterceptor) throws SQLException {
+                                                 ExceptionInterceptor exceptionInterceptor) throws SQLException {
         List<Extension> extensionList = new LinkedList<Extension>();
 
         List<String> interceptorsToCreate = StringUtils.split(extensionClassNames, ",", true);
@@ -558,7 +548,7 @@ public class Util {
                 extensionList.add(extensionInstance);
             }
         } catch (Throwable t) {
-            SQLException sqlEx = SQLError.createSQLException(Messages.getString(errorMessageKey, new Object[] { className }), exceptionInterceptor);
+            SQLException sqlEx = SQLError.createSQLException(Messages.getString(errorMessageKey, new Object[]{className}), exceptionInterceptor);
             sqlEx.initCause(t);
 
             throw sqlEx;
@@ -567,14 +557,10 @@ public class Util {
         return extensionList;
     }
 
-    /** Cache for the JDBC interfaces already verified */
-    private static final ConcurrentMap<Class<?>, Boolean> isJdbcInterfaceCache = new ConcurrentHashMap<Class<?>, Boolean>();
-
     /**
      * Recursively checks for interfaces on the given class to determine if it implements a java.sql, javax.sql or com.mysql.jdbc interface.
-     * 
-     * @param clazz
-     *            The class to investigate.
+     *
+     * @param clazz The class to investigate.
      */
     public static boolean isJdbcInterface(Class<?> clazz) {
         if (Util.isJdbcInterfaceCache.containsKey(clazz)) {
@@ -611,37 +597,22 @@ public class Util {
         return false;
     }
 
-    /** Main MySQL JDBC package name */
-    private static final String MYSQL_JDBC_PACKAGE_ROOT;
-
-    static {
-        String packageName = Util.getPackageName(MultiHostConnectionProxy.class);
-        // assume that packageName contains "jdbc"
-        MYSQL_JDBC_PACKAGE_ROOT = packageName.substring(0, packageName.indexOf("jdbc") + 4);
-    }
-
     /**
      * Check if the package name is a known JDBC package.
-     * 
-     * @param packageName
-     *            The package name to check.
+     *
+     * @param packageName The package name to check.
      */
     public static boolean isJdbcPackage(String packageName) {
         return packageName != null
                 && (packageName.startsWith("java.sql") || packageName.startsWith("javax.sql") || packageName.startsWith(MYSQL_JDBC_PACKAGE_ROOT));
     }
 
-    /** Cache for the implemented interfaces searched. */
-    private static final ConcurrentMap<Class<?>, Class<?>[]> implementedInterfacesCache = new ConcurrentHashMap<Class<?>, Class<?>[]>();
-
     /**
      * Retrieves a list with all interfaces implemented by the given class. If possible gets this information from a cache instead of navigating through the
      * object hierarchy. Results are stored in a cache for future reference.
-     * 
-     * @param clazz
-     *            The class from which the interface list will be retrieved.
-     * @return
-     *         An array with all the interfaces for the given class.
+     *
+     * @param clazz The class from which the interface list will be retrieved.
+     * @return An array with all the interfaces for the given class.
      */
     public static Class<?>[] getImplementedInterfaces(Class<?> clazz) {
         Class<?>[] implementedInterfaces = Util.implementedInterfacesCache.get(clazz);
@@ -665,11 +636,9 @@ public class Util {
 
     /**
      * Computes the number of seconds elapsed since the given time in milliseconds.
-     * 
-     * @param timeInMillis
-     *            The past instant in milliseconds.
-     * @return
-     *         The number of seconds, truncated, elapsed since timeInMillis.
+     *
+     * @param timeInMillis The past instant in milliseconds.
+     * @return The number of seconds, truncated, elapsed since timeInMillis.
      */
     public static long secondsSinceMillis(long timeInMillis) {
         return (System.currentTimeMillis() - timeInMillis) / 1000;
@@ -677,7 +646,7 @@ public class Util {
 
     /**
      * Converts long to int, truncating to maximum/minimum value if needed.
-     * 
+     *
      * @param longValue
      * @return
      */
@@ -687,7 +656,7 @@ public class Util {
 
     /**
      * Converts long[] to int[], truncating to maximum/minimum value if needed.
-     * 
+     *
      * @param longArray
      * @return
      */
@@ -703,9 +672,8 @@ public class Util {
     /**
      * Returns the package name of the given class.
      * Using clazz.getPackage().getName() is not an alternative because under some class loaders the method getPackage() just returns null.
-     * 
-     * @param clazz
-     *            the Class from which to get the package name
+     *
+     * @param clazz the Class from which to get the package name
      * @return the package name
      */
     public static String getPackageName(Class<?> clazz) {
@@ -715,5 +683,15 @@ public class Util {
             return fqcn.substring(0, classNameStartsAt);
         }
         return "";
+    }
+
+    class RandStructcture {
+        long maxValue;
+
+        double maxValueDbl;
+
+        long seed1;
+
+        long seed2;
     }
 }

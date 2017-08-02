@@ -31,27 +31,22 @@ import java.sql.SQLException;
  * Buffer contains code to read and write packets from/to the MySQL server.
  */
 public class Buffer {
-    static final int MAX_BYTES_TO_DUMP = 512;
-
-    static final int NO_LENGTH_LIMIT = -1;
-
-    static final long NULL_LENGTH = -1;
-
-    private int bufLength = 0;
-
-    private byte[] byteBuffer;
-
-    private int position = 0;
-
-    protected boolean wasMultiPacket = false;
-
     /* Type ids of response packets. */
     public static final short TYPE_ID_ERROR = 0xFF;
     public static final short TYPE_ID_EOF = 0xFE;
-    /** It has the same signature as EOF, but may be issued by server only during handshake phase **/
+    /**
+     * It has the same signature as EOF, but may be issued by server only during handshake phase
+     **/
     public static final short TYPE_ID_AUTH_SWITCH = 0xFE;
     public static final short TYPE_ID_LOCAL_INFILE = 0xFB;
     public static final short TYPE_ID_OK = 0;
+    static final int MAX_BYTES_TO_DUMP = 512;
+    static final int NO_LENGTH_LIMIT = -1;
+    static final long NULL_LENGTH = -1;
+    protected boolean wasMultiPacket = false;
+    private int bufLength = 0;
+    private byte[] byteBuffer;
+    private int position = 0;
 
     public Buffer(byte[] buf) {
         this.byteBuffer = buf;
@@ -157,7 +152,7 @@ public class Buffer {
 
     /**
      * Skip over a length-encoded string
-     * 
+     *
      * @return The position past the end of the string
      */
     public int fastSkipLenString() {
@@ -186,13 +181,26 @@ public class Buffer {
         return this.bufLength;
     }
 
+    public void setBufLength(int bufLengthToSet) {
+        this.bufLength = bufLengthToSet;
+    }
+
     /**
      * Returns the array of bytes this Buffer is using to read from.
-     * 
+     *
      * @return byte array being read from
      */
     public byte[] getByteBuffer() {
         return this.byteBuffer;
+    }
+
+    /**
+     * Sets the array of bytes to use as a buffer to read from.
+     *
+     * @param byteBuffer the array of bytes to use as a buffer
+     */
+    public void setByteBuffer(byte[] byteBufferToSet) {
+        this.byteBuffer = byteBufferToSet;
     }
 
     final byte[] getBytes(int len) {
@@ -205,7 +213,7 @@ public class Buffer {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.mysql.jdbc.Buffer#getBytes(int, int)
      */
     byte[] getBytes(int offset, int len) {
@@ -225,11 +233,20 @@ public class Buffer {
 
     /**
      * Returns the current position to write to/ read from
-     * 
+     *
      * @return the current position to write to/ read from
      */
     public int getPosition() {
         return this.position;
+    }
+
+    /**
+     * Set the current position to write to/ read from
+     *
+     * @param position the position (0-based index)
+     */
+    public void setPosition(int positionToSet) {
+        this.position = positionToSet;
     }
 
     final boolean isEOFPacket() {
@@ -416,7 +433,7 @@ public class Buffer {
 
     /**
      * Read string[NUL]
-     * 
+     *
      * @param encoding
      * @param exceptionInterceptor
      * @throws SQLException
@@ -459,35 +476,10 @@ public class Buffer {
         }
     }
 
-    public void setBufLength(int bufLengthToSet) {
-        this.bufLength = bufLengthToSet;
-    }
-
-    /**
-     * Sets the array of bytes to use as a buffer to read from.
-     * 
-     * @param byteBuffer
-     *            the array of bytes to use as a buffer
-     */
-    public void setByteBuffer(byte[] byteBufferToSet) {
-        this.byteBuffer = byteBufferToSet;
-    }
-
-    /**
-     * Set the current position to write to/ read from
-     * 
-     * @param position
-     *            the position (0-based index)
-     */
-    public void setPosition(int positionToSet) {
-        this.position = positionToSet;
-    }
-
     /**
      * Sets whether this packet was part of a multipacket
-     * 
-     * @param flag
-     *            was this packet part of a multipacket?
+     *
+     * @param flag was this packet part of a multipacket?
      */
     public void setWasMultiPacket(boolean flag) {
         this.wasMultiPacket = flag;
@@ -504,7 +496,7 @@ public class Buffer {
 
     /**
      * Was this packet part of a multipacket?
-     * 
+     *
      * @return was this packet part of a multipacket?
      */
     public boolean wasMultiPacket() {
@@ -585,7 +577,7 @@ public class Buffer {
 
     // Write a String using the specified character encoding
     final void writeLenString(String s, String encoding, String serverEncoding, SingleByteCharsetConverter converter, boolean parserKnowsUnicode,
-            MySQLConnection conn) throws UnsupportedEncodingException, SQLException {
+                              MySQLConnection conn) throws UnsupportedEncodingException, SQLException {
         byte[] b = null;
 
         if (converter != null) {

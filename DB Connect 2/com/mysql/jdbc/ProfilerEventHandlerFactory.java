@@ -23,23 +23,31 @@
 
 package com.mysql.jdbc;
 
-import java.sql.SQLException;
-
 import com.mysql.jdbc.log.Log;
 import com.mysql.jdbc.profiler.ProfilerEventHandler;
 
+import java.sql.SQLException;
+
 public class ProfilerEventHandlerFactory {
 
+    protected Log log = null;
     private Connection ownerConnection = null;
 
-    protected Log log = null;
+    private ProfilerEventHandlerFactory(Connection conn) {
+        this.ownerConnection = conn;
+
+        try {
+            this.log = this.ownerConnection.getLog();
+        } catch (SQLException sqlEx) {
+            throw new RuntimeException("Unable to get logger from connection");
+        }
+    }
 
     /**
      * Returns the ProfilerEventHandlerFactory that handles profiler events for the given
      * connection.
-     * 
-     * @param conn
-     *            the connection to handle events for
+     *
+     * @param conn the connection to handle events for
      * @return the ProfilerEventHandlerFactory that handles profiler events
      */
     public static synchronized ProfilerEventHandler getInstance(MySQLConnection conn) throws SQLException {
@@ -61,16 +69,6 @@ public class ProfilerEventHandlerFactory {
 
         if (handler != null) {
             handler.destroy();
-        }
-    }
-
-    private ProfilerEventHandlerFactory(Connection conn) {
-        this.ownerConnection = conn;
-
-        try {
-            this.log = this.ownerConnection.getLog();
-        } catch (SQLException sqlEx) {
-            throw new RuntimeException("Unable to get logger from connection");
         }
     }
 }

@@ -23,6 +23,9 @@
 
 package testsuite.regression;
 
+import com.mysql.jdbc.Util;
+import testsuite.BaseTestCase;
+
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Time;
@@ -30,24 +33,16 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.mysql.jdbc.Util;
-
-import testsuite.BaseTestCase;
-
 /**
  * Microperformance benchmarks to track increase/decrease in performance of core methods in the driver over time.
  */
 public class MicroPerformanceRegressionTest extends BaseTestCase {
-    private static double[] scaleFactorSamples = new double[5];
-
-    private static double scaleFactor = 0.0;
-
     private final static double ORIGINAL_LOOP_TIME_MS = 2300.0;
-
     // (Used to be 10.0 for all but since HW and VMs are much faster now a minimal disruption can cause significant deviations)
     private final static double LEEWAY = Util.getJVMVersion() < 7 ? 10.0 : 50.0; // account for VMs
-
     private final static Map<String, Double> BASELINE_TIMES = new HashMap<String, Double>();
+    private static double[] scaleFactorSamples = new double[5];
+    private static double scaleFactor = 0.0;
 
     static {
         BASELINE_TIMES.put("ResultSet.getInt()", new Double(0.00661));
@@ -94,19 +89,63 @@ public class MicroPerformanceRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
         junit.textui.TestRunner.run(MicroPerformanceRegressionTest.class);
     }
 
+    private static final double adjustScaleFactor() {
+        double newScaleFactor = calculateScaleFactor();
+        double maxDeviation = Math.abs(newScaleFactor - scaleFactor);
+
+        // discard the farthest value from previous mean (scaleFactor);
+        for (int i = 0; i < scaleFactorSamples.length; i++) {
+            double deviation = Math.abs(scaleFactorSamples[i] - scaleFactor);
+            if (deviation > maxDeviation) {
+                Double swapValue = scaleFactorSamples[i];
+                scaleFactorSamples[i] = newScaleFactor;
+                newScaleFactor = swapValue;
+                maxDeviation = deviation;
+            }
+        }
+
+        // calculate new mean (scaleFactor)
+        newScaleFactor = 0.0;
+        for (double d : scaleFactorSamples) {
+            newScaleFactor += d;
+        }
+        scaleFactor = newScaleFactor / scaleFactorSamples.length;
+
+        return scaleFactor;
+    }
+
+    private static final double calculateScaleFactor() {
+        // Run this simple test to get some sort of performance scaling factor, compared to the development environment. This should help reduce false-positives
+        // on this test.
+        int numLoops = 10000;
+
+        long start = BaseTestCase.currentTimeMillis();
+
+        for (int j = 0; j < 2000; j++) {
+            // StringBuffer below is used for measuring and can't be changed to StringBuilder.
+            StringBuffer buf = new StringBuffer(numLoops);
+
+            for (int i = 0; i < numLoops; i++) {
+                buf.append('a');
+            }
+        }
+
+        long elapsedTime = BaseTestCase.currentTimeMillis() - start;
+        return elapsedTime / ORIGINAL_LOOP_TIME_MS;
+    }
+
     /**
      * Tests result set accessors performance.
-     * 
-     * @throws Exception
-     *             if the performance of these methods does not meet
-     *             expectations.
+     *
+     * @throws Exception if the performance of these methods does not meet
+     *                   expectations.
      */
     public void testResultSetAccessors() throws Exception {
         if (Util.getJVMVersion() == 6 && System.getProperty("os.name").toUpperCase().indexOf("WINDOWS") != -1) {
@@ -349,7 +388,7 @@ public class MicroPerformanceRegressionTest extends BaseTestCase {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see junit.framework.TestCase#setUp()
      */
     @Override
@@ -358,51 +397,6 @@ public class MicroPerformanceRegressionTest extends BaseTestCase {
 
         System.out.println("Adjusting global performance scaling factor...");
         System.out.println("Gobal performance scaling factor adjusted from: " + scaleFactor + " to: " + adjustScaleFactor());
-    }
-
-    private static final double adjustScaleFactor() {
-        double newScaleFactor = calculateScaleFactor();
-        double maxDeviation = Math.abs(newScaleFactor - scaleFactor);
-
-        // discard the farthest value from previous mean (scaleFactor);
-        for (int i = 0; i < scaleFactorSamples.length; i++) {
-            double deviation = Math.abs(scaleFactorSamples[i] - scaleFactor);
-            if (deviation > maxDeviation) {
-                Double swapValue = scaleFactorSamples[i];
-                scaleFactorSamples[i] = newScaleFactor;
-                newScaleFactor = swapValue;
-                maxDeviation = deviation;
-            }
-        }
-
-        // calculate new mean (scaleFactor)
-        newScaleFactor = 0.0;
-        for (double d : scaleFactorSamples) {
-            newScaleFactor += d;
-        }
-        scaleFactor = newScaleFactor / scaleFactorSamples.length;
-
-        return scaleFactor;
-    }
-
-    private static final double calculateScaleFactor() {
-        // Run this simple test to get some sort of performance scaling factor, compared to the development environment. This should help reduce false-positives
-        // on this test.
-        int numLoops = 10000;
-
-        long start = BaseTestCase.currentTimeMillis();
-
-        for (int j = 0; j < 2000; j++) {
-            // StringBuffer below is used for measuring and can't be changed to StringBuilder.
-            StringBuffer buf = new StringBuffer(numLoops);
-
-            for (int i = 0; i < numLoops; i++) {
-                buf.append('a');
-            }
-        }
-
-        long elapsedTime = BaseTestCase.currentTimeMillis() - start;
-        return elapsedTime / ORIGINAL_LOOP_TIME_MS;
     }
 
     private synchronized void checkTime(String testType, double avgExecTimeMs) throws Exception {

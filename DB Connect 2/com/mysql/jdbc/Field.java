@@ -36,87 +36,52 @@ public class Field {
     private static final int AUTO_INCREMENT_FLAG = 512;
 
     private static final int NO_CHARSET_INFO = -1;
-
-    private byte[] buffer;
-
-    private int collationIndex = 0;
-
-    private String encoding = null;
-
-    private int colDecimals;
-
-    private short colFlag;
-
-    private String collationName = null;
-
-    private MySQLConnection connection = null;
-
-    private String databaseName = null;
-
-    private int databaseNameLength = -1;
-
-    // database name info
-    private int databaseNameStart = -1;
-
+    private final boolean valueNeedsQuoting;
     protected int defaultValueLength = -1;
-
     // default value info - from COM_LIST_FIELDS execution
     protected int defaultValueStart = -1;
-
+    private byte[] buffer;
+    private int collationIndex = 0;
+    private String encoding = null;
+    private int colDecimals;
+    private short colFlag;
+    private String collationName = null;
+    private MySQLConnection connection = null;
+    private String databaseName = null;
+    private int databaseNameLength = -1;
+    // database name info
+    private int databaseNameStart = -1;
     private String fullName = null;
-
     private String fullOriginalName = null;
-
     private boolean isImplicitTempTable = false;
-
     private long length; // Internal length of the field;
-
     private int mysqlType = -1; // the MySQL type
-
     private String name; // The Field name
-
     private int nameLength;
-
     private int nameStart;
-
     private String originalColumnName = null;
-
     private int originalColumnNameLength = -1;
-
     // column name info (before aliasing)
     private int originalColumnNameStart = -1;
-
     private String originalTableName = null;
-
     private int originalTableNameLength = -1;
-
     // table name info (before aliasing)
     private int originalTableNameStart = -1;
-
     private int precisionAdjustFactor = 0;
-
     private int sqlType = -1; // the java.sql.Type
-
     private String tableName; // The Name of the Table
-
     private int tableNameLength;
-
     private int tableNameStart;
-
     private boolean useOldNameMetadata = false;
-
     private boolean isSingleBit;
-
     private int maxBytesPerChar;
-
-    private final boolean valueNeedsQuoting;
 
     /**
      * Constructor used when communicating with 4.1 and newer servers
      */
     Field(MySQLConnection conn, byte[] buffer, int databaseNameStart, int databaseNameLength, int tableNameStart, int tableNameLength,
-            int originalTableNameStart, int originalTableNameLength, int nameStart, int nameLength, int originalColumnNameStart, int originalColumnNameLength,
-            long length, int mysqlType, short colFlag, int colDecimals, int defaultValueStart, int defaultValueLength, int charsetIndex) throws SQLException {
+          int originalTableNameStart, int originalTableNameLength, int nameStart, int nameLength, int originalColumnNameStart, int originalColumnNameLength,
+          long length, int mysqlType, short colFlag, int colDecimals, int defaultValueStart, int defaultValueLength, int charsetIndex) throws SQLException {
         this.connection = conn;
         this.buffer = buffer;
         this.nameStart = nameStart;
@@ -272,6 +237,58 @@ public class Field {
         this.valueNeedsQuoting = determineNeedsQuoting();
     }
 
+    /**
+     * Constructor used when communicating with pre 4.1 servers
+     */
+    Field(MySQLConnection conn, byte[] buffer, int nameStart, int nameLength, int tableNameStart, int tableNameLength, int length, int mysqlType, short colFlag,
+          int colDecimals) throws SQLException {
+        this(conn, buffer, -1, -1, tableNameStart, tableNameLength, -1, -1, nameStart, nameLength, -1, -1, length, mysqlType, colFlag, colDecimals, -1, -1,
+                NO_CHARSET_INFO);
+    }
+
+    /**
+     * Constructor used by DatabaseMetaData methods.
+     */
+    Field(String tableName, String columnName, int jdbcType, int length) {
+        this.tableName = tableName;
+        this.name = columnName;
+        this.length = length;
+        this.sqlType = jdbcType;
+        this.colFlag = 0;
+        this.colDecimals = 0;
+        this.valueNeedsQuoting = determineNeedsQuoting();
+    }
+
+    /**
+     * Used by prepared statements to re-use result set data conversion methods
+     * when generating bound parmeter retrieval instance for statement
+     * interceptors.
+     *
+     * @param tableName    not used
+     * @param columnName   not used
+     * @param charsetIndex the MySQL collation/character set index
+     * @param jdbcType     from java.sql.Types
+     * @param length       length in characters or bytes (for BINARY data).
+     */
+    Field(String tableName, String columnName, int charsetIndex, int jdbcType, int length) {
+        this.tableName = tableName;
+        this.name = columnName;
+        this.length = length;
+        this.sqlType = jdbcType;
+        this.colFlag = 0;
+        this.colDecimals = 0;
+        this.collationIndex = charsetIndex;
+        this.valueNeedsQuoting = determineNeedsQuoting();
+
+        switch (this.sqlType) {
+            case Types.BINARY:
+            case Types.VARBINARY:
+                this.colFlag |= 128;
+                this.colFlag |= 16;
+                break;
+        }
+    }
+
     private boolean shouldSetupForUtf8StringInBlob() throws SQLException {
         String includePattern = this.connection.getUtf8OutsideBmpIncludedColumnNamePattern();
         String excludePattern = this.connection.getUtf8OutsideBmpExcludedColumnNamePattern();
@@ -325,63 +342,6 @@ public class Field {
         this.collationIndex = CharsetMapping.MYSQL_COLLATION_INDEX_utf8;
     }
 
-    /**
-     * Constructor used when communicating with pre 4.1 servers
-     */
-    Field(MySQLConnection conn, byte[] buffer, int nameStart, int nameLength, int tableNameStart, int tableNameLength, int length, int mysqlType, short colFlag,
-            int colDecimals) throws SQLException {
-        this(conn, buffer, -1, -1, tableNameStart, tableNameLength, -1, -1, nameStart, nameLength, -1, -1, length, mysqlType, colFlag, colDecimals, -1, -1,
-                NO_CHARSET_INFO);
-    }
-
-    /**
-     * Constructor used by DatabaseMetaData methods.
-     */
-    Field(String tableName, String columnName, int jdbcType, int length) {
-        this.tableName = tableName;
-        this.name = columnName;
-        this.length = length;
-        this.sqlType = jdbcType;
-        this.colFlag = 0;
-        this.colDecimals = 0;
-        this.valueNeedsQuoting = determineNeedsQuoting();
-    }
-
-    /**
-     * Used by prepared statements to re-use result set data conversion methods
-     * when generating bound parmeter retrieval instance for statement
-     * interceptors.
-     * 
-     * @param tableName
-     *            not used
-     * @param columnName
-     *            not used
-     * @param charsetIndex
-     *            the MySQL collation/character set index
-     * @param jdbcType
-     *            from java.sql.Types
-     * @param length
-     *            length in characters or bytes (for BINARY data).
-     */
-    Field(String tableName, String columnName, int charsetIndex, int jdbcType, int length) {
-        this.tableName = tableName;
-        this.name = columnName;
-        this.length = length;
-        this.sqlType = jdbcType;
-        this.colFlag = 0;
-        this.colDecimals = 0;
-        this.collationIndex = charsetIndex;
-        this.valueNeedsQuoting = determineNeedsQuoting();
-
-        switch (this.sqlType) {
-            case Types.BINARY:
-            case Types.VARBINARY:
-                this.colFlag |= 128;
-                this.colFlag |= 16;
-                break;
-        }
-    }
-
     private void checkForImplicitTemporaryTable() {
         this.isImplicitTempTable = this.tableNameLength > 5 && this.buffer[this.tableNameStart] == (byte) '#'
                 && this.buffer[this.tableNameStart + 1] == (byte) 's' && this.buffer[this.tableNameStart + 2] == (byte) 'q'
@@ -390,7 +350,7 @@ public class Field {
 
     /**
      * Returns the Java encoding (if known) for this field.
-     * 
+     *
      * @return the Java encoding
      */
     public String getEncoding() throws SQLException {
@@ -547,6 +507,11 @@ public class Field {
         return this.mysqlType;
     }
 
+    void setMysqlType(int type) {
+        this.mysqlType = type;
+        this.sqlType = MysqlDefs.mysqlToJavaType(this.mysqlType);
+    }
+
     public String getName() throws SQLException {
         if (this.name == null) {
             this.name = getStringFromBytes(this.nameStart, this.nameLength);
@@ -586,9 +551,9 @@ public class Field {
     /**
      * Returns amount of correction that should be applied to the precision
      * value.
-     * 
+     * <p>
      * Different versions of MySQL report different precision values.
-     * 
+     *
      * @return the amount to adjust precision value by.
      */
     public int getPrecisionAdjustFactor() {
@@ -730,9 +695,9 @@ public class Field {
 
     /**
      * Is this field _definitely_ not writable?
-     * 
+     *
      * @return true if this field can not be written to in an INSERT/UPDATE
-     *         statement.
+     * statement.
      */
     boolean isReadOnly() throws SQLException {
         if (this.connection.versionMeetsMinimum(4, 1, 0)) {
@@ -793,11 +758,6 @@ public class Field {
         if (this.encoding == null || this.collationIndex == 0) {
             this.encoding = this.connection.getEncoding();
         }
-    }
-
-    void setMysqlType(int type) {
-        this.mysqlType = type;
-        this.sqlType = MysqlDefs.mysqlToJavaType(this.mysqlType);
     }
 
     protected void setUseOldNameMetadata(boolean useOldNameMetadata) {

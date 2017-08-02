@@ -23,27 +23,19 @@
 
 package testsuite.regression.jdbc4;
 
-import java.sql.DatabaseMetaData;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
+import com.mysql.jdbc.ConnectionProperties;
+import testsuite.BaseTestCase;
+
+import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
-import com.mysql.jdbc.ConnectionProperties;
-import com.mysql.jdbc.Util;
-
-import testsuite.BaseTestCase;
-
 public class MetaDataRegressionTest extends BaseTestCase {
     /**
      * Creates a new MetaDataRegressionTest.
-     * 
-     * @param name
-     *            the name of the test
+     *
+     * @param name the name of the test
      */
     public MetaDataRegressionTest(String name) {
         super(name);
@@ -51,7 +43,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
@@ -61,9 +53,8 @@ public class MetaDataRegressionTest extends BaseTestCase {
     /**
      * Tests fix for BUG#68307 - getFunctionColumns() returns incorrect "COLUMN_TYPE" information. This is a JDBC4
      * feature.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug68307() throws Exception {
         createFunction("testBug68307_func", "(func_param_in INT) RETURNS INT DETERMINISTIC RETURN 1");
@@ -123,16 +114,15 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#44451 - getTables does not return resultset with expected columns.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug44451() throws Exception {
         String methodName;
         List<String> expectedFields;
-        String[] testStepDescription = new String[] { "MySQL MetaData", "I__S MetaData" };
+        String[] testStepDescription = new String[]{"MySQL MetaData", "I__S MetaData"};
         Connection connUseIS = getConnectionWithProps("useInformationSchema=true");
-        Connection[] testConnections = new Connection[] { conn, connUseIS };
+        Connection[] testConnections = new Connection[]{conn, connUseIS};
 
         methodName = "getClientInfoProperties()";
         expectedFields = Arrays.asList("NAME", "MAX_LEN", "DEFAULT_VALUE", "DESCRIPTION");
@@ -171,9 +161,8 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#69298 - Different outcome from DatabaseMetaData.getFunctions() when using I__S.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug69298() throws Exception {
         Connection testConn;
@@ -409,9 +398,8 @@ public class MetaDataRegressionTest extends BaseTestCase {
     /**
      * Tests fix for BUG#17248345 - GETFUNCTIONCOLUMNS() METHOD RETURNS COLUMNS OF PROCEDURE. (this happens when
      * functions and procedures have a common name)
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug17248345() throws Exception {
         Connection testConn;
@@ -529,11 +517,10 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#20504139 - GETFUNCTIONCOLUMNS() AND GETPROCEDURECOLUMNS() RETURNS ERROR FOR VALID INPUTS.
-     * 
+     * <p>
      * Test duplicated in testsuite.regression.MetaDataRegressionTest.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug20504139() throws Exception {
         createFunction("testBug20504139f", "(namef CHAR(20)) RETURNS CHAR(50) DETERMINISTIC RETURN CONCAT('Hello, ', namef, '!')");
@@ -561,7 +548,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                  */
                 int i = 1;
                 try {
-                    for (String name : new String[] { "testBug20504139f", "testBug20504139`f" }) {
+                    for (String name : new String[]{"testBug20504139f", "testBug20504139`f"}) {
                         testRs = dbmd.getProcedureColumns(null, "", name, "%");
 
                         if (useFuncsInProcs) {
@@ -592,7 +579,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                  */
                 i = 1;
                 try {
-                    for (String name : new String[] { "testBug20504139p", "testBug20504139`p" }) {
+                    for (String name : new String[]{"testBug20504139p", "testBug20504139`p"}) {
                         testRs = dbmd.getProcedureColumns(null, "", name, "%");
 
                         assertTrue(testRs.next());
@@ -615,7 +602,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                  */
                 i = 1;
                 try {
-                    for (String name : new String[] { "testBug20504139f", "testBug20504139`f" }) {
+                    for (String name : new String[]{"testBug20504139f", "testBug20504139`f"}) {
                         testRs = dbmd.getFunctionColumns(null, "", name, "%");
 
                         assertTrue(testRs.next());
@@ -641,7 +628,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                  */
                 i = 1;
                 try {
-                    for (String name : new String[] { "testBug20504139p", "testBug20504139`p" }) {
+                    for (String name : new String[]{"testBug20504139p", "testBug20504139`p"}) {
                         testRs = dbmd.getFunctionColumns(null, "", name, "%");
 
                         assertFalse(testRs.next());
@@ -663,15 +650,14 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#19803348 - GETPROCEDURES() RETURNS INCORRECT O/P WHEN USEINFORMATIONSCHEMA=FALSE.
-     * 
+     * <p>
      * Composed by two parts:
      * 1. Confirm that getProcedures() and getProcedureColumns() aren't returning more results than expected (as per reported bug).
      * 2. Confirm that the results from getProcedures() and getProcedureColumns() are in the right order (secondary bug).
-     * 
+     * <p>
      * Test duplicated in testsuite.regression.MetaDataRegressionTest.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug19803348() throws Exception {
         Connection testConn = null;
@@ -790,11 +776,10 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#20727196 - GETPROCEDURECOLUMNS() RETURNS EXCEPTION FOR FUNCTION WHICH RETURNS ENUM/SET TYPE.
-     * 
+     * <p>
      * Test duplicated in testsuite.regression.MetaDataRegressionTest.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug20727196() throws Exception {
         createFunction("testBug20727196_f1", "(p ENUM ('Yes', 'No')) RETURNS VARCHAR(10) BEGIN RETURN IF(p='Yes', 'Yay!', if(p='No', 'Ney!', 'What?')); END");
@@ -802,8 +787,8 @@ public class MetaDataRegressionTest extends BaseTestCase {
         createFunction("testBug20727196_f3", "(p ENUM ('Yes', 'No')) RETURNS ENUM ('Yes', 'No') BEGIN RETURN IF(p='Yes', 'Yes', if(p='No', 'No', '?')); END");
         createProcedure("testBug20727196_p1", "(p ENUM ('Yes', 'No')) BEGIN SELECT IF(p='Yes', 'Yay!', if(p='No', 'Ney!', 'What?')); END");
 
-        for (String connProps : new String[] { "getProceduresReturnsFunctions=false,useInformationSchema=false",
-                "getProceduresReturnsFunctions=false,useInformationSchema=true" }) {
+        for (String connProps : new String[]{"getProceduresReturnsFunctions=false,useInformationSchema=false",
+                "getProceduresReturnsFunctions=false,useInformationSchema=true"}) {
 
             Connection testConn = null;
             try {
@@ -863,7 +848,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for Bug#73775 - DBMD.getProcedureColumns()/.getFunctionColumns() fail to filter by columnPattern
-     * 
+     * <p>
      * Test duplicated in testsuite.regression.MetaDataRegressionTest.
      */
     public void testBug73775() throws Exception {
@@ -905,7 +890,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
             assertEquals(testCase, "param2", this.rs.getString(4));
             assertFalse(testCase, this.rs.next());
 
-            for (String ptn : new String[] { "param1", "_____1", "%1", "p_r_m%1" }) {
+            for (String ptn : new String[]{"param1", "_____1", "%1", "p_r_m%1"}) {
                 this.rs = dbmd.getProcedureColumns(null, "", "testBug73775%", ptn);
                 if (inclFuncs) {
                     assertTrue(this.rs.next());
@@ -922,7 +907,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                 assertFalse(testCase, this.rs.next());
             }
 
-            for (String ptn : new String[] { "param2", "_____2", "%2", "p_r_m%2" }) {
+            for (String ptn : new String[]{"param2", "_____2", "%2", "p_r_m%2"}) {
                 this.rs = dbmd.getProcedureColumns(null, "", "testBug73775%", "param2");
                 if (inclFuncs) {
                     assertTrue(this.rs.next());
@@ -964,7 +949,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
             assertEquals(testCase, "param2", this.rs.getString(4));
             assertFalse(testCase, this.rs.next());
 
-            for (String ptn : new String[] { "param1", "_____1", "%1", "p_r_m%1" }) {
+            for (String ptn : new String[]{"param1", "_____1", "%1", "p_r_m%1"}) {
                 this.rs = dbmd.getFunctionColumns(null, "", "testBug73775%", ptn);
                 assertTrue(this.rs.next());
                 assertEquals(testCase, "testBug73775f", this.rs.getString(3));
@@ -976,7 +961,7 @@ public class MetaDataRegressionTest extends BaseTestCase {
                 assertFalse(testCase, this.rs.next());
             }
 
-            for (String ptn : new String[] { "param2", "_____2", "%2", "p_r_m%2" }) {
+            for (String ptn : new String[]{"param2", "_____2", "%2", "p_r_m%2"}) {
                 this.rs = dbmd.getFunctionColumns(null, "", "testBug73775%", "param2");
                 assertTrue(this.rs.next());
                 assertEquals(testCase, "testBug73775f", this.rs.getString(3));

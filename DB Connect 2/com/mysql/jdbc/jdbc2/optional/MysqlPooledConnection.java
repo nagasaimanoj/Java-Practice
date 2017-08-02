@@ -23,6 +23,13 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
+import com.mysql.jdbc.ExceptionInterceptor;
+import com.mysql.jdbc.SQLError;
+import com.mysql.jdbc.Util;
+
+import javax.sql.ConnectionEvent;
+import javax.sql.ConnectionEventListener;
+import javax.sql.PooledConnection;
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -30,27 +37,27 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import javax.sql.ConnectionEvent;
-import javax.sql.ConnectionEventListener;
-import javax.sql.PooledConnection;
-
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Util;
-
 /**
  * This class is used to wrap and return a physical connection within a logical handle. It also registers and notifies ConnectionEventListeners of any
  * ConnectionEvents
  */
 public class MysqlPooledConnection implements PooledConnection {
 
+    /**
+     * The flag for an exception being thrown.
+     */
+    public static final int CONNECTION_ERROR_EVENT = 1;
+    /**
+     * The flag for a connection being closed.
+     */
+    public static final int CONNECTION_CLOSED_EVENT = 2;
     private static final Constructor<?> JDBC_4_POOLED_CONNECTION_WRAPPER_CTOR;
 
     static {
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_POOLED_CONNECTION_WRAPPER_CTOR = Class.forName("com.mysql.jdbc.jdbc2.optional.JDBC4MysqlPooledConnection")
-                        .getConstructor(new Class[] { com.mysql.jdbc.Connection.class });
+                        .getConstructor(new Class[]{com.mysql.jdbc.Connection.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -63,38 +70,15 @@ public class MysqlPooledConnection implements PooledConnection {
         }
     }
 
-    protected static MysqlPooledConnection getInstance(com.mysql.jdbc.Connection connection) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new MysqlPooledConnection(connection);
-        }
-
-        return (MysqlPooledConnection) Util.handleNewInstance(JDBC_4_POOLED_CONNECTION_WRAPPER_CTOR, new Object[] { connection },
-                connection.getExceptionInterceptor());
-    }
-
-    /**
-     * The flag for an exception being thrown.
-     */
-    public static final int CONNECTION_ERROR_EVENT = 1;
-
-    /**
-     * The flag for a connection being closed.
-     */
-    public static final int CONNECTION_CLOSED_EVENT = 2;
-
     private Map<ConnectionEventListener, ConnectionEventListener> connectionEventListeners;
-
     private Connection logicalHandle;
-
     private com.mysql.jdbc.Connection physicalConn;
-
     private ExceptionInterceptor exceptionInterceptor;
 
     /**
      * Construct a new MysqlPooledConnection and set instance variables
-     * 
-     * @param connection
-     *            physical connection to db
+     *
+     * @param connection physical connection to db
      */
     public MysqlPooledConnection(com.mysql.jdbc.Connection connection) {
         this.logicalHandle = null;
@@ -103,12 +87,20 @@ public class MysqlPooledConnection implements PooledConnection {
         this.exceptionInterceptor = this.physicalConn.getExceptionInterceptor();
     }
 
+    protected static MysqlPooledConnection getInstance(com.mysql.jdbc.Connection connection) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new MysqlPooledConnection(connection);
+        }
+
+        return (MysqlPooledConnection) Util.handleNewInstance(JDBC_4_POOLED_CONNECTION_WRAPPER_CTOR, new Object[]{connection},
+                connection.getExceptionInterceptor());
+    }
+
     /**
      * Adds ConnectionEventListeners to a hash table to be used for notification
      * of ConnectionEvents
-     * 
-     * @param connectioneventlistener
-     *            listener to be notified with ConnectionEvents
+     *
+     * @param connectioneventlistener listener to be notified with ConnectionEvents
      */
     public synchronized void addConnectionEventListener(ConnectionEventListener connectioneventlistener) {
 
@@ -120,9 +112,8 @@ public class MysqlPooledConnection implements PooledConnection {
     /**
      * Removes ConnectionEventListeners from hash table used for notification of
      * ConnectionEvents
-     * 
-     * @param connectioneventlistener
-     *            listener to be removed
+     *
+     * @param connectioneventlistener listener to be removed
      */
     public synchronized void removeConnectionEventListener(ConnectionEventListener connectioneventlistener) {
 
@@ -134,7 +125,7 @@ public class MysqlPooledConnection implements PooledConnection {
     /**
      * Invoked by the container. Return a logicalHandle object that wraps a
      * physical connection.
-     * 
+     *
      * @see java.sql.DataSource#getConnection()
      */
     public synchronized Connection getConnection() throws SQLException {
@@ -175,7 +166,7 @@ public class MysqlPooledConnection implements PooledConnection {
      * Invoked by the container (not the client), and should close the physical
      * connection. This will be called if the pool is destroyed or the
      * connectionEventListener receives a connectionErrorOccurred event.
-     * 
+     *
      * @see java.sql.DataSource#close()
      */
     public synchronized void close() throws SQLException {
@@ -197,12 +188,10 @@ public class MysqlPooledConnection implements PooledConnection {
      * Instantiates a new ConnectionEvent which wraps sqlException and invokes
      * either connectionClose or connectionErrorOccurred on listener as
      * appropriate.
-     * 
-     * @param eventType
-     *            value indicating whether connectionClosed or
-     *            connectionErrorOccurred called
-     * @param sqlException
-     *            the exception being thrown
+     *
+     * @param eventType    value indicating whether connectionClosed or
+     *                     connectionErrorOccurred called
+     * @param sqlException the exception being thrown
      */
     protected synchronized void callConnectionEventListeners(int eventType, SQLException sqlException) {
 

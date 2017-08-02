@@ -23,13 +23,13 @@
 
 package com.mysql.fabric.jdbc;
 
+import com.mysql.jdbc.NonRegisteringDriver;
+import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
+
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.Properties;
-
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 
 /**
  * DataSource used to create connections to a MySQL fabric.
@@ -38,7 +38,9 @@ public class FabricMySQLDataSource extends MysqlDataSource implements FabricMySQ
 
     private static final long serialVersionUID = 1L;
 
-    /** Driver used to create connections. */
+    /**
+     * Driver used to create connections.
+     */
     private final static Driver driver;
 
     static {
@@ -49,19 +51,23 @@ public class FabricMySQLDataSource extends MysqlDataSource implements FabricMySQ
         }
     }
 
+    private String fabricShardKey;
+    private String fabricShardTable;
+    private String fabricServerGroup;
+    private String fabricProtocol = "http";
+    private String fabricUsername;
+    private String fabricPassword;
+    private boolean fabricReportErrors = false;
+
     /**
      * Creates a connection using the specified properties.
      * copied directly from MysqlDataSource.getConnection().
      * No easy way to override the static `mysqlDriver' without
      * globally affecting the driver.
-     * 
-     * @param props
-     *            the properties to connect with
-     * 
+     *
+     * @param props the properties to connect with
      * @return a connection to the database
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     @Override
     protected java.sql.Connection getConnection(Properties props) throws SQLException {
@@ -125,67 +131,59 @@ public class FabricMySQLDataSource extends MysqlDataSource implements FabricMySQ
         return driver.connect(jdbcUrlToUse, props);
     }
 
-    private String fabricShardKey;
-    private String fabricShardTable;
-    private String fabricServerGroup;
-    private String fabricProtocol = "http";
-    private String fabricUsername;
-    private String fabricPassword;
-    private boolean fabricReportErrors = false;
-
-    public void setFabricShardKey(String value) {
-        this.fabricShardKey = value;
-    }
-
     public String getFabricShardKey() {
         return this.fabricShardKey;
     }
 
-    public void setFabricShardTable(String value) {
-        this.fabricShardTable = value;
+    public void setFabricShardKey(String value) {
+        this.fabricShardKey = value;
     }
 
     public String getFabricShardTable() {
         return this.fabricShardTable;
     }
 
-    public void setFabricServerGroup(String value) {
-        this.fabricServerGroup = value;
+    public void setFabricShardTable(String value) {
+        this.fabricShardTable = value;
     }
 
     public String getFabricServerGroup() {
         return this.fabricServerGroup;
     }
 
-    public void setFabricProtocol(String value) {
-        this.fabricProtocol = value;
+    public void setFabricServerGroup(String value) {
+        this.fabricServerGroup = value;
     }
 
     public String getFabricProtocol() {
         return this.fabricProtocol;
     }
 
-    public void setFabricUsername(String value) {
-        this.fabricUsername = value;
+    public void setFabricProtocol(String value) {
+        this.fabricProtocol = value;
     }
 
     public String getFabricUsername() {
         return this.fabricUsername;
     }
 
-    public void setFabricPassword(String value) {
-        this.fabricPassword = value;
+    public void setFabricUsername(String value) {
+        this.fabricUsername = value;
     }
 
     public String getFabricPassword() {
         return this.fabricPassword;
     }
 
-    public void setFabricReportErrors(boolean value) {
-        this.fabricReportErrors = value;
+    public void setFabricPassword(String value) {
+        this.fabricPassword = value;
     }
 
     public boolean getFabricReportErrors() {
         return this.fabricReportErrors;
+    }
+
+    public void setFabricReportErrors(boolean value) {
+        this.fabricReportErrors = value;
     }
 }

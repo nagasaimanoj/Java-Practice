@@ -23,22 +23,21 @@
 
 package testsuite.regression.jdbc42;
 
-import java.sql.Connection;
-
 import com.mysql.jdbc.JDBC42PreparedStatement;
 import com.mysql.jdbc.JDBC42ServerPreparedStatement;
-
 import testsuite.BaseTestCase;
 
+import java.sql.Connection;
+
 public class StatementRegressionTest extends BaseTestCase {
-    
+
     public StatementRegressionTest(String name) {
         super(name);
     }
 
     /**
      * Tests fix for Bug#79598 - Client side Prepared Statement caching bypasses JDBC42 Java 8 Time conversion.
-     * 
+     * <p>
      * Although in the bug report subject is mentioned a Java 8 Time conversion issue, the actual problem occurs because of wrong types being returned after
      * preparing statements when prepared statements cache is enabled. The Java 8 Time data has no relation to this bug.
      */

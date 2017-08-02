@@ -23,9 +23,9 @@
 
 package com.mysql.fabric.proto.xmlrpc;
 
-import java.util.List;
-
 import com.mysql.fabric.FabricCommunicationException;
+
+import java.util.List;
 
 /**
  * Implementations of this class perform XML-RPC method calls.

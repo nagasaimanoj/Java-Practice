@@ -23,6 +23,15 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.PreparedStatement.ParseInfo;
+import com.mysql.jdbc.log.Log;
+import com.mysql.jdbc.log.LogFactory;
+import com.mysql.jdbc.log.LogUtils;
+import com.mysql.jdbc.log.NullLogger;
+import com.mysql.jdbc.profiler.ProfilerEvent;
+import com.mysql.jdbc.profiler.ProfilerEventHandler;
+import com.mysql.jdbc.util.LRUCache;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.ref.WeakReference;
@@ -34,44 +43,14 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
-import java.sql.Blob;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.SQLPermission;
-import java.sql.SQLWarning;
-import java.sql.Savepoint;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.Stack;
-import java.util.TimeZone;
-import java.util.Timer;
+import java.sql.*;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
-import com.mysql.jdbc.PreparedStatement.ParseInfo;
-import com.mysql.jdbc.log.Log;
-import com.mysql.jdbc.log.LogFactory;
-import com.mysql.jdbc.log.LogUtils;
-import com.mysql.jdbc.log.NullLogger;
-import com.mysql.jdbc.profiler.ProfilerEvent;
-import com.mysql.jdbc.profiler.ProfilerEventHandler;
-import com.mysql.jdbc.util.LRUCache;
-
 /**
  * A Connection represents a session with a specific database. Within the context of a Connection, SQL statements are executed and results are returned.
- * 
+ * <p>
  * <P>
  * A Connection's database is able to provide information describing its tables, its supported SQL grammar, its stored procedures, the capabilities of this
  * connection, etc. This information is obtained with the getMetaData method.
@@ -79,223 +58,52 @@ import com.mysql.jdbc.util.LRUCache;
  */
 public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLConnection {
 
-    private static final long serialVersionUID = 2877471301981509474L;
-
-    private static final SQLPermission SET_NETWORK_TIMEOUT_PERM = new SQLPermission("setNetworkTimeout");
-
-    private static final SQLPermission ABORT_PERM = new SQLPermission("abort");
-
     public static final String JDBC_LOCAL_CHARACTER_SET_RESULTS = "jdbc.local.character_set_results";
-
-    public String getHost() {
-        return this.host;
-    }
-
-    public String getHostPortPair() {
-        return this.hostPortPair != null ? this.hostPortPair : this.host + ":" + this.port;
-    }
-
-    private MySQLConnection proxy = null;
-    private InvocationHandler realProxy = null;
-
-    public boolean isProxySet() {
-        return this.proxy != null;
-    }
-
-    public void setProxy(MySQLConnection proxy) {
-        this.proxy = proxy;
-        this.realProxy = this.proxy instanceof MultiHostMySQLConnection ? ((MultiHostMySQLConnection) proxy).getThisAsProxy() : null;
-    }
-
-    // this connection has to be proxied when using multi-host settings so that statements get routed to the right physical connection
-    // (works as "logical" connection)
-    private MySQLConnection getProxy() {
-        return (this.proxy != null) ? this.proxy : (MySQLConnection) this;
-    }
-
     /**
-     * @deprecated replaced by <code>getMultiHostSafeProxy()</code>
+     * Default logger class name
      */
-    @Deprecated
-    public MySQLConnection getLoadBalanceSafeProxy() {
-        return getMultiHostSafeProxy();
-    }
-
-    public MySQLConnection getMultiHostSafeProxy() {
-        return this.getProxy();
-    }
-
-    public MySQLConnection getActiveMySQLConnection() {
-        return this;
-    }
-
-    public Object getConnectionMutex() {
-        return (this.realProxy != null) ? this.realProxy : getProxy();
-    }
-
-    public class ExceptionInterceptorChain implements ExceptionInterceptor {
-        private List<Extension> interceptors;
-
-        ExceptionInterceptorChain(String interceptorClasses) throws SQLException {
-            this.interceptors = Util.loadExtensions(ConnectionImpl.this, ConnectionImpl.this.props, interceptorClasses, "Connection.BadExceptionInterceptor",
-                    this);
-        }
-
-        void addRingZero(ExceptionInterceptor interceptor) throws SQLException {
-            this.interceptors.add(0, interceptor);
-        }
-
-        public SQLException interceptException(SQLException sqlEx, Connection conn) {
-            if (this.interceptors != null) {
-                Iterator<Extension> iter = this.interceptors.iterator();
-
-                while (iter.hasNext()) {
-                    sqlEx = ((ExceptionInterceptor) iter.next()).interceptException(sqlEx, ConnectionImpl.this);
-                }
-            }
-
-            return sqlEx;
-        }
-
-        public void destroy() {
-            if (this.interceptors != null) {
-                Iterator<Extension> iter = this.interceptors.iterator();
-
-                while (iter.hasNext()) {
-                    ((ExceptionInterceptor) iter.next()).destroy();
-                }
-            }
-
-        }
-
-        public void init(Connection conn, Properties properties) throws SQLException {
-            if (this.interceptors != null) {
-                Iterator<Extension> iter = this.interceptors.iterator();
-
-                while (iter.hasNext()) {
-                    ((ExceptionInterceptor) iter.next()).init(conn, properties);
-                }
-            }
-        }
-
-        public List<Extension> getInterceptors() {
-            return this.interceptors;
-        }
-
-    }
-
-    /**
-     * Used as a key for caching callable statements which (may) depend on
-     * current catalog...In 5.0.x, they don't (currently), but stored procedure
-     * names soon will, so current catalog is a (hidden) component of the name.
-     */
-    static class CompoundCacheKey {
-        String componentOne;
-
-        String componentTwo;
-
-        int hashCode;
-
-        CompoundCacheKey(String partOne, String partTwo) {
-            this.componentOne = partOne;
-            this.componentTwo = partTwo;
-
-            // Handle first component (in most cases, currentCatalog being NULL....
-            this.hashCode = (((this.componentOne != null) ? this.componentOne : "") + this.componentTwo).hashCode();
-        }
-
-        /*
-         * (non-Javadoc)
-         * 
-         * @see java.lang.Object#equals(java.lang.Object)
-         */
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof CompoundCacheKey) {
-                CompoundCacheKey another = (CompoundCacheKey) obj;
-
-                boolean firstPartEqual = false;
-
-                if (this.componentOne == null) {
-                    firstPartEqual = (another.componentOne == null);
-                } else {
-                    firstPartEqual = this.componentOne.equals(another.componentOne);
-                }
-
-                return (firstPartEqual && this.componentTwo.equals(another.componentTwo));
-            }
-
-            return false;
-        }
-
-        /*
-         * (non-Javadoc)
-         * 
-         * @see java.lang.Object#hashCode()
-         */
-        @Override
-        public int hashCode() {
-            return this.hashCode;
-        }
-    }
-
+    protected static final String DEFAULT_LOGGER_CLASS = "com.mysql.jdbc.log.StandardLogger";
+    private static final long serialVersionUID = 2877471301981509474L;
+    private static final SQLPermission SET_NETWORK_TIMEOUT_PERM = new SQLPermission("setNetworkTimeout");
+    private static final SQLPermission ABORT_PERM = new SQLPermission("abort");
     /**
      * Marker for character set converter not being available (not written,
      * multibyte, etc) Used to prevent multiple instantiation requests.
      */
     private static final Object CHARSET_CONVERTER_NOT_AVAILABLE_MARKER = new Object();
-
+    private final static int HISTOGRAM_BUCKETS = 20;
+    /**
+     * Logger instance name
+     */
+    private static final String LOGGER_INSTANCE_NAME = "MySQL";
+    /**
+     * Null logger shared by all connections at startup
+     */
+    private static final Log NULL_LOGGER = new NullLogger(LOGGER_INSTANCE_NAME);
+    /**
+     * Actual collation index to mysql charset name map of user defined charsets for given server URLs.
+     */
+    private static final Map<String, Map<Integer, String>> customIndexToCharsetMapByUrl = new HashMap<String, Map<Integer, String>>();
+    /**
+     * Actual mysql charset name to mblen map of user defined charsets for given server URLs.
+     */
+    private static final Map<String, Map<String, Integer>> customCharsetToMblenMapByUrl = new HashMap<String, Map<String, Integer>>();
+    private static final Constructor<?> JDBC_4_CONNECTION_CTOR;
+    private static final int DEFAULT_RESULT_SET_TYPE = ResultSet.TYPE_FORWARD_ONLY;
+    private static final int DEFAULT_RESULT_SET_CONCURRENCY = ResultSet.CONCUR_READ_ONLY;
+    private static final Random random = new Random();
+    private final static String SERVER_VERSION_STRING_VAR_NAME = "server_version_string";
     /**
      * The mapping between MySQL charset names and Java charset names.
      * Initialized by loadCharacterSetMapping()
      */
     public static Map<?, ?> charsetMap;
-
-    /** Default logger class name */
-    protected static final String DEFAULT_LOGGER_CLASS = "com.mysql.jdbc.log.StandardLogger";
-
-    private final static int HISTOGRAM_BUCKETS = 20;
-
-    /** Logger instance name */
-    private static final String LOGGER_INSTANCE_NAME = "MySQL";
-
+    protected static Map<?, ?> roundRobinStatsMap;
     /**
      * Map mysql transaction isolation level name to
      * java.sql.Connection.TRANSACTION_XXX
      */
     private static Map<String, Integer> mapTransIsolationNameToValue = null;
-
-    /** Null logger shared by all connections at startup */
-    private static final Log NULL_LOGGER = new NullLogger(LOGGER_INSTANCE_NAME);
-
-    protected static Map<?, ?> roundRobinStatsMap;
-
-    /**
-     * Actual collation index to mysql charset name map of user defined charsets for given server URLs.
-     */
-    private static final Map<String, Map<Integer, String>> customIndexToCharsetMapByUrl = new HashMap<String, Map<Integer, String>>();
-
-    /**
-     * Actual mysql charset name to mblen map of user defined charsets for given server URLs.
-     */
-    private static final Map<String, Map<String, Integer>> customCharsetToMblenMapByUrl = new HashMap<String, Map<String, Integer>>();
-
-    private CacheAdapter<String, Map<String, String>> serverConfigCache;
-
-    private long queryTimeCount;
-    private double queryTimeSum;
-    private double queryTimeSumSquares;
-    private double queryTimeMean;
-
-    private transient Timer cancelTimer;
-
-    private List<Extension> connectionLifecycleInterceptors;
-
-    private static final Constructor<?> JDBC_4_CONNECTION_CTOR;
-
-    private static final int DEFAULT_RESULT_SET_TYPE = ResultSet.TYPE_FORWARD_ONLY;
-
-    private static final int DEFAULT_RESULT_SET_CONCURRENCY = ResultSet.CONCUR_READ_ONLY;
 
     static {
         mapTransIsolationNameToValue = new HashMap<String, Integer>(8);
@@ -308,7 +116,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_CONNECTION_CTOR = Class.forName("com.mysql.jdbc.JDBC4Connection")
-                        .getConstructor(new Class[] { String.class, Integer.TYPE, Properties.class, String.class, String.class });
+                        .getConstructor(new Class[]{String.class, Integer.TYPE, Properties.class, String.class, String.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -321,340 +129,246 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         }
     }
 
-    protected static SQLException appendMessageToException(SQLException sqlEx, String messageToAppend, ExceptionInterceptor interceptor) {
-        String origMessage = sqlEx.getMessage();
-        String sqlState = sqlEx.getSQLState();
-        int vendorErrorCode = sqlEx.getErrorCode();
-
-        StringBuilder messageBuf = new StringBuilder(origMessage.length() + messageToAppend.length());
-        messageBuf.append(origMessage);
-        messageBuf.append(messageToAppend);
-
-        SQLException sqlExceptionWithNewMessage = SQLError.createSQLException(messageBuf.toString(), sqlState, vendorErrorCode, interceptor);
-
-        //
-        // Try and maintain the original stack trace, only works on JDK-1.4 and newer
-        //
-
-        try {
-            // Have to do this with reflection, otherwise older JVMs croak
-            Method getStackTraceMethod = null;
-            Method setStackTraceMethod = null;
-            Object theStackTraceAsObject = null;
-
-            Class<?> stackTraceElementClass = Class.forName("java.lang.StackTraceElement");
-            Class<?> stackTraceElementArrayClass = Array.newInstance(stackTraceElementClass, new int[] { 0 }).getClass();
-
-            getStackTraceMethod = Throwable.class.getMethod("getStackTrace", new Class[] {});
-
-            setStackTraceMethod = Throwable.class.getMethod("setStackTrace", new Class[] { stackTraceElementArrayClass });
-
-            if (getStackTraceMethod != null && setStackTraceMethod != null) {
-                theStackTraceAsObject = getStackTraceMethod.invoke(sqlEx, new Object[0]);
-                setStackTraceMethod.invoke(sqlExceptionWithNewMessage, new Object[] { theStackTraceAsObject });
-            }
-        } catch (NoClassDefFoundError noClassDefFound) {
-
-        } catch (NoSuchMethodException noSuchMethodEx) {
-
-        } catch (Throwable catchAll) {
-
-        }
-
-        return sqlExceptionWithNewMessage;
-    }
-
-    public Timer getCancelTimer() {
-        synchronized (getConnectionMutex()) {
-            if (this.cancelTimer == null) {
-                this.cancelTimer = new Timer("MySQL Statement Cancellation Timer", true);
-            }
-            return this.cancelTimer;
-        }
-    }
-
     /**
-     * Creates a connection instance -- We need to provide factory-style methods
-     * so we can support both JDBC3 (and older) and JDBC4 runtimes, otherwise
-     * the class verifier complains when it tries to load JDBC4-only interface
-     * classes that are present in JDBC4 method signatures.
+     * An array of currently open statements.
+     * Copy-on-write used here to avoid ConcurrentModificationException when statements unregister themselves while we iterate over the list.
      */
-
-    protected static Connection getInstance(String hostToConnectTo, int portToConnectTo, Properties info, String databaseToConnectTo, String url)
-            throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new ConnectionImpl(hostToConnectTo, portToConnectTo, info, databaseToConnectTo, url);
-        }
-
-        return (Connection) Util.handleNewInstance(JDBC_4_CONNECTION_CTOR,
-                new Object[] { hostToConnectTo, Integer.valueOf(portToConnectTo), info, databaseToConnectTo, url }, null);
-    }
-
-    private static final Random random = new Random();
-
+    private final CopyOnWriteArrayList<Statement> openStatements = new CopyOnWriteArrayList<Statement>();
+    public Map<Integer, String> indexToCustomMysqlCharset = null;
     /**
-     * @param url
-     * @param hostList
+     * Properties for this connection specified by user
      */
-    protected static synchronized int getNextRoundRobinHostIndex(String url, List<?> hostList) {
-        // we really do "random" here, because you don't get even distribution when this is coupled with connection pools
-
-        int indexRange = hostList.size();
-
-        int index = random.nextInt(indexRange);
-
-        return index;
-    }
-
-    private static boolean nullSafeCompare(String s1, String s2) {
-        if (s1 == null && s2 == null) {
-            return true;
-        }
-
-        if (s1 == null && s2 != null) {
-            return false;
-        }
-
-        return s1 != null && s1.equals(s2);
-    }
-
-    /** Are we in autoCommit mode? */
+    protected Properties props = null;
+    /**
+     * Cache of ResultSet metadata
+     */
+    protected LRUCache resultSetMetadataCache;
+    private MySQLConnection proxy = null;
+    private InvocationHandler realProxy = null;
+    private CacheAdapter<String, Map<String, String>> serverConfigCache;
+    private long queryTimeCount;
+    private double queryTimeSum;
+    private double queryTimeSumSquares;
+    private double queryTimeMean;
+    private transient Timer cancelTimer;
+    private List<Extension> connectionLifecycleInterceptors;
+    /**
+     * Are we in autoCommit mode?
+     */
     private boolean autoCommit = true;
-
-    /** A cache of SQL to parsed prepared statement parameters. */
+    /**
+     * A cache of SQL to parsed prepared statement parameters.
+     */
     private CacheAdapter<String, ParseInfo> cachedPreparedStatementParams;
-
     /**
      * For servers > 4.1.0, what character set is the metadata returned in?
      */
     private String characterSetMetadata = null;
-
     /**
      * The character set we want results and result metadata returned in (null ==
      * results in any charset, metadata in UTF-8).
      */
     private String characterSetResultsOnServer = null;
-
     /**
      * Holds cached mappings to charset converters to avoid static
      * synchronization and at the same time save memory (each charset converter
      * takes approx 65K of static data).
      */
     private Map<String, Object> charsetConverterMap = new HashMap<String, Object>(CharsetMapping.getNumberOfCharsetsConfigured());
-
-    /** The point in time when this connection was created */
+    /**
+     * The point in time when this connection was created
+     */
     private long connectionCreationTimeMillis = 0;
-
-    /** ID used when profiling */
+    /**
+     * ID used when profiling
+     */
     private long connectionId;
-
-    /** The database we're currently using (called Catalog in JDBC terms). */
+    /**
+     * The database we're currently using (called Catalog in JDBC terms).
+     */
     private String database = null;
-
-    /** Internal DBMD to use for various database-version specific features */
+    /**
+     * Internal DBMD to use for various database-version specific features
+     */
     private DatabaseMetaData dbmd = null;
-
     private TimeZone defaultTimeZone;
-
-    /** The event sink to use for profiling */
+    /**
+     * The event sink to use for profiling
+     */
     private ProfilerEventHandler eventSink;
-
-    /** Why was this connection implicitly closed, if known? (for diagnostics) */
+    /**
+     * Why was this connection implicitly closed, if known? (for diagnostics)
+     */
     private Throwable forceClosedReason;
-
-    /** Does the server support isolation levels? */
+    /**
+     * Does the server support isolation levels?
+     */
     private boolean hasIsolationLevels = false;
-
-    /** Does this version of MySQL support quoted identifiers? */
+    /**
+     * Does this version of MySQL support quoted identifiers?
+     */
     private boolean hasQuotedIdentifiers = false;
-
-    /** The hostname we're connected to */
+    /**
+     * The hostname we're connected to
+     */
     private String host = null;
-
-    public Map<Integer, String> indexToCustomMysqlCharset = null;
-
     private Map<String, Integer> mysqlCharsetToCustomMblen = null;
-
-    /** The I/O abstraction interface (network conn to MySQL server */
+    /**
+     * The I/O abstraction interface (network conn to MySQL server
+     */
     private transient MysqlIO io = null;
-
     private boolean isClientTzUTC = false;
-
-    /** Has this connection been closed? */
+    /**
+     * Has this connection been closed?
+     */
     private boolean isClosed = true;
-
-    /** Is this connection associated with a global tx? */
+    /**
+     * Is this connection associated with a global tx?
+     */
     private boolean isInGlobalTx = false;
-
-    /** Is this connection running inside a JDK-1.3 VM? */
+    /**
+     * Is this connection running inside a JDK-1.3 VM?
+     */
     private boolean isRunningOnJDK13 = false;
-
-    /** isolation level */
+    /**
+     * isolation level
+     */
     private int isolationLevel = java.sql.Connection.TRANSACTION_READ_COMMITTED;
-
     private boolean isServerTzUTC = false;
-
-    /** When did the last query finish? */
+    /**
+     * When did the last query finish?
+     */
     private long lastQueryFinishedTime = 0;
-
-    /** The logger we're going to use */
+    /**
+     * The logger we're going to use
+     */
     private transient Log log = NULL_LOGGER;
-
     /**
      * If gathering metrics, what was the execution time of the longest query so
      * far ?
      */
     private long longestQueryTimeMs = 0;
-
-    /** Is the server configured to use lower-case table names only? */
+    /**
+     * Is the server configured to use lower-case table names only?
+     */
     private boolean lowerCaseTableNames = false;
-
-    /** When did the master fail? */
+    /**
+     * When did the master fail?
+     */
     //	private long masterFailTimeMillis = 0L;
 
     private long maximumNumberTablesAccessed = 0;
-
-    /** The max-rows setting for current session */
-    private int sessionMaxRows = -1;
-
-    /** When was the last time we reported metrics? */
-    private long metricsLastReportedMs;
-
-    private long minimumNumberTablesAccessed = Long.MAX_VALUE;
-
-    /** The JDBC URL we're using */
-    private String myURL = null;
-
-    /** Does this connection need to be tested? */
-    private boolean needsPing = false;
-
-    private int netBufferLength = 16384;
-
-    private boolean noBackslashEscapes = false;
-
-    private long numberOfPreparedExecutes = 0;
-
-    private long numberOfPrepares = 0;
-
-    private long numberOfQueriesIssued = 0;
-
-    private long numberOfResultSetsCreated = 0;
-
-    private long[] numTablesMetricsHistBreakpoints;
-
-    private int[] numTablesMetricsHistCounts;
-
-    private long[] oldHistBreakpoints = null;
-
-    private int[] oldHistCounts = null;
-
     /**
-     * An array of currently open statements.
-     * Copy-on-write used here to avoid ConcurrentModificationException when statements unregister themselves while we iterate over the list.
+     * The max-rows setting for current session
      */
-    private final CopyOnWriteArrayList<Statement> openStatements = new CopyOnWriteArrayList<Statement>();
-
+    private int sessionMaxRows = -1;
+    /**
+     * When was the last time we reported metrics?
+     */
+    private long metricsLastReportedMs;
+    private long minimumNumberTablesAccessed = Long.MAX_VALUE;
+    /**
+     * The JDBC URL we're using
+     */
+    private String myURL = null;
+    /**
+     * Does this connection need to be tested?
+     */
+    private boolean needsPing = false;
+    private int netBufferLength = 16384;
+    private boolean noBackslashEscapes = false;
+    private long numberOfPreparedExecutes = 0;
+    private long numberOfPrepares = 0;
+    private long numberOfQueriesIssued = 0;
+    private long numberOfResultSetsCreated = 0;
+    private long[] numTablesMetricsHistBreakpoints;
+    private int[] numTablesMetricsHistCounts;
+    private long[] oldHistBreakpoints = null;
+    private int[] oldHistCounts = null;
     private LRUCache parsedCallableStatementCache;
-
     private boolean parserKnowsUnicode = false;
-
-    /** The password we used */
+    /**
+     * The password we used
+     */
     private String password = null;
-
     private long[] perfMetricsHistBreakpoints;
-
     private int[] perfMetricsHistCounts;
-
-    /** Point of origin where this Connection was created */
+    /**
+     * Point of origin where this Connection was created
+     */
     private String pointOfOrigin;
-
-    /** The port number we're connected to (defaults to 3306) */
+    /**
+     * The port number we're connected to (defaults to 3306)
+     */
     private int port = 3306;
-
-    /** Properties for this connection specified by user */
-    protected Properties props = null;
-
-    /** Should we retrieve 'info' messages from the server? */
+    /**
+     * Should we retrieve 'info' messages from the server?
+     */
     private boolean readInfoMsg = false;
-
-    /** Are we in read-only mode? */
+    /**
+     * Are we in read-only mode?
+     */
     private boolean readOnly = false;
-
-    /** Cache of ResultSet metadata */
-    protected LRUCache resultSetMetadataCache;
-
-    /** The timezone of the server */
+    /**
+     * The timezone of the server
+     */
     private TimeZone serverTimezoneTZ = null;
-
-    /** The map of server variables that we retrieve at connection init. */
+    /**
+     * The map of server variables that we retrieve at connection init.
+     */
     private Map<String, String> serverVariables = null;
-
     private long shortestQueryTimeMs = Long.MAX_VALUE;
-
     private double totalQueryTimeMs = 0;
-
-    /** Are transactions supported by the MySQL server we are connected to? */
+    /**
+     * Are transactions supported by the MySQL server we are connected to?
+     */
     private boolean transactionsSupported = false;
-
     /**
      * The type map for UDTs (not implemented, but used by some third-party
      * vendors, most notably IBM WebSphere)
      */
     private Map<String, Class<?>> typeMap;
-
-    /** Has ANSI_QUOTES been enabled on the server? */
+    /**
+     * Has ANSI_QUOTES been enabled on the server?
+     */
     private boolean useAnsiQuotes = false;
-
-    /** The user we're connected as */
+    /**
+     * The user we're connected as
+     */
     private String user = null;
-
     /**
      * Should we use server-side prepared statements? (auto-detected, but can be
      * disabled by user)
      */
     private boolean useServerPreparedStmts = false;
-
     private LRUCache serverSideStatementCheckCache;
     private LRUCache serverSideStatementCache;
     private Calendar sessionCalendar;
-
     private Calendar utcCalendar;
-
     private String origHostToConnectTo;
-
-    // we don't want to be able to publicly clone this...
-
     private int origPortToConnectTo;
-
     private String origDatabaseToConnectTo;
-
     private String errorMessageEncoding = "Cp1252"; // to begin with, changes after we talk to the server
-
     private boolean usePlatformCharsetConverters;
-
     /*
      * For testing failover scenarios
      */
     private boolean hasTriedMasterFlag = false;
-
     /**
      * The comment (if any) that we'll prepend to all statements
      * sent to the server (to show up in "SHOW PROCESSLIST")
      */
     private String statementComment = null;
-
     private boolean storesLowerCaseTableName;
-
     private List<StatementInterceptorV2> statementInterceptors;
-
     /**
      * If a CharsetEncoder is required for escaping. Needed for SJIS and related
      * problems with \u00A5.
      */
     private boolean requiresEscapingEncoder;
-
     private String hostPortPair;
-
+    private int autoIncrementIncrement = 0;
+    private ExceptionInterceptor exceptionInterceptor;
     /**
      * '
      * For the delegate only
@@ -664,21 +378,14 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Creates a connection to a MySQL Server.
-     * 
-     * @param hostToConnectTo
-     *            the hostname of the database server
-     * @param portToConnectTo
-     *            the port number the server is listening on
-     * @param info
-     *            a Properties[] list holding the user and password
-     * @param databaseToConnectTo
-     *            the database to connect to
-     * @param url
-     *            the URL of the connection
-     * @param d
-     *            the Driver instantation of the connection
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param hostToConnectTo     the hostname of the database server
+     * @param portToConnectTo     the port number the server is listening on
+     * @param info                a Properties[] list holding the user and password
+     * @param databaseToConnectTo the database to connect to
+     * @param url                 the URL of the connection
+     * @param d                   the Driver instantation of the connection
+     * @throws SQLException if a database access error occurs
      */
     public ConnectionImpl(String hostToConnectTo, int portToConnectTo, Properties info, String databaseToConnectTo, String url) throws SQLException {
 
@@ -696,7 +403,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         this.origDatabaseToConnectTo = databaseToConnectTo;
 
         try {
-            Blob.class.getMethod("truncate", new Class[] { Long.TYPE });
+            Blob.class.getMethod("truncate", new Class[]{Long.TYPE});
 
             this.isRunningOnJDK13 = false;
         } catch (NoSuchMethodException nsme) {
@@ -814,6 +521,146 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         NonRegisteringDriver.trackConnection(this);
     }
 
+    protected static SQLException appendMessageToException(SQLException sqlEx, String messageToAppend, ExceptionInterceptor interceptor) {
+        String origMessage = sqlEx.getMessage();
+        String sqlState = sqlEx.getSQLState();
+        int vendorErrorCode = sqlEx.getErrorCode();
+
+        StringBuilder messageBuf = new StringBuilder(origMessage.length() + messageToAppend.length());
+        messageBuf.append(origMessage);
+        messageBuf.append(messageToAppend);
+
+        SQLException sqlExceptionWithNewMessage = SQLError.createSQLException(messageBuf.toString(), sqlState, vendorErrorCode, interceptor);
+
+        //
+        // Try and maintain the original stack trace, only works on JDK-1.4 and newer
+        //
+
+        try {
+            // Have to do this with reflection, otherwise older JVMs croak
+            Method getStackTraceMethod = null;
+            Method setStackTraceMethod = null;
+            Object theStackTraceAsObject = null;
+
+            Class<?> stackTraceElementClass = Class.forName("java.lang.StackTraceElement");
+            Class<?> stackTraceElementArrayClass = Array.newInstance(stackTraceElementClass, new int[]{0}).getClass();
+
+            getStackTraceMethod = Throwable.class.getMethod("getStackTrace", new Class[]{});
+
+            setStackTraceMethod = Throwable.class.getMethod("setStackTrace", new Class[]{stackTraceElementArrayClass});
+
+            if (getStackTraceMethod != null && setStackTraceMethod != null) {
+                theStackTraceAsObject = getStackTraceMethod.invoke(sqlEx, new Object[0]);
+                setStackTraceMethod.invoke(sqlExceptionWithNewMessage, new Object[]{theStackTraceAsObject});
+            }
+        } catch (NoClassDefFoundError noClassDefFound) {
+
+        } catch (NoSuchMethodException noSuchMethodEx) {
+
+        } catch (Throwable catchAll) {
+
+        }
+
+        return sqlExceptionWithNewMessage;
+    }
+
+    // we don't want to be able to publicly clone this...
+
+    /**
+     * Creates a connection instance -- We need to provide factory-style methods
+     * so we can support both JDBC3 (and older) and JDBC4 runtimes, otherwise
+     * the class verifier complains when it tries to load JDBC4-only interface
+     * classes that are present in JDBC4 method signatures.
+     */
+
+    protected static Connection getInstance(String hostToConnectTo, int portToConnectTo, Properties info, String databaseToConnectTo, String url)
+            throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new ConnectionImpl(hostToConnectTo, portToConnectTo, info, databaseToConnectTo, url);
+        }
+
+        return (Connection) Util.handleNewInstance(JDBC_4_CONNECTION_CTOR,
+                new Object[]{hostToConnectTo, Integer.valueOf(portToConnectTo), info, databaseToConnectTo, url}, null);
+    }
+
+    /**
+     * @param url
+     * @param hostList
+     */
+    protected static synchronized int getNextRoundRobinHostIndex(String url, List<?> hostList) {
+        // we really do "random" here, because you don't get even distribution when this is coupled with connection pools
+
+        int indexRange = hostList.size();
+
+        int index = random.nextInt(indexRange);
+
+        return index;
+    }
+
+    private static boolean nullSafeCompare(String s1, String s2) {
+        if (s1 == null && s2 == null) {
+            return true;
+        }
+
+        if (s1 == null && s2 != null) {
+            return false;
+        }
+
+        return s1 != null && s1.equals(s2);
+    }
+
+    public String getHost() {
+        return this.host;
+    }
+
+    public String getHostPortPair() {
+        return this.hostPortPair != null ? this.hostPortPair : this.host + ":" + this.port;
+    }
+
+    public boolean isProxySet() {
+        return this.proxy != null;
+    }
+
+    // this connection has to be proxied when using multi-host settings so that statements get routed to the right physical connection
+    // (works as "logical" connection)
+    private MySQLConnection getProxy() {
+        return (this.proxy != null) ? this.proxy : (MySQLConnection) this;
+    }
+
+    public void setProxy(MySQLConnection proxy) {
+        this.proxy = proxy;
+        this.realProxy = this.proxy instanceof MultiHostMySQLConnection ? ((MultiHostMySQLConnection) proxy).getThisAsProxy() : null;
+    }
+
+    /**
+     * @deprecated replaced by <code>getMultiHostSafeProxy()</code>
+     */
+    @Deprecated
+    public MySQLConnection getLoadBalanceSafeProxy() {
+        return getMultiHostSafeProxy();
+    }
+
+    public MySQLConnection getMultiHostSafeProxy() {
+        return this.getProxy();
+    }
+
+    public MySQLConnection getActiveMySQLConnection() {
+        return this;
+    }
+
+    public Object getConnectionMutex() {
+        return (this.realProxy != null) ? this.realProxy : getProxy();
+    }
+
+    public Timer getCancelTimer() {
+        synchronized (getConnectionMutex()) {
+            if (this.cancelTimer == null) {
+                this.cancelTimer = new Timer("MySQL Statement Cancellation Timer", true);
+            }
+            return this.cancelTimer;
+        }
+    }
+
     public void unSafeStatementInterceptors() throws SQLException {
 
         ArrayList<StatementInterceptorV2> unSafedStatementInterceptors = new ArrayList<StatementInterceptorV2>(this.statementInterceptors.size());
@@ -861,7 +708,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     }
 
     private void addToHistogram(int[] histogramCounts, long[] histogramBreakpoints, long value, int numberOfTimes, long currentLowerBound,
-            long currentUpperBound) {
+                                long currentUpperBound) {
         if (histogramCounts == null) {
             createInitialHistogram(histogramBreakpoints, currentLowerBound, currentUpperBound);
         } else {
@@ -892,7 +739,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Builds the map needed for 4.1.0 and newer servers that maps field-level
      * charset/collation info to a java character encoding name.
-     * 
+     *
      * @throws SQLException
      */
     private void buildCollationMapping() throws SQLException {
@@ -924,7 +771,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
                         int collationIndex = ((Number) results.getObject(3)).intValue();
                         String charsetName = results.getString(2);
 
-                        // if no static map for charsetIndex or server has a different mapping then our static map, adding it to custom map 
+                        // if no static map for charsetIndex or server has a different mapping then our static map, adding it to custom map
                         if (collationIndex >= CharsetMapping.MAP_SIZE
                                 || !charsetName.equals(CharsetMapping.getMysqlCharsetNameForCollationIndex(collationIndex))) {
                             customCharset.put(collationIndex, charsetName);
@@ -1106,14 +953,11 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * Changes the user on this connection by performing a re-authentication. If
      * authentication fails, the connection will remain under the context of the
      * current user.
-     * 
-     * @param userName
-     *            the username to authenticate with
-     * @param newPassword
-     *            the password to authenticate with
-     * @throws SQLException
-     *             if authentication fails, or some other error occurs while
-     *             performing the command.
+     *
+     * @param userName    the username to authenticate with
+     * @param newPassword the password to authenticate with
+     * @throws SQLException if authentication fails, or some other error occurs while
+     *                      performing the command.
      */
     public void changeUser(String userName, String newPassword) throws SQLException {
         synchronized (getConnectionMutex()) {
@@ -1197,7 +1041,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * If useUnicode flag is set and explicit client character encoding isn't
      * specified then assign encoding from server if any.
-     * 
+     *
      * @throws SQLException
      */
     private void checkServerEncoding() throws SQLException {
@@ -1276,7 +1120,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Set transaction isolation level to the value received from server if any.
      * Is called by connectionInit(...)
-     * 
+     *
      * @throws SQLException
      */
     private void checkTransactionIsolationLevel() throws SQLException {
@@ -1302,7 +1146,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Clobbers the physical network connection and marks
      * this connection as closed.
-     * 
+     *
      * @throws SQLException
      */
     public void abortInternal() throws SQLException {
@@ -1325,7 +1169,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Destroys this connection and any underlying resources
-     * 
+     *
      * @param fromWhere
      * @param whyCleanedUp
      */
@@ -1353,9 +1197,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * After this call, getWarnings returns null until a new warning is reported
      * for this connection.
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @throws SQLException if a database access error occurs
      */
     public void clearWarnings() throws SQLException {
         // firstWarning = null;
@@ -1441,12 +1284,12 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return pStmt;
     }
 
+    // --------------------------JDBC 2.0-----------------------------
+
     public java.sql.PreparedStatement clientPrepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException {
         return clientPrepareStatement(sql, resultSetType, resultSetConcurrency, true);
     }
-
-    // --------------------------JDBC 2.0-----------------------------
 
     /**
      * In some cases, it is desirable to immediately release a Connection's
@@ -1454,9 +1297,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * automatically released (cant think why off the top of my head) <B>Note:</B>
      * A Connection is automatically closed when it is garbage collected.
      * Certain fatal errors also result in a closed connection.
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @throws SQLException if a database access error occurs
      */
     public void close() throws SQLException {
         synchronized (getConnectionMutex()) {
@@ -1475,7 +1317,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Closes all currently open statements.
-     * 
+     *
      * @throws SQLException
      */
     private void closeAllOpenStatements() throws SQLException {
@@ -1514,9 +1356,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * <p>
      * <b>Note:</b> MySQL does not support transactions, so this method is a no-op.
      * </p>
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @throws SQLException if a database access error occurs
      * @see setAutoCommit
      */
     public void commit() throws SQLException {
@@ -1570,9 +1411,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Configures client-side properties for character set information.
-     * 
-     * @throws SQLException
-     *             if unable to configure the specified character set.
+     *
+     * @throws SQLException if unable to configure the specified character set.
      */
     private void configureCharsetProperties() throws SQLException {
         if (getEncoding() != null) {
@@ -1611,15 +1451,14 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Sets up client character set for MySQL-4.1 and newer if the user This
      * must be done before any further communication with the server!
-     * 
+     *
      * @return true if this routine actually configured the client character
-     *         set, or false if the driver needs to use 'older' methods to
-     *         detect the character set, as it is connected to a MySQL server
-     *         older than 4.1.0
-     * @throws SQLException
-     *             if an exception happens while sending 'SET NAMES' to the
-     *             server, or the server sends character set information that
-     *             the client doesn't know about.
+     * set, or false if the driver needs to use 'older' methods to
+     * detect the character set, as it is connected to a MySQL server
+     * older than 4.1.0
+     * @throws SQLException if an exception happens while sending 'SET NAMES' to the
+     *                      server, or the server sends character set information that
+     *                      the client doesn't know about.
      */
     private boolean configureClientCharacterSet(boolean dontCheckServerMatch) throws SQLException {
         String realJavaEncoding = getEncoding();
@@ -1720,7 +1559,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
                             }
 
                             setEncoding(realJavaEncoding);
-                        } /* not utf-8 */else {
+                        } /* not utf-8 */ else {
                             String mysqlCharsetName = CharsetMapping.getMysqlCharsetForJavaEncoding(realJavaEncoding.toUpperCase(Locale.ENGLISH), this);
 
                             /*
@@ -1944,10 +1783,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Configures the client's timezone if required.
-     * 
-     * @throws SQLException
-     *             if the timezone the server is configured to use can't be
-     *             mapped to a Java timezone.
+     *
+     * @throws SQLException if the timezone the server is configured to use can't be
+     *                      mapped to a Java timezone.
      */
     private void configureTimezone() throws SQLException {
         String configuredTimeZoneOnServer = this.serverVariables.get("timezone");
@@ -2004,12 +1842,10 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Creates an IO channel to the server
-     * 
-     * @param isForReconnect
-     *            is this request for a re-connect
+     *
+     * @param isForReconnect is this request for a re-connect
      * @return a new MysqlIO instance connected to a server
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException            if a database access error occurs
      * @throws CommunicationsException
      */
     public void createNewIO(boolean isForReconnect) throws SQLException {
@@ -2102,7 +1938,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         if (!connectionGood) {
             // We've really failed!
             SQLException chainedEx = SQLError.createSQLException(
-                    Messages.getString("Connection.UnableToConnectWithRetries", new Object[] { Integer.valueOf(getMaxReconnects()) }),
+                    Messages.getString("Connection.UnableToConnectWithRetries", new Object[]{Integer.valueOf(getMaxReconnects())}),
                     SQLError.SQL_STATE_UNABLE_TO_CONNECT_TO_DATASOURCE, getExceptionInterceptor());
             chainedEx.initCause(connectionException);
 
@@ -2293,21 +2129,21 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
             } catch (ClassNotFoundException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantFindCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantFindCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
                 throw sqlEx;
             } catch (InstantiationException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantLoadCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantLoadCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
                 throw sqlEx;
             } catch (IllegalAccessException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantLoadCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantLoadCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
@@ -2352,10 +2188,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * SQL statements without parameters are normally executed using Statement
      * objects. If the same SQL statement is executed many times, it is more
      * efficient to use a PreparedStatement
-     * 
+     *
      * @return a new Statement object
-     * @throws SQLException
-     *             passed through from the constructor
+     * @throws SQLException passed through from the constructor
      */
     public java.sql.Statement createStatement() throws SQLException {
         return createStatement(DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY);
@@ -2364,14 +2199,11 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * JDBC 2.0 Same as createStatement() above, but allows the default result
      * set type and result set concurrency type to be overridden.
-     * 
-     * @param resultSetType
-     *            a result set type, see ResultSet.TYPE_XXX
-     * @param resultSetConcurrency
-     *            a concurrency type, see ResultSet.CONCUR_XXX
+     *
+     * @param resultSetType        a result set type, see ResultSet.TYPE_XXX
+     * @param resultSetConcurrency a concurrency type, see ResultSet.CONCUR_XXX
      * @return a new Statement object
-     * @exception SQLException
-     *                if a database-access error occurs.
+     * @throws SQLException if a database-access error occurs.
      */
     public java.sql.Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         checkClosed();
@@ -2408,10 +2240,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Send a query to the server. Returns one of the ResultSet objects. This is
      * synchronized, so Statement's queries will be serialized.
-     * 
+     *
      * @param callingStatement
-     * @param sql
-     *            the SQL statement to be executed
+     * @param sql                  the SQL statement to be executed
      * @param maxRows
      * @param packet
      * @param resultSetType
@@ -2421,8 +2252,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * @param catalog
      * @param unpackFields
      * @return a ResultSet holding the results
-     * @exception SQLException
-     *                if a database error occurs
+     * @throws SQLException if a database error occurs
      */
 
     // ResultSet execSQL(Statement callingStatement, String sql,
@@ -2440,12 +2270,12 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     // unpackFields);
     // }
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
         return execSQL(callingStatement, sql, maxRows, packet, resultSetType, resultSetConcurrency, streamResults, catalog, cachedMetadata, false);
     }
 
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
         synchronized (getConnectionMutex()) {
             //
             // Fall-back if the master is back online if we've issued queriesBeforeRetryMaster queries since we failed over
@@ -2592,15 +2422,95 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Gets the current auto-commit state
-     * 
+     *
      * @return Current state of auto-commit
-     * @exception SQLException
-     *                if an error occurs
+     * @throws SQLException if an error occurs
      * @see setAutoCommit
      */
     public boolean getAutoCommit() throws SQLException {
         synchronized (getConnectionMutex()) {
             return this.autoCommit;
+        }
+    }
+
+    /**
+     * If a connection is in auto-commit mode, than all its SQL statements will
+     * be executed and committed as individual transactions. Otherwise, its SQL
+     * statements are grouped into transactions that are terminated by either
+     * commit() or rollback(). By default, new connections are in auto-commit
+     * mode. The commit occurs when the statement completes or the next execute
+     * occurs, whichever comes first. In the case of statements returning a
+     * ResultSet, the statement completes when the last row of the ResultSet has
+     * been retrieved or the ResultSet has been closed. In advanced cases, a
+     * single statement may return multiple results as well as output parameter
+     * values. Here the commit occurs when all results and output param values
+     * have been retrieved.
+     *
+     * @param autoCommitFlag true enables auto-commit; false disables it
+     * @throws SQLException if a database access error occurs
+     */
+    public void setAutoCommit(final boolean autoCommitFlag) throws SQLException {
+        synchronized (getConnectionMutex()) {
+            checkClosed();
+
+            if (this.connectionLifecycleInterceptors != null) {
+                IterateBlock<Extension> iter = new IterateBlock<Extension>(this.connectionLifecycleInterceptors.iterator()) {
+
+                    @Override
+                    void forEach(Extension each) throws SQLException {
+                        if (!((ConnectionLifecycleInterceptor) each).setAutoCommit(autoCommitFlag)) {
+                            this.stopIterating = true;
+                        }
+                    }
+                };
+
+                iter.doForAll();
+
+                if (!iter.fullIteration()) {
+                    return;
+                }
+            }
+
+            if (getAutoReconnectForPools()) {
+                setHighAvailability(true);
+            }
+
+            try {
+                if (this.transactionsSupported) {
+
+                    boolean needsSetOnServer = true;
+
+                    if (this.getUseLocalSessionState() && this.autoCommit == autoCommitFlag) {
+                        needsSetOnServer = false;
+                    } else if (!this.getHighAvailability()) {
+                        needsSetOnServer = this.getIO().isSetNeededForAutoCommitMode(autoCommitFlag);
+                    }
+
+                    // this internal value must be set first as failover depends on it being set to true to fail over (which is done by most app servers and
+                    // connection pools at the end of a transaction), and the driver issues an implicit set based on this value when it (re)-connects to a
+                    // server so the value holds across connections
+                    this.autoCommit = autoCommitFlag;
+
+                    if (needsSetOnServer) {
+                        execSQL(null, autoCommitFlag ? "SET autocommit=1" : "SET autocommit=0", -1, null, DEFAULT_RESULT_SET_TYPE,
+                                DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
+                    }
+
+                } else {
+                    if ((autoCommitFlag == false) && !getRelaxAutoCommit()) {
+                        throw SQLError.createSQLException("MySQL Versions Older than 3.23.15 do not support transactions",
+                                SQLError.SQL_STATE_CONNECTION_NOT_OPEN, getExceptionInterceptor());
+                    }
+
+                    this.autoCommit = autoCommitFlag;
+                }
+            } finally {
+                if (this.getAutoReconnectForPools()) {
+                    setHighAvailability(false);
+                }
+            }
+
+            return;
         }
     }
 
@@ -2622,14 +2532,77 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * <p>
      * <b>Note:</b> MySQL's notion of catalogs are individual databases.
      * </p>
-     * 
+     *
      * @return the current catalog name or null
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getCatalog() throws SQLException {
         synchronized (getConnectionMutex()) {
             return this.database;
+        }
+    }
+
+    /**
+     * A sub-space of this Connection's database may be selected by setting a
+     * catalog name. If the driver does not support catalogs, it will silently
+     * ignore this request
+     * <p>
+     * <b>Note:</b> MySQL's notion of catalogs are individual databases.
+     * </p>
+     *
+     * @param catalog the database for this connection to use
+     * @throws SQLException if a database access error occurs
+     */
+    public void setCatalog(final String catalog) throws SQLException {
+        synchronized (getConnectionMutex()) {
+            checkClosed();
+
+            if (catalog == null) {
+                throw SQLError.createSQLException("Catalog can not be null", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
+            }
+
+            if (this.connectionLifecycleInterceptors != null) {
+                IterateBlock<Extension> iter = new IterateBlock<Extension>(this.connectionLifecycleInterceptors.iterator()) {
+
+                    @Override
+                    void forEach(Extension each) throws SQLException {
+                        if (!((ConnectionLifecycleInterceptor) each).setCatalog(catalog)) {
+                            this.stopIterating = true;
+                        }
+                    }
+                };
+
+                iter.doForAll();
+
+                if (!iter.fullIteration()) {
+                    return;
+                }
+            }
+
+            if (getUseLocalSessionState()) {
+                if (this.lowerCaseTableNames) {
+                    if (this.database.equalsIgnoreCase(catalog)) {
+                        return;
+                    }
+                } else {
+                    if (this.database.equals(catalog)) {
+                        return;
+                    }
+                }
+            }
+
+            String quotedId = this.dbmd.getIdentifierQuoteString();
+
+            if ((quotedId == null) || quotedId.equals(" ")) {
+                quotedId = "";
+            }
+
+            StringBuilder query = new StringBuilder("USE ");
+            query.append(StringUtils.quoteIdentifier(catalog, quotedId, getPedantic()));
+
+            execSQL(null, query.toString(), -1, null, DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
+
+            this.database = catalog;
         }
     }
 
@@ -2645,9 +2618,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Returns the locally mapped instance of a charset converter (to avoid
      * overhead of static synchronization).
-     * 
-     * @param javaEncodingName
-     *            the encoding name to retrieve
+     *
+     * @param javaEncodingName the encoding name to retrieve
      * @return a character converter, or null if one couldn't be mapped.
      */
     public SingleByteCharsetConverter getCharsetConverter(String javaEncodingName) throws SQLException {
@@ -2701,12 +2673,11 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Returns the Java character encoding name for the given MySQL server
      * charset index
-     * 
+     *
      * @param charsetIndex
      * @return the Java character encoding name for the given MySQL server
-     *         charset index
-     * @throws SQLException
-     *             if the character set index isn't known by the driver
+     * charset index
+     * @throws SQLException if the character set index isn't known by the driver
      */
     public String getEncodingForIndex(int charsetIndex) throws SQLException {
         String javaEncoding = null;
@@ -2718,7 +2689,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         if (charsetIndex != MysqlDefs.NO_CHARSET_INFO) {
             try {
                 // getting charset name from dynamic maps in connection; we do it before checking against static maps because custom charset on server can be mapped
-                // to index from our static map key's diapason 
+                // to index from our static map key's diapason
                 if (this.indexToCustomMysqlCharset != null) {
                     String cs = this.indexToCustomMysqlCharset.get(charsetIndex);
                     if (cs != null) {
@@ -2769,6 +2740,13 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
+    /**
+     * @see Connection#setHoldability(int)
+     */
+    public void setHoldability(int arg0) throws SQLException {
+        // do nothing
+    }
+
     public long getId() {
         return this.connectionId;
     }
@@ -2777,9 +2755,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * NOT JDBC-Compliant, but clients can use this method to determine how long
      * this connection has been idle. This time (reported in milliseconds) is
      * updated once a query has completed.
-     * 
+     *
      * @return number of ms that this connection has been idle, 0 if the driver
-     *         is busy retrieving results.
+     * is busy retrieving results.
      */
     public long getIdleFor() {
         synchronized (getConnectionMutex()) {
@@ -2796,10 +2774,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Returns the IO channel to the server
-     * 
+     *
      * @return the IO channel to the server
-     * @throws SQLException
-     *             if the connection is closed.
+     * @throws SQLException if the connection is closed.
      */
     public MysqlIO getIO() throws SQLException {
         if ((this.io == null) || this.isClosed) {
@@ -2812,10 +2789,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Returns the log mechanism that should be used to log information from/for
      * this Connection.
-     * 
+     *
      * @return the Log instance to use for logging messages.
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public Log getLog() throws SQLException {
         return this.log;
@@ -2834,7 +2810,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
             // if we can get it by charsetIndex just doing it
 
             // getting charset name from dynamic maps in connection; we do it before checking against static maps because custom charset on server can be mapped
-            // to index from our static map key's diapason 
+            // to index from our static map key's diapason
             if (this.indexToCustomMysqlCharset != null) {
                 charset = this.indexToCustomMysqlCharset.get(charsetIndex);
             }
@@ -2878,10 +2854,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * tables, its supported SQL grammar, its stored procedures, the
      * capabilities of this connection, etc. This information is made available
      * through a DatabaseMetaData object.
-     * 
+     *
      * @return a DatabaseMetaData object for this connection
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public java.sql.DatabaseMetaData getMetaData() throws SQLException {
         return getMetaData(true, true);
@@ -2928,7 +2903,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Returns the server's character set
-     * 
+     *
      * @return the server's character set.
      */
     public String getServerCharset() {
@@ -2980,10 +2955,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Get this Connection's current transaction isolation mode.
-     * 
+     *
      * @return the current TRANSACTION_ mode value
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int getTransactionIsolation() throws SQLException {
 
@@ -3055,12 +3029,77 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     }
 
     /**
+     * @param level
+     * @throws SQLException
+     */
+    public void setTransactionIsolation(int level) throws SQLException {
+        synchronized (getConnectionMutex()) {
+            checkClosed();
+
+            if (this.hasIsolationLevels) {
+                String sql = null;
+
+                boolean shouldSendSet = false;
+
+                if (getAlwaysSendSetIsolation()) {
+                    shouldSendSet = true;
+                } else {
+                    if (level != this.isolationLevel) {
+                        shouldSendSet = true;
+                    }
+                }
+
+                if (getUseLocalSessionState()) {
+                    shouldSendSet = this.isolationLevel != level;
+                }
+
+                if (shouldSendSet) {
+                    switch (level) {
+                        case java.sql.Connection.TRANSACTION_NONE:
+                            throw SQLError.createSQLException("Transaction isolation level NONE not supported by MySQL", getExceptionInterceptor());
+
+                        case java.sql.Connection.TRANSACTION_READ_COMMITTED:
+                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED";
+
+                            break;
+
+                        case java.sql.Connection.TRANSACTION_READ_UNCOMMITTED:
+                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED";
+
+                            break;
+
+                        case java.sql.Connection.TRANSACTION_REPEATABLE_READ:
+                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ";
+
+                            break;
+
+                        case java.sql.Connection.TRANSACTION_SERIALIZABLE:
+                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE";
+
+                            break;
+
+                        default:
+                            throw SQLError.createSQLException("Unsupported transaction isolation level '" + level + "'", SQLError.SQL_STATE_DRIVER_NOT_CAPABLE,
+                                    getExceptionInterceptor());
+                    }
+
+                    execSQL(null, sql, -1, null, DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
+
+                    this.isolationLevel = level;
+                }
+            } else {
+                throw SQLError.createSQLException("Transaction Isolation Levels are not supported on MySQL versions older than 3.23.36.",
+                        SQLError.SQL_STATE_DRIVER_NOT_CAPABLE, getExceptionInterceptor());
+            }
+        }
+    }
+
+    /**
      * JDBC 2.0 Get the type-map object associated with this connection. By
      * default, the map returned is empty.
-     * 
+     *
      * @return the type map
-     * @throws SQLException
-     *             if a database error occurs
+     * @throws SQLException if a database error occurs
      */
     public java.util.Map<String, Class<?>> getTypeMap() throws SQLException {
         synchronized (getConnectionMutex()) {
@@ -3069,6 +3108,19 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
             }
 
             return this.typeMap;
+        }
+    }
+
+    /**
+     * JDBC 2.0 Install a type-map object as the default type-map for this
+     * connection
+     *
+     * @param map the type mapping
+     * @throws SQLException if a database error occurs.
+     */
+    public void setTypeMap(java.util.Map<String, Class<?>> map) throws SQLException {
+        synchronized (getConnectionMutex()) {
+            this.typeMap = map;
         }
     }
 
@@ -3088,10 +3140,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * The first warning reported by calls on this Connection is returned.
      * <B>Note:</B> Sebsequent warnings will be changed to this
      * java.sql.SQLWarning
-     * 
+     *
      * @return the first java.sql.SQLWarning or null
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public SQLWarning getWarnings() throws SQLException {
         return null;
@@ -3134,7 +3185,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Initializes driver properties that come from URL or properties passed to
      * the driver manager.
-     * 
+     *
      * @param info
      * @throws SQLException
      */
@@ -3184,7 +3235,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Sets varying properties that depend on server information. Called once we
      * have connected to the server.
-     * 
+     *
      * @param info
      * @throws SQLException
      */
@@ -3387,7 +3438,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
             return Integer.parseInt(this.serverVariables.get(variableName));
         } catch (NumberFormatException nfe) {
             getLog().logWarn(Messages.getString("Connection.BadValueInServerVariables",
-                    new Object[] { variableName, this.serverVariables.get(variableName), Integer.valueOf(fallbackValue) }));
+                    new Object[]{variableName, this.serverVariables.get(variableName), Integer.valueOf(fallbackValue)}));
 
             return fallbackValue;
         }
@@ -3467,12 +3518,16 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return this.isInGlobalTx;
     }
 
+    public void setInGlobalTx(boolean flag) {
+        this.isInGlobalTx = flag;
+    }
+
     /**
      * Is this connection connected to the first host in the list if
      * there is a list of servers in the URL?
-     * 
+     *
      * @return true if this connection is connected to the first in
-     *         the list.
+     * the list.
      */
     public boolean isMasterConnection() {
         return false; // handled higher up
@@ -3481,7 +3536,7 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Is the server in a sql_mode that doesn't allow us to use \\ to escape
      * things?
-     * 
+     *
      * @return Returns the noBackslashEscapes.
      */
     public boolean isNoBackslashEscapesSet() {
@@ -3492,31 +3547,46 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return this.readInfoMsg;
     }
 
-    /**
-     * Tests to see if the connection is in Read Only Mode. Note that prior to 5.6,
-     * we cannot really put the database in read only mode, but we pretend we can by
-     * returning the value of the readOnly flag
-     * 
-     * @return true if the connection is read only
-     * @exception SQLException
-     *                if a database access error occurs
-     */
-    public boolean isReadOnly() throws SQLException {
-        return isReadOnly(true);
+    public void setReadInfoMsgEnabled(boolean flag) {
+        this.readInfoMsg = flag;
     }
 
     /**
      * Tests to see if the connection is in Read Only Mode. Note that prior to 5.6,
      * we cannot really put the database in read only mode, but we pretend we can by
      * returning the value of the readOnly flag
-     * 
-     * @param useSessionStatus
-     *            in some cases, for example when restoring connection with autoReconnect=true,
-     *            we can rely only on saved readOnly state, so use useSessionStatus=false in that case
-     * 
+     *
      * @return true if the connection is read only
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
+     */
+    public boolean isReadOnly() throws SQLException {
+        return isReadOnly(true);
+    }
+
+    /**
+     * You can put a connection in read-only mode as a hint to enable database
+     * optimizations <B>Note:</B> setReadOnly cannot be called while in the
+     * middle of a transaction
+     *
+     * @param readOnlyFlag -
+     *                     true enables read-only mode; false disables it
+     * @throws SQLException if a database access error occurs
+     */
+    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
+        checkClosed();
+
+        setReadOnlyInternal(readOnlyFlag);
+    }
+
+    /**
+     * Tests to see if the connection is in Read Only Mode. Note that prior to 5.6,
+     * we cannot really put the database in read only mode, but we pretend we can by
+     * returning the value of the readOnly flag
+     *
+     * @param useSessionStatus in some cases, for example when restoring connection with autoReconnect=true,
+     *                         we can rely only on saved readOnly state, so use useSessionStatus=false in that case
+     * @return true if the connection is read only
+     * @throws SQLException if a database access error occurs
      */
     public boolean isReadOnly(boolean useSessionStatus) throws SQLException {
         if (useSessionStatus && !this.isClosed && versionMeetsMinimum(5, 6, 5) && !getUseLocalSessionState() && getReadOnlyPropagatesToServer()) {
@@ -3657,21 +3727,21 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
                 }
             } catch (ClassNotFoundException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantFindCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantFindCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
                 throw sqlEx;
             } catch (InstantiationException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantLoadCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantLoadCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
                 throw sqlEx;
             } catch (IllegalAccessException e) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.CantLoadCacheFactory", new Object[] { getParseInfoCacheFactory(), "parseInfoCacheFactory" }),
+                        Messages.getString("Connection.CantLoadCacheFactory", new Object[]{getParseInfoCacheFactory(), "parseInfoCacheFactory"}),
                         getExceptionInterceptor());
                 sqlEx.initCause(e);
 
@@ -3680,14 +3750,11 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         }
     }
 
-    private final static String SERVER_VERSION_STRING_VAR_NAME = "server_version_string";
-
     /**
      * Loads the result of 'SHOW VARIABLES' into the serverVariables field so
      * that the driver can configure itself.
-     * 
-     * @throws SQLException
-     *             if the 'SHOW VARIABLES' query fails for any reason.
+     *
+     * @throws SQLException if the 'SHOW VARIABLES' query fails for any reason.
      */
     private void loadServerVariables() throws SQLException {
 
@@ -3810,15 +3877,13 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         }
     }
 
-    private int autoIncrementIncrement = 0;
-
     public int getAutoIncrementIncrement() {
         return this.autoIncrementIncrement;
     }
 
     /**
      * Is the server configured to use lower-case table names only?
-     * 
+     *
      * @return true if lower_case_table_names is 'on'
      */
     public boolean lowerCaseTableNames() {
@@ -3829,13 +3894,11 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * A driver may convert the JDBC sql grammar into its system's native SQL
      * grammar prior to sending it; nativeSQL returns the native form of the
      * statement that the driver would have sent.
-     * 
-     * @param sql
-     *            a SQL statement that may contain one or more '?' parameter
+     *
+     * @param sql a SQL statement that may contain one or more '?' parameter
      *            placeholders
      * @return the native form of this statement
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String nativeSQL(String sql) throws SQLException {
         if (sql == null) {
@@ -3874,9 +3937,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Detect if the connection is still good
-     * 
-     * @throws SQLException
-     *             if the ping fails
+     *
+     * @throws SQLException if the ping fails
      */
     public void ping() throws SQLException {
         pingInternal(true, 0);
@@ -3914,17 +3976,13 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * JDBC 2.0 Same as prepareCall() above, but allows the default result set
      * type and result set concurrency type to be overridden.
-     * 
-     * @param sql
-     *            the SQL representing the callable statement
-     * @param resultSetType
-     *            a result set type, see ResultSet.TYPE_XXX
-     * @param resultSetConcurrency
-     *            a concurrency type, see ResultSet.CONCUR_XXX
+     *
+     * @param sql                  the SQL representing the callable statement
+     * @param resultSetType        a result set type, see ResultSet.TYPE_XXX
+     * @param resultSetConcurrency a concurrency type, see ResultSet.CONCUR_XXX
      * @return a new CallableStatement object containing the pre-compiled SQL
-     *         statement
-     * @exception SQLException
-     *                if a database-access error occurs.
+     * statement
+     * @throws SQLException if a database-access error occurs.
      */
     public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         if (versionMeetsMinimum(5, 0, 0)) {
@@ -3991,14 +4049,12 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * <p>
      * MySQL does not support precompilation of statements, so they are handled by the driver.
      * </p>
-     * 
-     * @param sql
-     *            a SQL statement that may contain one or more '?' IN parameter
+     *
+     * @param sql a SQL statement that may contain one or more '?' IN parameter
      *            placeholders
      * @return a new PreparedStatement object containing the pre-compiled
-     *         statement.
-     * @exception SQLException
-     *                if a database access error occurs.
+     * statement.
+     * @throws SQLException if a database access error occurs.
      */
     public java.sql.PreparedStatement prepareStatement(String sql) throws SQLException {
         return prepareStatement(sql, DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY);
@@ -4018,17 +4074,13 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * JDBC 2.0 Same as prepareStatement() above, but allows the default result
      * set type and result set concurrency type to be overridden.
-     * 
-     * @param sql
-     *            the SQL query containing place holders
-     * @param resultSetType
-     *            a result set type, see ResultSet.TYPE_XXX
-     * @param resultSetConcurrency
-     *            a concurrency type, see ResultSet.CONCUR_XXX
+     *
+     * @param sql                  the SQL query containing place holders
+     * @param resultSetType        a result set type, see ResultSet.TYPE_XXX
+     * @param resultSetConcurrency a concurrency type, see ResultSet.CONCUR_XXX
      * @return a new PreparedStatement object containing the pre-compiled SQL
-     *         statement
-     * @exception SQLException
-     *                if a database-access error occurs.
+     * statement
+     * @throws SQLException if a database-access error occurs.
      */
     public java.sql.PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         synchronized (getConnectionMutex()) {
@@ -4143,13 +4195,10 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Closes connection and frees resources.
-     * 
-     * @param calledExplicitly
-     *            is this being called from close()
-     * @param issueRollback
-     *            should a rollback() be issued?
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @param calledExplicitly is this being called from close()
+     * @param issueRollback    should a rollback() be issued?
+     * @throws SQLException if an error occurs
      */
     public void realClose(boolean calledExplicitly, boolean issueRollback, boolean skipLocalTeardown, Throwable reason) throws SQLException {
         SQLException sqlEx = null;
@@ -4291,9 +4340,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Register a Statement instance as open.
-     * 
-     * @param stmt
-     *            the Statement instance to remove
+     *
+     * @param stmt the Statement instance to remove
      */
     public void registerStatement(Statement stmt) {
         this.openStatements.addIfAbsent(stmt);
@@ -4481,9 +4529,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * Resets the server-side state of this connection. Doesn't work for MySQL
      * versions older than 4.0.6 or if isParanoid() is set (it will become a
      * no-op in these cases). Usually only used from connection pooling code.
-     * 
-     * @throws SQLException
-     *             if the operation fails while resetting server state.
+     *
+     * @throws SQLException if the operation fails while resetting server state.
      */
     public void resetServerState() throws SQLException {
         if (!getParanoid() && ((this.io != null) && versionMeetsMinimum(4, 0, 6))) {
@@ -4495,9 +4542,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * The method rollback() drops all changes made since the previous
      * commit/rollback and releases any database locks currently held by the
      * Connection.
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @throws SQLException if a database access error occurs
      * @see commit
      */
     public void rollback() throws SQLException {
@@ -4699,6 +4745,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return pStmt;
     }
 
+    // exposed for testing
+
     /**
      * @see java.sql.Connection#prepareStatement(String, String[])
      */
@@ -4715,202 +4763,18 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     }
 
     /**
-     * If a connection is in auto-commit mode, than all its SQL statements will
-     * be executed and committed as individual transactions. Otherwise, its SQL
-     * statements are grouped into transactions that are terminated by either
-     * commit() or rollback(). By default, new connections are in auto-commit
-     * mode. The commit occurs when the statement completes or the next execute
-     * occurs, whichever comes first. In the case of statements returning a
-     * ResultSet, the statement completes when the last row of the ResultSet has
-     * been retrieved or the ResultSet has been closed. In advanced cases, a
-     * single statement may return multiple results as well as output parameter
-     * values. Here the commit occurs when all results and output param values
-     * have been retrieved.
-     * 
-     * @param autoCommitFlag
-     *            true enables auto-commit; false disables it
-     * @exception SQLException
-     *                if a database access error occurs
-     */
-    public void setAutoCommit(final boolean autoCommitFlag) throws SQLException {
-        synchronized (getConnectionMutex()) {
-            checkClosed();
-
-            if (this.connectionLifecycleInterceptors != null) {
-                IterateBlock<Extension> iter = new IterateBlock<Extension>(this.connectionLifecycleInterceptors.iterator()) {
-
-                    @Override
-                    void forEach(Extension each) throws SQLException {
-                        if (!((ConnectionLifecycleInterceptor) each).setAutoCommit(autoCommitFlag)) {
-                            this.stopIterating = true;
-                        }
-                    }
-                };
-
-                iter.doForAll();
-
-                if (!iter.fullIteration()) {
-                    return;
-                }
-            }
-
-            if (getAutoReconnectForPools()) {
-                setHighAvailability(true);
-            }
-
-            try {
-                if (this.transactionsSupported) {
-
-                    boolean needsSetOnServer = true;
-
-                    if (this.getUseLocalSessionState() && this.autoCommit == autoCommitFlag) {
-                        needsSetOnServer = false;
-                    } else if (!this.getHighAvailability()) {
-                        needsSetOnServer = this.getIO().isSetNeededForAutoCommitMode(autoCommitFlag);
-                    }
-
-                    // this internal value must be set first as failover depends on it being set to true to fail over (which is done by most app servers and
-                    // connection pools at the end of a transaction), and the driver issues an implicit set based on this value when it (re)-connects to a
-                    // server so the value holds across connections
-                    this.autoCommit = autoCommitFlag;
-
-                    if (needsSetOnServer) {
-                        execSQL(null, autoCommitFlag ? "SET autocommit=1" : "SET autocommit=0", -1, null, DEFAULT_RESULT_SET_TYPE,
-                                DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
-                    }
-
-                } else {
-                    if ((autoCommitFlag == false) && !getRelaxAutoCommit()) {
-                        throw SQLError.createSQLException("MySQL Versions Older than 3.23.15 do not support transactions",
-                                SQLError.SQL_STATE_CONNECTION_NOT_OPEN, getExceptionInterceptor());
-                    }
-
-                    this.autoCommit = autoCommitFlag;
-                }
-            } finally {
-                if (this.getAutoReconnectForPools()) {
-                    setHighAvailability(false);
-                }
-            }
-
-            return;
-        }
-    }
-
-    /**
-     * A sub-space of this Connection's database may be selected by setting a
-     * catalog name. If the driver does not support catalogs, it will silently
-     * ignore this request
-     * <p>
-     * <b>Note:</b> MySQL's notion of catalogs are individual databases.
-     * </p>
-     * 
-     * @param catalog
-     *            the database for this connection to use
-     * @throws SQLException
-     *             if a database access error occurs
-     */
-    public void setCatalog(final String catalog) throws SQLException {
-        synchronized (getConnectionMutex()) {
-            checkClosed();
-
-            if (catalog == null) {
-                throw SQLError.createSQLException("Catalog can not be null", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
-            }
-
-            if (this.connectionLifecycleInterceptors != null) {
-                IterateBlock<Extension> iter = new IterateBlock<Extension>(this.connectionLifecycleInterceptors.iterator()) {
-
-                    @Override
-                    void forEach(Extension each) throws SQLException {
-                        if (!((ConnectionLifecycleInterceptor) each).setCatalog(catalog)) {
-                            this.stopIterating = true;
-                        }
-                    }
-                };
-
-                iter.doForAll();
-
-                if (!iter.fullIteration()) {
-                    return;
-                }
-            }
-
-            if (getUseLocalSessionState()) {
-                if (this.lowerCaseTableNames) {
-                    if (this.database.equalsIgnoreCase(catalog)) {
-                        return;
-                    }
-                } else {
-                    if (this.database.equals(catalog)) {
-                        return;
-                    }
-                }
-            }
-
-            String quotedId = this.dbmd.getIdentifierQuoteString();
-
-            if ((quotedId == null) || quotedId.equals(" ")) {
-                quotedId = "";
-            }
-
-            StringBuilder query = new StringBuilder("USE ");
-            query.append(StringUtils.quoteIdentifier(catalog, quotedId, getPedantic()));
-
-            execSQL(null, query.toString(), -1, null, DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
-
-            this.database = catalog;
-        }
-    }
-
-    /**
-     * @param failedOver
-     *            The failedOver to set.
+     * @param failedOver The failedOver to set.
      */
     public void setFailedOver(boolean flag) {
         // handled higher up
     }
 
     /**
-     * @see Connection#setHoldability(int)
-     */
-    public void setHoldability(int arg0) throws SQLException {
-        // do nothing
-    }
-
-    public void setInGlobalTx(boolean flag) {
-        this.isInGlobalTx = flag;
-    }
-
-    // exposed for testing
-    /**
-     * @param preferSlaveDuringFailover
-     *            The preferSlaveDuringFailover to set.
+     * @param preferSlaveDuringFailover The preferSlaveDuringFailover to set.
      */
     @Deprecated
     public void setPreferSlaveDuringFailover(boolean flag) {
         // no-op, handled further up in the wrapper
-    }
-
-    public void setReadInfoMsgEnabled(boolean flag) {
-        this.readInfoMsg = flag;
-    }
-
-    /**
-     * You can put a connection in read-only mode as a hint to enable database
-     * optimizations <B>Note:</B> setReadOnly cannot be called while in the
-     * middle of a transaction
-     * 
-     * @param readOnlyFlag
-     *            -
-     *            true enables read-only mode; false disables it
-     * @exception SQLException
-     *                if a database access error occurs
-     */
-    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
-        checkClosed();
-
-        setReadOnlyInternal(readOnlyFlag);
     }
 
     public void setReadOnlyInternal(boolean readOnlyFlag) throws SQLException {
@@ -5008,87 +4872,6 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         }
     }
 
-    /**
-     * @param level
-     * @throws SQLException
-     */
-    public void setTransactionIsolation(int level) throws SQLException {
-        synchronized (getConnectionMutex()) {
-            checkClosed();
-
-            if (this.hasIsolationLevels) {
-                String sql = null;
-
-                boolean shouldSendSet = false;
-
-                if (getAlwaysSendSetIsolation()) {
-                    shouldSendSet = true;
-                } else {
-                    if (level != this.isolationLevel) {
-                        shouldSendSet = true;
-                    }
-                }
-
-                if (getUseLocalSessionState()) {
-                    shouldSendSet = this.isolationLevel != level;
-                }
-
-                if (shouldSendSet) {
-                    switch (level) {
-                        case java.sql.Connection.TRANSACTION_NONE:
-                            throw SQLError.createSQLException("Transaction isolation level NONE not supported by MySQL", getExceptionInterceptor());
-
-                        case java.sql.Connection.TRANSACTION_READ_COMMITTED:
-                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED";
-
-                            break;
-
-                        case java.sql.Connection.TRANSACTION_READ_UNCOMMITTED:
-                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED";
-
-                            break;
-
-                        case java.sql.Connection.TRANSACTION_REPEATABLE_READ:
-                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ";
-
-                            break;
-
-                        case java.sql.Connection.TRANSACTION_SERIALIZABLE:
-                            sql = "SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE";
-
-                            break;
-
-                        default:
-                            throw SQLError.createSQLException("Unsupported transaction isolation level '" + level + "'", SQLError.SQL_STATE_DRIVER_NOT_CAPABLE,
-                                    getExceptionInterceptor());
-                    }
-
-                    execSQL(null, sql, -1, null, DEFAULT_RESULT_SET_TYPE, DEFAULT_RESULT_SET_CONCURRENCY, false, this.database, null, false);
-
-                    this.isolationLevel = level;
-                }
-            } else {
-                throw SQLError.createSQLException("Transaction Isolation Levels are not supported on MySQL versions older than 3.23.36.",
-                        SQLError.SQL_STATE_DRIVER_NOT_CAPABLE, getExceptionInterceptor());
-            }
-        }
-    }
-
-    /**
-     * JDBC 2.0 Install a type-map object as the default type-map for this
-     * connection
-     * 
-     * @param map
-     *            the type mapping
-     * @throws SQLException
-     *             if a database error occurs.
-     */
-    public void setTypeMap(java.util.Map<String, Class<?>> map) throws SQLException {
-        synchronized (getConnectionMutex()) {
-            this.typeMap = map;
-        }
-    }
-
     private void setupServerForTruncationChecks() throws SQLException {
         if (getJdbcCompliantTruncation()) {
             if (versionMeetsMinimum(5, 0, 2)) {
@@ -5120,9 +4903,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Used by MiniAdmin to shutdown a MySQL server
-     * 
-     * @throws SQLException
-     *             if the command can not be issued.
+     *
+     * @throws SQLException if the command can not be issued.
      */
     public void shutdownServer() throws SQLException {
         try {
@@ -5151,9 +4933,8 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Remove the given statement from the list of open statements
-     * 
-     * @param stmt
-     *            the Statement instance to remove
+     *
+     * @param stmt the Statement instance to remove
      */
     public void unregisterStatement(Statement stmt) {
         this.openStatements.remove(stmt);
@@ -5174,16 +4955,14 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Returns cached metadata (or null if not cached) for the given query,
      * which must match _exactly_.
-     * 
+     * <p>
      * This method is synchronized by the caller on getMutex(), so if
      * calling this method from internal code in the driver, make sure it's
      * synchronized on the mutex that guards communication with the server.
-     * 
-     * @param sql
-     *            the query that is the key to the cache
-     * 
+     *
+     * @param sql the query that is the key to the cache
      * @return metadata cached for the given SQL, or none if it doesn't
-     *         exist.
+     * exist.
      */
     public CachedResultSetMetaData getCachedMetaData(String sql) {
         if (this.resultSetMetadataCache != null) {
@@ -5198,18 +4977,14 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Caches CachedResultSetMetaData that has been placed in the cache using
      * the given SQL as a key.
-     * 
+     * <p>
      * This method is synchronized by the caller on getMutex(), so if
      * calling this method from internal code in the driver, make sure it's
      * synchronized on the mutex that guards communication with the server.
-     * 
-     * @param sql
-     *            the query that the metadata pertains too.
-     * @param cachedMetaData
-     *            metadata (if it exists) to populate the cache.
-     * @param resultSet
-     *            the result set to retreive metadata from, or apply to.
-     * 
+     *
+     * @param sql            the query that the metadata pertains too.
+     * @param cachedMetaData metadata (if it exists) to populate the cache.
+     * @param resultSet      the result set to retreive metadata from, or apply to.
      * @throws SQLException
      */
     public void initializeResultsMetadataFromCache(String sql, CachedResultSetMetaData cachedMetaData, ResultSetInternalMethods resultSet) throws SQLException {
@@ -5243,9 +5018,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     /**
      * Returns the comment that will be prepended to all statements
      * sent to the server.
-     * 
+     *
      * @return the comment that will be prepended to all statements
-     *         sent to the server.
+     * sent to the server.
      */
     public String getStatementComment() {
         return this.statementComment;
@@ -5255,10 +5030,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * Sets the comment that will be prepended to all statements
      * sent to the server. Do not use slash-star or star-slash tokens
      * in the comment as these will be added by the driver itself.
-     * 
-     * @param comment
-     *            the comment that will be prepended to all statements
-     *            sent to the server.
+     *
+     * @param comment the comment that will be prepended to all statements
+     *                sent to the server.
      */
     public void setStatementComment(String comment) {
         this.statementComment = comment;
@@ -5325,8 +5099,6 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         return this.storesLowerCaseTableName;
     }
 
-    private ExceptionInterceptor exceptionInterceptor;
-
     @Override
     public ExceptionInterceptor getExceptionInterceptor() {
         return this.exceptionInterceptor;
@@ -5359,11 +5131,9 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
 
     /**
      * Sets the sql select limit max-rows for this session if different from current.
-     * 
-     * @param max
-     *            the new max-rows value to set.
-     * @throws SQLException
-     *             if a database error occurs issuing the statement that sets the limit.
+     *
+     * @param max the new max-rows value to set.
+     * @throws SQLException if a database error occurs issuing the statement that sets the limit.
      */
     public void setSessionMaxRows(int max) throws SQLException {
         synchronized (getConnectionMutex()) {
@@ -5376,19 +5146,19 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
     }
 
     // JDBC-4.1
-    // until we flip catalog/schema, this is a no-op
-    public void setSchema(String schema) throws SQLException {
-        synchronized (getConnectionMutex()) {
-            checkClosed();
-        }
-    }
-
-    // JDBC-4.1
     public String getSchema() throws SQLException {
         synchronized (getConnectionMutex()) {
             checkClosed();
 
             return null;
+        }
+    }
+
+    // JDBC-4.1
+    // until we flip catalog/schema, this is a no-op
+    public void setSchema(String schema) throws SQLException {
+        synchronized (getConnectionMutex()) {
+            checkClosed();
         }
     }
 
@@ -5409,15 +5179,12 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
      * <p>
      * This method checks to see that there is an <code>SQLPermission</code> object before allowing the method to proceed. If a <code>SecurityManager</code>
      * exists and its <code>checkPermission</code> method denies calling <code>abort</code>, this method throws a <code>java.lang.SecurityException</code>.
-     * 
-     * @param executor
-     *            The <code>Executor</code> implementation which will
-     *            be used by <code>abort</code>.
-     * @throws java.sql.SQLException
-     *             if a database access error occurs or
-     *             the {@code executor} is {@code null},
-     * @throws java.lang.SecurityException
-     *             if a security manager exists and its <code>checkPermission</code> method denies calling <code>abort</code>
+     *
+     * @param executor The <code>Executor</code> implementation which will
+     *                 be used by <code>abort</code>.
+     * @throws java.sql.SQLException       if a database access error occurs or
+     *                                     the {@code executor} is {@code null},
+     * @throws java.lang.SecurityException if a security manager exists and its <code>checkPermission</code> method denies calling <code>abort</code>
      * @see SecurityManager#checkPermission
      * @see Executor
      * @since 1.7
@@ -5479,6 +5246,61 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
         this.eventSink = h;
     }
 
+    /**
+     * Used as a key for caching callable statements which (may) depend on
+     * current catalog...In 5.0.x, they don't (currently), but stored procedure
+     * names soon will, so current catalog is a (hidden) component of the name.
+     */
+    static class CompoundCacheKey {
+        String componentOne;
+
+        String componentTwo;
+
+        int hashCode;
+
+        CompoundCacheKey(String partOne, String partTwo) {
+            this.componentOne = partOne;
+            this.componentTwo = partTwo;
+
+            // Handle first component (in most cases, currentCatalog being NULL....
+            this.hashCode = (((this.componentOne != null) ? this.componentOne : "") + this.componentTwo).hashCode();
+        }
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.lang.Object#equals(java.lang.Object)
+         */
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof CompoundCacheKey) {
+                CompoundCacheKey another = (CompoundCacheKey) obj;
+
+                boolean firstPartEqual = false;
+
+                if (this.componentOne == null) {
+                    firstPartEqual = (another.componentOne == null);
+                } else {
+                    firstPartEqual = this.componentOne.equals(another.componentOne);
+                }
+
+                return (firstPartEqual && this.componentTwo.equals(another.componentTwo));
+            }
+
+            return false;
+        }
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.lang.Object#hashCode()
+         */
+        @Override
+        public int hashCode() {
+            return this.hashCode;
+        }
+    }
+
     private static class NetworkTimeoutSetter implements Runnable {
         private final WeakReference<ConnectionImpl> connImplRef;
         private final WeakReference<MysqlIO> mysqlIoRef;
@@ -5506,5 +5328,56 @@ public class ConnectionImpl extends ConnectionPropertiesImpl implements MySQLCon
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public class ExceptionInterceptorChain implements ExceptionInterceptor {
+        private List<Extension> interceptors;
+
+        ExceptionInterceptorChain(String interceptorClasses) throws SQLException {
+            this.interceptors = Util.loadExtensions(ConnectionImpl.this, ConnectionImpl.this.props, interceptorClasses, "Connection.BadExceptionInterceptor",
+                    this);
+        }
+
+        void addRingZero(ExceptionInterceptor interceptor) throws SQLException {
+            this.interceptors.add(0, interceptor);
+        }
+
+        public SQLException interceptException(SQLException sqlEx, Connection conn) {
+            if (this.interceptors != null) {
+                Iterator<Extension> iter = this.interceptors.iterator();
+
+                while (iter.hasNext()) {
+                    sqlEx = ((ExceptionInterceptor) iter.next()).interceptException(sqlEx, ConnectionImpl.this);
+                }
+            }
+
+            return sqlEx;
+        }
+
+        public void destroy() {
+            if (this.interceptors != null) {
+                Iterator<Extension> iter = this.interceptors.iterator();
+
+                while (iter.hasNext()) {
+                    ((ExceptionInterceptor) iter.next()).destroy();
+                }
+            }
+
+        }
+
+        public void init(Connection conn, Properties properties) throws SQLException {
+            if (this.interceptors != null) {
+                Iterator<Extension> iter = this.interceptors.iterator();
+
+                while (iter.hasNext()) {
+                    ((ExceptionInterceptor) iter.next()).init(conn, properties);
+                }
+            }
+        }
+
+        public List<Extension> getInterceptors() {
+            return this.interceptors;
+        }
+
     }
 }

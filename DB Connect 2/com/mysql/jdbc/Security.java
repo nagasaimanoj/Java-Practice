@@ -36,10 +36,10 @@ public class Security {
     private static final int SHA1_HASH_SIZE = 20;
 
     /**
-     * Returns hex value for given char
+     * Prevent construction.
      */
-    private static int charVal(char c) {
-        return ((c >= '0') && (c <= '9')) ? (c - '0') : (((c >= 'A') && (c <= 'Z')) ? (c - 'A' + 10) : (c - 'a' + 10));
+    private Security() {
+        super();
     }
 
     /*
@@ -55,16 +55,19 @@ public class Security {
      */
 
     /**
+     * Returns hex value for given char
+     */
+    private static int charVal(char c) {
+        return ((c >= '0') && (c <= '9')) ? (c - '0') : (((c >= 'A') && (c <= 'Z')) ? (c - 'A' + 10) : (c - 'a' + 10));
+    }
+
+    /**
      * Creates key from old password to decode scramble Used in 4.1
      * authentication with passwords stored pre-4.1 hashing.
-     * 
-     * @param passwd
-     *            the password to create the key from
-     * 
+     *
+     * @param passwd the password to create the key from
      * @return 20 byte generated key
-     * 
-     * @throws NoSuchAlgorithmException
-     *             if the message digest 'SHA-1' is not available.
+     * @throws NoSuchAlgorithmException if the message digest 'SHA-1' is not available.
      */
     static byte[] createKeyFromOldPassword(String passwd) throws NoSuchAlgorithmException {
         /* At first hash password to the string stored in password */
@@ -80,9 +83,7 @@ public class Security {
     /**
      * @param salt
      * @param usingNewPasswords
-     * 
-     * @throws NoSuchAlgorithmException
-     *             if the message digest 'SHA-1' is not available.
+     * @throws NoSuchAlgorithmException if the message digest 'SHA-1' is not available.
      */
     static byte[] getBinaryPassword(int[] salt, boolean usingNewPasswords) throws NoSuchAlgorithmException {
         int val = 0;
@@ -184,16 +185,12 @@ public class Security {
 
     /**
      * Creates password to be stored in user database from raw string.
-     * 
+     * <p>
      * Handles Pre-MySQL 4.1 passwords.
-     * 
-     * @param password
-     *            plaintext password
-     * 
+     *
+     * @param password plaintext password
      * @return scrambled password
-     * 
-     * @throws NoSuchAlgorithmException
-     *             if the message digest 'SHA-1' is not available.
+     * @throws NoSuchAlgorithmException if the message digest 'SHA-1' is not available.
      */
     static String makeScrambledPassword(String password) throws NoSuchAlgorithmException {
         long[] passwordHash = Util.hashPre41Password(password);
@@ -207,17 +204,13 @@ public class Security {
 
     /**
      * Encrypt/Decrypt function used for password encryption in authentication
-     * 
+     * <p>
      * Simple XOR is used here but it is OK as we crypt random strings
-     * 
-     * @param from
-     *            IN Data for encryption
-     * @param to
-     *            OUT Encrypt data to the buffer (may be the same)
-     * @param scramble
-     *            IN Scramble used for encryption
-     * @param length
-     *            IN Length of data to encrypt
+     *
+     * @param from     IN Data for encryption
+     * @param to       OUT Encrypt data to the buffer (may be the same)
+     * @param scramble IN Scramble used for encryption
+     * @param length   IN Length of data to encrypt
      */
     public static void xorString(byte[] from, byte[] to, byte[] scramble, int length) {
         int pos = 0;
@@ -231,14 +224,10 @@ public class Security {
 
     /**
      * Stage one password hashing, used in MySQL 4.1 password handling
-     * 
-     * @param password
-     *            plaintext password
-     * 
+     *
+     * @param password plaintext password
      * @return stage one hash of password
-     * 
-     * @throws NoSuchAlgorithmException
-     *             if the message digest 'SHA-1' is not available.
+     * @throws NoSuchAlgorithmException if the message digest 'SHA-1' is not available.
      */
     static byte[] passwordHashStage1(String password) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -261,16 +250,11 @@ public class Security {
 
     /**
      * Stage two password hashing used in MySQL 4.1 password handling
-     * 
-     * @param hash
-     *            from passwordHashStage1
-     * @param salt
-     *            salt used for stage two hashing
-     * 
+     *
+     * @param hash from passwordHashStage1
+     * @param salt salt used for stage two hashing
      * @return result of stage two password hash
-     * 
-     * @throws NoSuchAlgorithmException
-     *             if the message digest 'SHA-1' is not available.
+     * @throws NoSuchAlgorithmException if the message digest 'SHA-1' is not available.
      */
     static byte[] passwordHashStage2(byte[] hashedPassword, byte[] salt) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -323,12 +307,5 @@ public class Security {
         }
 
         return toBeXord;
-    }
-
-    /**
-     * Prevent construction.
-     */
-    private Security() {
-        super();
     }
 }

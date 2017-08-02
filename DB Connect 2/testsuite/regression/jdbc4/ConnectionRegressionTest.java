@@ -23,40 +23,22 @@
 
 package testsuite.regression.jdbc4;
 
-import java.io.ObjectInputStream.GetField;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLTransientException;
-import java.sql.Statement;
-import java.util.Properties;
-import java.util.concurrent.Callable;
-
-import com.mysql.jdbc.Messages;
 import com.mysql.jdbc.MysqlErrorNumbers;
 import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Util;
+import com.mysql.jdbc.jdbc2.optional.*;
+import testsuite.BaseTestCase;
+import testsuite.regression.ConnectionRegressionTest.Bug75168LoadBalanceExceptionChecker;
 
 import javax.sql.PooledConnection;
-
-import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlXADataSource;
-import com.mysql.jdbc.jdbc2.optional.JDBC4MysqlPooledConnection;
-import com.mysql.jdbc.jdbc2.optional.JDBC4MysqlXAConnection;
-import com.mysql.jdbc.jdbc2.optional.JDBC4SuspendableXAConnection;
-
-import testsuite.BaseTestCase;
-import testsuite.regression.ConnectionRegressionTest.Bug72712StatementInterceptor;
-import testsuite.regression.ConnectionRegressionTest.Bug75168LoadBalanceExceptionChecker;
+import java.sql.*;
+import java.util.Properties;
+import java.util.concurrent.Callable;
 
 public class ConnectionRegressionTest extends BaseTestCase {
     /**
      * Creates a new ConnectionRegressionTest.
-     * 
-     * @param name
-     *            the name of the test
+     *
+     * @param name the name of the test
      */
     public ConnectionRegressionTest(String name) {
         super(name);
@@ -64,7 +46,7 @@ public class ConnectionRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
@@ -73,10 +55,10 @@ public class ConnectionRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for Bug#75168 - loadBalanceExceptionChecker interface cannot work using JDBC4/JDK7
-     * 
+     * <p>
      * Bug observed only with JDBC4 classes. This test is duplicated in testsuite.regression.ConnectionRegressionTest#testBug75168().
      * The two nested static classes, Bug75168LoadBalanceExceptionChecker and Bug75168StatementInterceptor are shared between the two tests.
-     * 
+     *
      * @throws Exception
      */
     public void testBug75168() throws Exception {
@@ -127,11 +109,10 @@ public class ConnectionRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#20685022 - SSL CONNECTION TO MYSQL 5.7.6 COMMUNITY SERVER FAILS
-     * 
+     * <p>
      * This test is duplicated in testuite.regression.ConnectionRegressionTest.testBug20685022().
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug20685022() throws Exception {
         if (!isCommunityEdition()) {
@@ -182,7 +163,7 @@ public class ConnectionRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#62452 - NPE thrown in JDBC4MySQLPooledException when statement is closed.
-     * 
+     *
      * @throws Exception
      */
     public void testBug62452() throws Exception {
@@ -221,9 +202,8 @@ public class ConnectionRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for Bug#16634180 - LOCK WAIT TIMEOUT EXCEEDED CAUSES SQLEXCEPTION, SHOULD CAUSE SQLTRANSIENTEXCEPTION
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug16634180() throws Exception {
 
@@ -264,8 +244,8 @@ public class ConnectionRegressionTest extends BaseTestCase {
      * Tests fix for Bug#56122 - JDBC4 functionality failure when using replication connections.
      */
     public void testBug56122() throws Exception {
-        for (final Connection testConn : new Connection[] { this.conn, getFailoverConnection(), getLoadBalancedConnection(),
-                getMasterSlaveReplicationConnection() }) {
+        for (final Connection testConn : new Connection[]{this.conn, getFailoverConnection(), getLoadBalancedConnection(),
+                getMasterSlaveReplicationConnection()}) {
             testConn.createClob();
             testConn.createBlob();
             testConn.createNClob();

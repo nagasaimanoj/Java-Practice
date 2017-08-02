@@ -29,7 +29,7 @@ import java.sql.SQLException;
  * This interface is intended to be used by implementors of statement interceptors so that implementors can create static or dynamic (via
  * java.lang.reflect.Proxy) proxy instances of ResultSets. It consists of methods outside of java.sql.Result that are used internally by other classes in the
  * driver.
- * 
+ * <p>
  * This interface, although public is <strong>not</strong> designed to be consumed publicly other than for the statement interceptor use case.
  */
 public interface ResultSetInternalMethods extends java.sql.ResultSet {
@@ -79,7 +79,7 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
     /**
      * Returns the update count for this result set (if one exists), otherwise
      * -1.
-     * 
+     *
      * @ return the update count for this result set (if one exists), otherwise
      * -1.
      */
@@ -88,18 +88,17 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
     /**
      * Returns the AUTO_INCREMENT value for the DDL/DML statement which created
      * this result set.
-     * 
+     *
      * @return the AUTO_INCREMENT value for the DDL/DML statement which created
-     *         this result set.
+     * this result set.
      */
     public long getUpdateID();
 
     /**
      * Closes this ResultSet and releases resources.
-     * 
-     * @param calledExplicitly
-     *            was realClose called by the standard ResultSet.close() method, or was it closed internally by the
-     *            driver?
+     *
+     * @param calledExplicitly was realClose called by the standard ResultSet.close() method, or was it closed internally by the
+     *                         driver?
      */
     public void realClose(boolean calledExplicitly) throws SQLException;
 
@@ -107,12 +106,6 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
      * Returns true if this ResultSet is closed
      */
     public boolean isClosed() throws SQLException;
-
-    /**
-     * Sets the first character of the query that was issued to create
-     * this result set. The character should be upper-cased.
-     */
-    public void setFirstCharOfQuery(char firstCharUpperCase);
 
     /**
      * Sets the statement that "owns" this result set (usually used when the
@@ -126,6 +119,12 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
      * result set, upper-cased.
      */
     public char getFirstCharOfQuery();
+
+    /**
+     * Sets the first character of the query that was issued to create
+     * this result set. The character should be upper-cased.
+     */
+    public void setFirstCharOfQuery(char firstCharUpperCase);
 
     /**
      * Clears the reference to the next result set in a multi-result set
@@ -142,8 +141,7 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
     public void setStatementUsedForFetchingRows(PreparedStatement stmt);
 
     /**
-     * @param wrapperStatement
-     *            The wrapperStatement to set.
+     * @param wrapperStatement The wrapperStatement to set.
      */
     public void setWrapperStatement(java.sql.Statement wrapperStatement);
 
@@ -160,11 +158,10 @@ public interface ResultSetInternalMethods extends java.sql.ResultSet {
     /**
      * Used by DatabaseMetadata implementations to coerce the metadata returned
      * by metadata queries into that required by the JDBC specification.
-     * 
-     * @param metadataFields
-     *            the coerced metadata to be applied to result sets
-     *            returned by "SHOW ..." or SELECTs on INFORMATION_SCHEMA performed on behalf
-     *            of methods in DatabaseMetadata.
+     *
+     * @param metadataFields the coerced metadata to be applied to result sets
+     *                       returned by "SHOW ..." or SELECTs on INFORMATION_SCHEMA performed on behalf
+     *                       of methods in DatabaseMetadata.
      */
     public void redefineFieldsForDBMD(Field[] metadataFields);
 

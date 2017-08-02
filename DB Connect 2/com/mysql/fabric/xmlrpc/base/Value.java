@@ -23,12 +23,11 @@
 
 package com.mysql.fabric.xmlrpc.base;
 
-import java.util.Arrays;
-import java.util.GregorianCalendar;
-
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
+import java.util.Arrays;
+import java.util.GregorianCalendar;
 
 public class Value {
 

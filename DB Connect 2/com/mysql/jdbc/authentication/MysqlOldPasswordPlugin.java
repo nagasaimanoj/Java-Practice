@@ -23,15 +23,11 @@
 
 package com.mysql.jdbc.authentication;
 
+import com.mysql.jdbc.*;
+
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
-
-import com.mysql.jdbc.AuthenticationPlugin;
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.StringUtils;
-import com.mysql.jdbc.Util;
 
 /**
  * MySQL Native Old-Password Authentication Plugin

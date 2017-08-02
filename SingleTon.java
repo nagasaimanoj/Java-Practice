@@ -12,7 +12,8 @@ class SingleTonX {
 
     int count;
 
-    SingleTonX() {}
+    SingleTonX() {
+    }
 
     SingleTonX getInstance(int num) {
         count = num;

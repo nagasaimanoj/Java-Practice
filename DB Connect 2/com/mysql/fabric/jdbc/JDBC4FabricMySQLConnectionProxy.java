@@ -23,58 +23,13 @@
 
 package com.mysql.fabric.jdbc;
 
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.CallableStatement;
-import java.sql.Clob;
-import java.sql.DatabaseMetaData;
-import java.sql.NClob;
-import java.sql.PreparedStatement;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Statement;
-import java.sql.Savepoint;
-import java.sql.Struct;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TimerTask;
-import java.util.Timer;
-import java.util.TimeZone;
-import java.util.concurrent.Executor;
-
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.CachedResultSetMetaData;
+import com.mysql.fabric.FabricConnection;
 import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ConnectionProperties;
-import com.mysql.jdbc.ConnectionPropertiesImpl;
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.Extension;
-import com.mysql.jdbc.Field;
-import com.mysql.jdbc.JDBC4Connection;
 import com.mysql.jdbc.JDBC4ClientInfoProvider;
 import com.mysql.jdbc.JDBC4MySQLConnection;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.MysqlIO;
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.ResultSetInternalMethods;
-import com.mysql.jdbc.ServerPreparedStatement;
-import com.mysql.jdbc.SingleByteCharsetConverter;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.StatementImpl;
-import com.mysql.jdbc.StatementInterceptorV2;
-import com.mysql.jdbc.log.Log;
 
-import com.mysql.fabric.FabricCommunicationException;
-import com.mysql.fabric.FabricConnection;
-import com.mysql.fabric.Server;
-import com.mysql.fabric.ServerGroup;
-import com.mysql.fabric.ServerMode;
-import com.mysql.fabric.ShardMapping;
+import java.sql.*;
+import java.util.Properties;
 
 /**
  * Limitations:

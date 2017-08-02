@@ -1,8 +1,9 @@
 package com.gnsmk;
 
+import com.opencsv.CSVReader;
+
 import java.io.*;
 import java.util.*;
-import com.opencsv.CSVReader;
 
 public class Reader1 {
 

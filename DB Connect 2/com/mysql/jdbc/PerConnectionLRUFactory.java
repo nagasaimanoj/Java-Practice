@@ -23,12 +23,12 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.PreparedStatement.ParseInfo;
+import com.mysql.jdbc.util.LRUCache;
+
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.Set;
-
-import com.mysql.jdbc.PreparedStatement.ParseInfo;
-import com.mysql.jdbc.util.LRUCache;
 
 public class PerConnectionLRUFactory implements CacheAdapterFactory<String, ParseInfo> {
 

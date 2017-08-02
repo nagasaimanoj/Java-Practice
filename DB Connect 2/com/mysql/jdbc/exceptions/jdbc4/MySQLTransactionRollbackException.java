@@ -23,9 +23,9 @@
 
 package com.mysql.jdbc.exceptions.jdbc4;
 
-import java.sql.SQLTransactionRollbackException;
-
 import com.mysql.jdbc.exceptions.DeadlockTimeoutRollbackMarker;
+
+import java.sql.SQLTransactionRollbackException;
 
 public class MySQLTransactionRollbackException extends SQLTransactionRollbackException implements DeadlockTimeoutRollbackMarker {
 

@@ -23,6 +23,9 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
+import com.mysql.jdbc.*;
+import com.mysql.jdbc.log.Log;
+
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.sql.Savepoint;
@@ -32,40 +35,23 @@ import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.Executor;
 
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.Extension;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.MysqlErrorNumbers;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Util;
-import com.mysql.jdbc.log.Log;
-
 /**
  * This class serves as a wrapper for the org.gjt.mm.mysql.jdbc2.Connection class. It is returned to the application server which may wrap it again and then
  * return it to the application client in response to dataSource.getConnection().
- * 
+ * <p>
  * All method invocations are forwarded to org.gjt.mm.mysql.jdbc2.Connection unless the close method was previously called, in which case a sqlException is
  * thrown. The close method performs a 'logical close' on the connection.
- * 
+ * <p>
  * All sqlExceptions thrown by the physical connection are intercepted and sent to connectionEvent listeners before being thrown to client.
  */
 public class ConnectionWrapper extends WrapperBase implements Connection {
-    protected Connection mc = null;
-
-    private String invalidHandleStr = "Logical handle no longer valid";
-
-    private boolean closed;
-
-    private boolean isForXa;
-
     private static final Constructor<?> JDBC_4_CONNECTION_WRAPPER_CTOR;
 
     static {
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_CONNECTION_WRAPPER_CTOR = Class.forName("com.mysql.jdbc.jdbc2.optional.JDBC4ConnectionWrapper")
-                        .getConstructor(new Class[] { MysqlPooledConnection.class, Connection.class, Boolean.TYPE });
+                        .getConstructor(new Class[]{MysqlPooledConnection.class, Connection.class, Boolean.TYPE});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -78,25 +64,17 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         }
     }
 
-    protected static ConnectionWrapper getInstance(MysqlPooledConnection mysqlPooledConnection, Connection mysqlConnection, boolean forXa) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new ConnectionWrapper(mysqlPooledConnection, mysqlConnection, forXa);
-        }
-
-        return (ConnectionWrapper) Util.handleNewInstance(JDBC_4_CONNECTION_WRAPPER_CTOR,
-                new Object[] { mysqlPooledConnection, mysqlConnection, Boolean.valueOf(forXa) }, mysqlPooledConnection.getExceptionInterceptor());
-    }
+    protected Connection mc = null;
+    private String invalidHandleStr = "Logical handle no longer valid";
+    private boolean closed;
+    private boolean isForXa;
 
     /**
      * Construct a new LogicalHandle and set instance variables
-     * 
-     * @param mysqlPooledConnection
-     *            reference to object that instantiated this object
-     * @param mysqlConnection
-     *            physical connection to db
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     *
+     * @param mysqlPooledConnection reference to object that instantiated this object
+     * @param mysqlConnection       physical connection to db
+     * @throws SQLException if an error occurs.
      */
     public ConnectionWrapper(MysqlPooledConnection mysqlPooledConnection, Connection mysqlConnection, boolean forXa) throws SQLException {
         super(mysqlPooledConnection);
@@ -110,10 +88,37 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         }
     }
 
+    protected static ConnectionWrapper getInstance(MysqlPooledConnection mysqlPooledConnection, Connection mysqlConnection, boolean forXa) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new ConnectionWrapper(mysqlPooledConnection, mysqlConnection, forXa);
+        }
+
+        return (ConnectionWrapper) Util.handleNewInstance(JDBC_4_CONNECTION_WRAPPER_CTOR,
+                new Object[]{mysqlPooledConnection, mysqlConnection, Boolean.valueOf(forXa)}, mysqlPooledConnection.getExceptionInterceptor());
+    }
+
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
+     * @see java.sql.Connection#getAutoCommit()
+     */
+    public boolean getAutoCommit() throws SQLException {
+        checkClosed();
+
+        try {
+            return this.mc.getAutoCommit();
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
+
+        return false; // we don't reach this code, compiler can't tell
+    }
+
+    /**
+     * Passes call to method on physical connection instance. Notifies listeners
+     * of any caught exceptions before re-throwing to client.
+     *
      * @see java.sql.Connection#setAutoCommit
      */
     public void setAutoCommit(boolean autoCommit) throws SQLException {
@@ -134,45 +139,9 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
-     * @see java.sql.Connection#getAutoCommit()
-     */
-    public boolean getAutoCommit() throws SQLException {
-        checkClosed();
-
-        try {
-            return this.mc.getAutoCommit();
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
-
-        return false; // we don't reach this code, compiler can't tell
-    }
-
-    /**
-     * Passes call to method on physical connection instance. Notifies listeners
-     * of any caught exceptions before re-throwing to client.
-     * 
-     * @see java.sql.Connection#setCatalog()
-     */
-    public void setCatalog(String catalog) throws SQLException {
-        checkClosed();
-
-        try {
-            this.mc.setCatalog(catalog);
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
-    }
-
-    /**
-     * Passes call to method on physical connection instance. Notifies listeners
-     * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @return the current catalog
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public String getCatalog() throws SQLException {
         checkClosed();
@@ -189,7 +158,23 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
+     * @see java.sql.Connection#setCatalog()
+     */
+    public void setCatalog(String catalog) throws SQLException {
+        checkClosed();
+
+        try {
+            this.mc.setCatalog(catalog);
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
+    }
+
+    /**
+     * Passes call to method on physical connection instance. Notifies listeners
+     * of any caught exceptions before re-throwing to client.
+     *
      * @see java.sql.Connection#isClosed()
      */
     public boolean isClosed() throws SQLException {
@@ -198,19 +183,6 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
 
     public boolean isMasterConnection() {
         return this.mc.isMasterConnection();
-    }
-
-    /**
-     * @see Connection#setHoldability(int)
-     */
-    public void setHoldability(int arg0) throws SQLException {
-        checkClosed();
-
-        try {
-            this.mc.setHoldability(arg0);
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
     }
 
     /**
@@ -230,8 +202,21 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     }
 
     /**
+     * @see Connection#setHoldability(int)
+     */
+    public void setHoldability(int arg0) throws SQLException {
+        checkClosed();
+
+        try {
+            this.mc.setHoldability(arg0);
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
+    }
+
+    /**
      * Allows clients to determine how long this connection has been idle.
-     * 
+     *
      * @return how long the connection has been idle.
      */
     public long getIdleFor() {
@@ -241,11 +226,9 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @return a metadata instance
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public java.sql.DatabaseMetaData getMetaData() throws SQLException {
         checkClosed();
@@ -262,23 +245,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
-     * @see java.sql.Connection#setReadOnly()
-     */
-    public void setReadOnly(boolean readOnly) throws SQLException {
-        checkClosed();
-
-        try {
-            this.mc.setReadOnly(readOnly);
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
-    }
-
-    /**
-     * Passes call to method on physical connection instance. Notifies listeners
-     * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#isReadOnly()
      */
     public boolean isReadOnly() throws SQLException {
@@ -291,6 +258,22 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         }
 
         return false; // we don't reach this code, compiler can't tell
+    }
+
+    /**
+     * Passes call to method on physical connection instance. Notifies listeners
+     * of any caught exceptions before re-throwing to client.
+     *
+     * @see java.sql.Connection#setReadOnly()
+     */
+    public void setReadOnly(boolean readOnly) throws SQLException {
+        checkClosed();
+
+        try {
+            this.mc.setReadOnly(readOnly);
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
     }
 
     /**
@@ -336,23 +319,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
-     * @see java.sql.Connection#setTransactionIsolation()
-     */
-    public void setTransactionIsolation(int level) throws SQLException {
-        checkClosed();
-
-        try {
-            this.mc.setTransactionIsolation(level);
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
-    }
-
-    /**
-     * Passes call to method on physical connection instance. Notifies listeners
-     * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#getTransactionIsolation()
      */
     public int getTransactionIsolation() throws SQLException {
@@ -371,7 +338,23 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
+     * @see java.sql.Connection#setTransactionIsolation()
+     */
+    public void setTransactionIsolation(int level) throws SQLException {
+        checkClosed();
+
+        try {
+            this.mc.setTransactionIsolation(level);
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
+    }
+
+    /**
+     * Passes call to method on physical connection instance. Notifies listeners
+     * of any caught exceptions before re-throwing to client.
+     *
      * @see java.sql.Connection#getTypeMap()
      */
     public java.util.Map<String, Class<?>> getTypeMap() throws SQLException {
@@ -386,10 +369,20 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return null; // we don't reach this code, compiler can't tell
     }
 
+    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
+        checkClosed();
+
+        try {
+            this.mc.setTypeMap(map);
+        } catch (SQLException sqlException) {
+            checkAndFireConnectionError(sqlException);
+        }
+    }
+
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#getWarnings
      */
     public java.sql.SQLWarning getWarnings() throws SQLException {
@@ -407,9 +400,8 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @throws SQLException if an error occurs
      */
     public void clearWarnings() throws SQLException {
         checkClosed();
@@ -427,9 +419,8 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
      * mysqlPooledConnection.close(). this object is de-referenced by the pooled
      * connection each time mysqlPooledConnection.getConnection() is called by
      * app server.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @throws SQLException if an error occurs
      */
     public void close() throws SQLException {
         close(true);
@@ -438,9 +429,8 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @throws SQLException if an error occurs
      */
     public void commit() throws SQLException {
         checkClosed();
@@ -460,7 +450,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#createStatement()
      */
     public java.sql.Statement createStatement() throws SQLException {
@@ -478,7 +468,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#createStatement()
      */
     public java.sql.Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
@@ -511,7 +501,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#nativeSQL()
      */
     public String nativeSQL(String sql) throws SQLException {
@@ -529,7 +519,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#prepareCall()
      */
     public java.sql.CallableStatement prepareCall(String sql) throws SQLException {
@@ -547,7 +537,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#prepareCall()
      */
     public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
@@ -604,7 +594,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#prepareStatement()
      */
     public java.sql.PreparedStatement prepareStatement(String sql) throws SQLException {
@@ -624,7 +614,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#prepareStatement()
      */
     public java.sql.PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
@@ -715,7 +705,7 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
     /**
      * Passes call to method on physical connection instance. Notifies listeners
      * of any caught exceptions before re-throwing to client.
-     * 
+     *
      * @see java.sql.Connection#rollback()
      */
     public void rollback() throws SQLException {
@@ -905,6 +895,11 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getStatementComment();
     }
 
+    public void setStatementComment(String comment) {
+        this.mc.setStatementComment(comment);
+
+    }
+
     @Deprecated
     public boolean hasTriedMaster() {
         return this.mc.hasTriedMaster();
@@ -1014,11 +1009,6 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         this.mc.setPreferSlaveDuringFailover(flag);
     }
 
-    public void setStatementComment(String comment) {
-        this.mc.setStatementComment(comment);
-
-    }
-
     public void shutdownServer() throws SQLException {
         checkClosed();
 
@@ -1070,688 +1060,1312 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getAllowLoadLocalInfile();
     }
 
-    public boolean getAllowMultiQueries() {
-        return this.mc.getAllowMultiQueries();
-    }
-
-    public boolean getAllowNanAndInf() {
-        return this.mc.getAllowNanAndInf();
-    }
-
-    public boolean getAllowUrlInLocalInfile() {
-        return this.mc.getAllowUrlInLocalInfile();
-    }
-
-    public boolean getAlwaysSendSetIsolation() {
-        return this.mc.getAlwaysSendSetIsolation();
-    }
-
-    public boolean getAutoClosePStmtStreams() {
-        return this.mc.getAutoClosePStmtStreams();
-    }
-
-    public boolean getAutoDeserialize() {
-        return this.mc.getAutoDeserialize();
-    }
-
-    public boolean getAutoGenerateTestcaseScript() {
-        return this.mc.getAutoGenerateTestcaseScript();
-    }
-
-    public boolean getAutoReconnectForPools() {
-        return this.mc.getAutoReconnectForPools();
-    }
-
-    public boolean getAutoSlowLog() {
-        return this.mc.getAutoSlowLog();
-    }
-
-    public int getBlobSendChunkSize() {
-        return this.mc.getBlobSendChunkSize();
-    }
-
-    public boolean getBlobsAreStrings() {
-        return this.mc.getBlobsAreStrings();
-    }
-
-    public boolean getCacheCallableStatements() {
-        return this.mc.getCacheCallableStatements();
-    }
-
-    public boolean getCacheCallableStmts() {
-        return this.mc.getCacheCallableStmts();
-    }
-
-    public boolean getCachePrepStmts() {
-        return this.mc.getCachePrepStmts();
-    }
-
-    public boolean getCachePreparedStatements() {
-        return this.mc.getCachePreparedStatements();
-    }
-
-    public boolean getCacheResultSetMetadata() {
-        return this.mc.getCacheResultSetMetadata();
-    }
-
-    public boolean getCacheServerConfiguration() {
-        return this.mc.getCacheServerConfiguration();
-    }
-
-    public int getCallableStatementCacheSize() {
-        return this.mc.getCallableStatementCacheSize();
-    }
-
-    public int getCallableStmtCacheSize() {
-        return this.mc.getCallableStmtCacheSize();
-    }
-
-    public boolean getCapitalizeTypeNames() {
-        return this.mc.getCapitalizeTypeNames();
-    }
-
-    public String getCharacterSetResults() {
-        return this.mc.getCharacterSetResults();
-    }
-
-    public String getClientCertificateKeyStorePassword() {
-        return this.mc.getClientCertificateKeyStorePassword();
-    }
-
-    public String getClientCertificateKeyStoreType() {
-        return this.mc.getClientCertificateKeyStoreType();
-    }
-
-    public String getClientCertificateKeyStoreUrl() {
-        return this.mc.getClientCertificateKeyStoreUrl();
-    }
-
-    public String getClientInfoProvider() {
-        return this.mc.getClientInfoProvider();
-    }
-
-    public String getClobCharacterEncoding() {
-        return this.mc.getClobCharacterEncoding();
-    }
-
-    public boolean getClobberStreamingResults() {
-        return this.mc.getClobberStreamingResults();
-    }
-
-    public int getConnectTimeout() {
-        return this.mc.getConnectTimeout();
-    }
-
-    public String getConnectionCollation() {
-        return this.mc.getConnectionCollation();
-    }
-
-    public String getConnectionLifecycleInterceptors() {
-        return this.mc.getConnectionLifecycleInterceptors();
-    }
-
-    public boolean getContinueBatchOnError() {
-        return this.mc.getContinueBatchOnError();
-    }
-
-    public boolean getCreateDatabaseIfNotExist() {
-        return this.mc.getCreateDatabaseIfNotExist();
-    }
-
-    public int getDefaultFetchSize() {
-        return this.mc.getDefaultFetchSize();
-    }
-
-    public boolean getDontTrackOpenResources() {
-        return this.mc.getDontTrackOpenResources();
-    }
-
-    public boolean getDumpMetadataOnColumnNotFound() {
-        return this.mc.getDumpMetadataOnColumnNotFound();
-    }
-
-    public boolean getDumpQueriesOnException() {
-        return this.mc.getDumpQueriesOnException();
-    }
-
-    public boolean getDynamicCalendars() {
-        return this.mc.getDynamicCalendars();
-    }
-
-    public boolean getElideSetAutoCommits() {
-        return this.mc.getElideSetAutoCommits();
-    }
-
-    public boolean getEmptyStringsConvertToZero() {
-        return this.mc.getEmptyStringsConvertToZero();
-    }
-
-    public boolean getEmulateLocators() {
-        return this.mc.getEmulateLocators();
-    }
-
-    public boolean getEmulateUnsupportedPstmts() {
-        return this.mc.getEmulateUnsupportedPstmts();
-    }
-
-    public boolean getEnablePacketDebug() {
-        return this.mc.getEnablePacketDebug();
-    }
-
-    public boolean getEnableQueryTimeouts() {
-        return this.mc.getEnableQueryTimeouts();
-    }
-
-    public String getEncoding() {
-        return this.mc.getEncoding();
-    }
-
-    public boolean getExplainSlowQueries() {
-        return this.mc.getExplainSlowQueries();
-    }
-
-    public boolean getFailOverReadOnly() {
-        return this.mc.getFailOverReadOnly();
-    }
-
-    public boolean getFunctionsNeverReturnBlobs() {
-        return this.mc.getFunctionsNeverReturnBlobs();
-    }
-
-    public boolean getGatherPerfMetrics() {
-        return this.mc.getGatherPerfMetrics();
-    }
-
-    public boolean getGatherPerformanceMetrics() {
-        return this.mc.getGatherPerformanceMetrics();
-    }
-
-    public boolean getGenerateSimpleParameterMetadata() {
-        return this.mc.getGenerateSimpleParameterMetadata();
-    }
-
-    public boolean getHoldResultsOpenOverStatementClose() {
-        return this.mc.getHoldResultsOpenOverStatementClose();
-    }
-
-    public boolean getIgnoreNonTxTables() {
-        return this.mc.getIgnoreNonTxTables();
-    }
-
-    public boolean getIncludeInnodbStatusInDeadlockExceptions() {
-        return this.mc.getIncludeInnodbStatusInDeadlockExceptions();
-    }
-
-    public int getInitialTimeout() {
-        return this.mc.getInitialTimeout();
-    }
-
-    public boolean getInteractiveClient() {
-        return this.mc.getInteractiveClient();
-    }
-
-    public boolean getIsInteractiveClient() {
-        return this.mc.getIsInteractiveClient();
-    }
-
-    public boolean getJdbcCompliantTruncation() {
-        return this.mc.getJdbcCompliantTruncation();
-    }
-
-    public boolean getJdbcCompliantTruncationForReads() {
-        return this.mc.getJdbcCompliantTruncationForReads();
-    }
-
-    public String getLargeRowSizeThreshold() {
-        return this.mc.getLargeRowSizeThreshold();
-    }
-
-    public String getLoadBalanceStrategy() {
-        return this.mc.getLoadBalanceStrategy();
-    }
-
-    public String getLocalSocketAddress() {
-        return this.mc.getLocalSocketAddress();
-    }
-
-    public int getLocatorFetchBufferSize() {
-        return this.mc.getLocatorFetchBufferSize();
-    }
-
-    public boolean getLogSlowQueries() {
-        return this.mc.getLogSlowQueries();
-    }
-
-    public boolean getLogXaCommands() {
-        return this.mc.getLogXaCommands();
-    }
-
-    public String getLogger() {
-        return this.mc.getLogger();
-    }
-
-    public String getLoggerClassName() {
-        return this.mc.getLoggerClassName();
-    }
-
-    public boolean getMaintainTimeStats() {
-        return this.mc.getMaintainTimeStats();
-    }
-
-    public int getMaxQuerySizeToLog() {
-        return this.mc.getMaxQuerySizeToLog();
-    }
-
-    public int getMaxReconnects() {
-        return this.mc.getMaxReconnects();
-    }
-
-    public int getMaxRows() {
-        return this.mc.getMaxRows();
-    }
-
-    public int getMetadataCacheSize() {
-        return this.mc.getMetadataCacheSize();
-    }
-
-    public int getNetTimeoutForStreamingResults() {
-        return this.mc.getNetTimeoutForStreamingResults();
-    }
-
-    public boolean getNoAccessToProcedureBodies() {
-        return this.mc.getNoAccessToProcedureBodies();
-    }
-
-    public boolean getNoDatetimeStringSync() {
-        return this.mc.getNoDatetimeStringSync();
-    }
-
-    public boolean getNoTimezoneConversionForTimeType() {
-        return this.mc.getNoTimezoneConversionForTimeType();
-    }
-
-    public boolean getNoTimezoneConversionForDateType() {
-        return this.mc.getNoTimezoneConversionForDateType();
-    }
-
-    public boolean getCacheDefaultTimezone() {
-        return this.mc.getCacheDefaultTimezone();
-    }
-
-    public boolean getNullCatalogMeansCurrent() {
-        return this.mc.getNullCatalogMeansCurrent();
-    }
-
-    public boolean getNullNamePatternMatchesAll() {
-        return this.mc.getNullNamePatternMatchesAll();
-    }
-
-    public boolean getOverrideSupportsIntegrityEnhancementFacility() {
-        return this.mc.getOverrideSupportsIntegrityEnhancementFacility();
-    }
-
-    public int getPacketDebugBufferSize() {
-        return this.mc.getPacketDebugBufferSize();
-    }
-
-    public boolean getPadCharsWithSpace() {
-        return this.mc.getPadCharsWithSpace();
-    }
-
-    public boolean getParanoid() {
-        return this.mc.getParanoid();
-    }
-
-    public boolean getPedantic() {
-        return this.mc.getPedantic();
-    }
-
-    public boolean getPinGlobalTxToPhysicalConnection() {
-        return this.mc.getPinGlobalTxToPhysicalConnection();
-    }
-
-    public boolean getPopulateInsertRowWithDefaultValues() {
-        return this.mc.getPopulateInsertRowWithDefaultValues();
-    }
-
-    public int getPrepStmtCacheSize() {
-        return this.mc.getPrepStmtCacheSize();
-    }
-
-    public int getPrepStmtCacheSqlLimit() {
-        return this.mc.getPrepStmtCacheSqlLimit();
-    }
-
-    public int getPreparedStatementCacheSize() {
-        return this.mc.getPreparedStatementCacheSize();
-    }
-
-    public int getPreparedStatementCacheSqlLimit() {
-        return this.mc.getPreparedStatementCacheSqlLimit();
-    }
-
-    public boolean getProcessEscapeCodesForPrepStmts() {
-        return this.mc.getProcessEscapeCodesForPrepStmts();
-    }
-
-    public boolean getProfileSQL() {
-        return this.mc.getProfileSQL();
-    }
-
-    public boolean getProfileSql() {
-        return this.mc.getProfileSql();
-    }
-
-    public String getPropertiesTransform() {
-        return this.mc.getPropertiesTransform();
-    }
-
-    public int getQueriesBeforeRetryMaster() {
-        return this.mc.getQueriesBeforeRetryMaster();
-    }
-
-    public boolean getReconnectAtTxEnd() {
-        return this.mc.getReconnectAtTxEnd();
-    }
-
-    public boolean getRelaxAutoCommit() {
-        return this.mc.getRelaxAutoCommit();
-    }
-
-    public int getReportMetricsIntervalMillis() {
-        return this.mc.getReportMetricsIntervalMillis();
-    }
-
-    public boolean getRequireSSL() {
-        return this.mc.getRequireSSL();
-    }
-
-    public String getResourceId() {
-        return this.mc.getResourceId();
-    }
-
-    public int getResultSetSizeThreshold() {
-        return this.mc.getResultSetSizeThreshold();
-    }
-
-    public boolean getRewriteBatchedStatements() {
-        return this.mc.getRewriteBatchedStatements();
-    }
-
-    public boolean getRollbackOnPooledClose() {
-        return this.mc.getRollbackOnPooledClose();
-    }
-
-    public boolean getRoundRobinLoadBalance() {
-        return this.mc.getRoundRobinLoadBalance();
-    }
-
-    public boolean getRunningCTS13() {
-        return this.mc.getRunningCTS13();
-    }
-
-    public int getSecondsBeforeRetryMaster() {
-        return this.mc.getSecondsBeforeRetryMaster();
-    }
-
-    public String getServerTimezone() {
-        return this.mc.getServerTimezone();
-    }
-
-    public String getSessionVariables() {
-        return this.mc.getSessionVariables();
-    }
-
-    public int getSlowQueryThresholdMillis() {
-        return this.mc.getSlowQueryThresholdMillis();
-    }
-
-    public long getSlowQueryThresholdNanos() {
-        return this.mc.getSlowQueryThresholdNanos();
-    }
-
-    public String getSocketFactory() {
-        return this.mc.getSocketFactory();
-    }
-
-    public String getSocketFactoryClassName() {
-        return this.mc.getSocketFactoryClassName();
-    }
-
-    public int getSocketTimeout() {
-        return this.mc.getSocketTimeout();
-    }
-
-    public String getStatementInterceptors() {
-        return this.mc.getStatementInterceptors();
-    }
-
-    public boolean getStrictFloatingPoint() {
-        return this.mc.getStrictFloatingPoint();
-    }
-
-    public boolean getStrictUpdates() {
-        return this.mc.getStrictUpdates();
-    }
-
-    public boolean getTcpKeepAlive() {
-        return this.mc.getTcpKeepAlive();
-    }
-
-    public boolean getTcpNoDelay() {
-        return this.mc.getTcpNoDelay();
-    }
-
-    public int getTcpRcvBuf() {
-        return this.mc.getTcpRcvBuf();
-    }
-
-    public int getTcpSndBuf() {
-        return this.mc.getTcpSndBuf();
-    }
-
-    public int getTcpTrafficClass() {
-        return this.mc.getTcpTrafficClass();
-    }
-
-    public boolean getTinyInt1isBit() {
-        return this.mc.getTinyInt1isBit();
-    }
-
-    public boolean getTraceProtocol() {
-        return this.mc.getTraceProtocol();
-    }
-
-    public boolean getTransformedBitIsBoolean() {
-        return this.mc.getTransformedBitIsBoolean();
-    }
-
-    public boolean getTreatUtilDateAsTimestamp() {
-        return this.mc.getTreatUtilDateAsTimestamp();
-    }
-
-    public String getTrustCertificateKeyStorePassword() {
-        return this.mc.getTrustCertificateKeyStorePassword();
-    }
-
-    public String getTrustCertificateKeyStoreType() {
-        return this.mc.getTrustCertificateKeyStoreType();
-    }
-
-    public String getTrustCertificateKeyStoreUrl() {
-        return this.mc.getTrustCertificateKeyStoreUrl();
-    }
-
-    public boolean getUltraDevHack() {
-        return this.mc.getUltraDevHack();
-    }
-
-    public boolean getUseBlobToStoreUTF8OutsideBMP() {
-        return this.mc.getUseBlobToStoreUTF8OutsideBMP();
-    }
-
-    public boolean getUseCompression() {
-        return this.mc.getUseCompression();
-    }
-
-    public String getUseConfigs() {
-        return this.mc.getUseConfigs();
-    }
-
-    public boolean getUseCursorFetch() {
-        return this.mc.getUseCursorFetch();
-    }
-
-    public boolean getUseDirectRowUnpack() {
-        return this.mc.getUseDirectRowUnpack();
-    }
-
-    public boolean getUseDynamicCharsetInfo() {
-        return this.mc.getUseDynamicCharsetInfo();
-    }
-
-    public boolean getUseFastDateParsing() {
-        return this.mc.getUseFastDateParsing();
-    }
-
-    public boolean getUseFastIntParsing() {
-        return this.mc.getUseFastIntParsing();
-    }
-
-    public boolean getUseGmtMillisForDatetimes() {
-        return this.mc.getUseGmtMillisForDatetimes();
-    }
-
-    public boolean getUseHostsInPrivileges() {
-        return this.mc.getUseHostsInPrivileges();
-    }
-
-    public boolean getUseInformationSchema() {
-        return this.mc.getUseInformationSchema();
-    }
-
-    public boolean getUseJDBCCompliantTimezoneShift() {
-        return this.mc.getUseJDBCCompliantTimezoneShift();
-    }
-
-    public boolean getUseJvmCharsetConverters() {
-        return this.mc.getUseJvmCharsetConverters();
-    }
-
-    public boolean getUseLocalSessionState() {
-        return this.mc.getUseLocalSessionState();
-    }
-
-    public boolean getUseNanosForElapsedTime() {
-        return this.mc.getUseNanosForElapsedTime();
-    }
-
-    public boolean getUseOldAliasMetadataBehavior() {
-        return this.mc.getUseOldAliasMetadataBehavior();
-    }
-
-    public boolean getUseOldUTF8Behavior() {
-        return this.mc.getUseOldUTF8Behavior();
-    }
-
-    public boolean getUseOnlyServerErrorMessages() {
-        return this.mc.getUseOnlyServerErrorMessages();
-    }
-
-    public boolean getUseReadAheadInput() {
-        return this.mc.getUseReadAheadInput();
-    }
-
-    public boolean getUseSSL() {
-        return this.mc.getUseSSL();
-    }
-
-    public boolean getUseSSPSCompatibleTimezoneShift() {
-        return this.mc.getUseSSPSCompatibleTimezoneShift();
-    }
-
-    public boolean getUseServerPrepStmts() {
-        return this.mc.getUseServerPrepStmts();
-    }
-
-    public boolean getUseServerPreparedStmts() {
-        return this.mc.getUseServerPreparedStmts();
-    }
-
-    public boolean getUseSqlStateCodes() {
-        return this.mc.getUseSqlStateCodes();
-    }
-
-    public boolean getUseStreamLengthsInPrepStmts() {
-        return this.mc.getUseStreamLengthsInPrepStmts();
-    }
-
-    public boolean getUseTimezone() {
-        return this.mc.getUseTimezone();
-    }
-
-    public boolean getUseUltraDevWorkAround() {
-        return this.mc.getUseUltraDevWorkAround();
-    }
-
-    public boolean getUseUnbufferedInput() {
-        return this.mc.getUseUnbufferedInput();
-    }
-
-    public boolean getUseUnicode() {
-        return this.mc.getUseUnicode();
-    }
-
-    public boolean getUseUsageAdvisor() {
-        return this.mc.getUseUsageAdvisor();
-    }
-
-    public String getUtf8OutsideBmpExcludedColumnNamePattern() {
-        return this.mc.getUtf8OutsideBmpExcludedColumnNamePattern();
-    }
-
-    public String getUtf8OutsideBmpIncludedColumnNamePattern() {
-        return this.mc.getUtf8OutsideBmpIncludedColumnNamePattern();
-    }
-
-    public boolean getYearIsDateType() {
-        return this.mc.getYearIsDateType();
-    }
-
-    public String getZeroDateTimeBehavior() {
-        return this.mc.getZeroDateTimeBehavior();
-    }
-
     public void setAllowLoadLocalInfile(boolean property) {
         this.mc.setAllowLoadLocalInfile(property);
+    }
+
+    public boolean getAllowMultiQueries() {
+        return this.mc.getAllowMultiQueries();
     }
 
     public void setAllowMultiQueries(boolean property) {
         this.mc.setAllowMultiQueries(property);
     }
 
+    public boolean getAllowNanAndInf() {
+        return this.mc.getAllowNanAndInf();
+    }
+
     public void setAllowNanAndInf(boolean flag) {
         this.mc.setAllowNanAndInf(flag);
+    }
+
+    public boolean getAllowUrlInLocalInfile() {
+        return this.mc.getAllowUrlInLocalInfile();
     }
 
     public void setAllowUrlInLocalInfile(boolean flag) {
         this.mc.setAllowUrlInLocalInfile(flag);
     }
 
+    public boolean getAlwaysSendSetIsolation() {
+        return this.mc.getAlwaysSendSetIsolation();
+    }
+
     public void setAlwaysSendSetIsolation(boolean flag) {
         this.mc.setAlwaysSendSetIsolation(flag);
+    }
+
+    public boolean getAutoClosePStmtStreams() {
+        return this.mc.getAutoClosePStmtStreams();
     }
 
     public void setAutoClosePStmtStreams(boolean flag) {
         this.mc.setAutoClosePStmtStreams(flag);
     }
 
+    public boolean getAutoDeserialize() {
+        return this.mc.getAutoDeserialize();
+    }
+
     public void setAutoDeserialize(boolean flag) {
         this.mc.setAutoDeserialize(flag);
     }
 
+    public boolean getAutoGenerateTestcaseScript() {
+        return this.mc.getAutoGenerateTestcaseScript();
+    }
+
     public void setAutoGenerateTestcaseScript(boolean flag) {
         this.mc.setAutoGenerateTestcaseScript(flag);
+    }
+
+    public boolean getAutoReconnectForPools() {
+        return this.mc.getAutoReconnectForPools();
+    }
+
+    public void setAutoReconnectForPools(boolean flag) {
+        this.mc.setAutoReconnectForPools(flag);
+    }
+
+    public boolean getAutoSlowLog() {
+        return this.mc.getAutoSlowLog();
+    }
+
+    public void setAutoSlowLog(boolean flag) {
+        this.mc.setAutoSlowLog(flag);
+    }
+
+    public int getBlobSendChunkSize() {
+        return this.mc.getBlobSendChunkSize();
+    }
+
+    public void setBlobSendChunkSize(String value) throws SQLException {
+        this.mc.setBlobSendChunkSize(value);
+    }
+
+    public boolean getBlobsAreStrings() {
+        return this.mc.getBlobsAreStrings();
+    }
+
+    public void setBlobsAreStrings(boolean flag) {
+        this.mc.setBlobsAreStrings(flag);
+    }
+
+    public boolean getCacheCallableStatements() {
+        return this.mc.getCacheCallableStatements();
+    }
+
+    public void setCacheCallableStatements(boolean flag) {
+        this.mc.setCacheCallableStatements(flag);
+    }
+
+    public boolean getCacheCallableStmts() {
+        return this.mc.getCacheCallableStmts();
+    }
+
+    public void setCacheCallableStmts(boolean flag) {
+        this.mc.setCacheCallableStmts(flag);
+    }
+
+    public boolean getCachePrepStmts() {
+        return this.mc.getCachePrepStmts();
+    }
+
+    public void setCachePrepStmts(boolean flag) {
+        this.mc.setCachePrepStmts(flag);
+    }
+
+    public boolean getCachePreparedStatements() {
+        return this.mc.getCachePreparedStatements();
+    }
+
+    public void setCachePreparedStatements(boolean flag) {
+        this.mc.setCachePreparedStatements(flag);
+    }
+
+    public boolean getCacheResultSetMetadata() {
+        return this.mc.getCacheResultSetMetadata();
+    }
+
+    public void setCacheResultSetMetadata(boolean property) {
+        this.mc.setCacheResultSetMetadata(property);
+    }
+
+    public boolean getCacheServerConfiguration() {
+        return this.mc.getCacheServerConfiguration();
+    }
+
+    public void setCacheServerConfiguration(boolean flag) {
+        this.mc.setCacheServerConfiguration(flag);
+    }
+
+    public int getCallableStatementCacheSize() {
+        return this.mc.getCallableStatementCacheSize();
+    }
+
+    public void setCallableStatementCacheSize(int size) throws SQLException {
+        this.mc.setCallableStatementCacheSize(size);
+    }
+
+    public int getCallableStmtCacheSize() {
+        return this.mc.getCallableStmtCacheSize();
+    }
+
+    public void setCallableStmtCacheSize(int cacheSize) throws SQLException {
+        this.mc.setCallableStmtCacheSize(cacheSize);
+    }
+
+    public boolean getCapitalizeTypeNames() {
+        return this.mc.getCapitalizeTypeNames();
+    }
+
+    public void setCapitalizeTypeNames(boolean flag) {
+        this.mc.setCapitalizeTypeNames(flag);
+    }
+
+    public String getCharacterSetResults() {
+        return this.mc.getCharacterSetResults();
+    }
+
+    public void setCharacterSetResults(String characterSet) {
+        this.mc.setCharacterSetResults(characterSet);
+    }
+
+    public String getClientCertificateKeyStorePassword() {
+        return this.mc.getClientCertificateKeyStorePassword();
+    }
+
+    public void setClientCertificateKeyStorePassword(String value) {
+        this.mc.setClientCertificateKeyStorePassword(value);
+    }
+
+    public String getClientCertificateKeyStoreType() {
+        return this.mc.getClientCertificateKeyStoreType();
+    }
+
+    public void setClientCertificateKeyStoreType(String value) {
+        this.mc.setClientCertificateKeyStoreType(value);
+    }
+
+    public String getClientCertificateKeyStoreUrl() {
+        return this.mc.getClientCertificateKeyStoreUrl();
+    }
+
+    public void setClientCertificateKeyStoreUrl(String value) {
+        this.mc.setClientCertificateKeyStoreUrl(value);
+    }
+
+    public String getClientInfoProvider() {
+        return this.mc.getClientInfoProvider();
+    }
+
+    public void setClientInfoProvider(String classname) {
+        this.mc.setClientInfoProvider(classname);
+    }
+
+    public String getClobCharacterEncoding() {
+        return this.mc.getClobCharacterEncoding();
+    }
+
+    public void setClobCharacterEncoding(String encoding) {
+        this.mc.setClobCharacterEncoding(encoding);
+    }
+
+    public boolean getClobberStreamingResults() {
+        return this.mc.getClobberStreamingResults();
+    }
+
+    public void setClobberStreamingResults(boolean flag) {
+        this.mc.setClobberStreamingResults(flag);
+    }
+
+    public int getConnectTimeout() {
+        return this.mc.getConnectTimeout();
+    }
+
+    public void setConnectTimeout(int timeoutMs) throws SQLException {
+        this.mc.setConnectTimeout(timeoutMs);
+    }
+
+    public String getConnectionCollation() {
+        return this.mc.getConnectionCollation();
+    }
+
+    public void setConnectionCollation(String collation) {
+        this.mc.setConnectionCollation(collation);
+    }
+
+    public String getConnectionLifecycleInterceptors() {
+        return this.mc.getConnectionLifecycleInterceptors();
+    }
+
+    public void setConnectionLifecycleInterceptors(String interceptors) {
+        this.mc.setConnectionLifecycleInterceptors(interceptors);
+    }
+
+    public boolean getContinueBatchOnError() {
+        return this.mc.getContinueBatchOnError();
+    }
+
+    public void setContinueBatchOnError(boolean property) {
+        this.mc.setContinueBatchOnError(property);
+    }
+
+    public boolean getCreateDatabaseIfNotExist() {
+        return this.mc.getCreateDatabaseIfNotExist();
+    }
+
+    public void setCreateDatabaseIfNotExist(boolean flag) {
+        this.mc.setCreateDatabaseIfNotExist(flag);
+    }
+
+    public int getDefaultFetchSize() {
+        return this.mc.getDefaultFetchSize();
+    }
+
+    public void setDefaultFetchSize(int n) throws SQLException {
+        this.mc.setDefaultFetchSize(n);
+    }
+
+    public boolean getDontTrackOpenResources() {
+        return this.mc.getDontTrackOpenResources();
+    }
+
+    public void setDontTrackOpenResources(boolean flag) {
+        this.mc.setDontTrackOpenResources(flag);
+    }
+
+    public boolean getDumpMetadataOnColumnNotFound() {
+        return this.mc.getDumpMetadataOnColumnNotFound();
+    }
+
+    public void setDumpMetadataOnColumnNotFound(boolean flag) {
+        this.mc.setDumpMetadataOnColumnNotFound(flag);
+    }
+
+    public boolean getDumpQueriesOnException() {
+        return this.mc.getDumpQueriesOnException();
+    }
+
+    public void setDumpQueriesOnException(boolean flag) {
+        this.mc.setDumpQueriesOnException(flag);
+    }
+
+    public boolean getDynamicCalendars() {
+        return this.mc.getDynamicCalendars();
+    }
+
+    public void setDynamicCalendars(boolean flag) {
+        this.mc.setDynamicCalendars(flag);
+    }
+
+    public boolean getElideSetAutoCommits() {
+        return this.mc.getElideSetAutoCommits();
+    }
+
+    public void setElideSetAutoCommits(boolean flag) {
+        this.mc.setElideSetAutoCommits(flag);
+    }
+
+    public boolean getEmptyStringsConvertToZero() {
+        return this.mc.getEmptyStringsConvertToZero();
+    }
+
+    public void setEmptyStringsConvertToZero(boolean flag) {
+        this.mc.setEmptyStringsConvertToZero(flag);
+    }
+
+    public boolean getEmulateLocators() {
+        return this.mc.getEmulateLocators();
+    }
+
+    public void setEmulateLocators(boolean property) {
+        this.mc.setEmulateLocators(property);
+    }
+
+    public boolean getEmulateUnsupportedPstmts() {
+        return this.mc.getEmulateUnsupportedPstmts();
+    }
+
+    public void setEmulateUnsupportedPstmts(boolean flag) {
+        this.mc.setEmulateUnsupportedPstmts(flag);
+    }
+
+    public boolean getEnablePacketDebug() {
+        return this.mc.getEnablePacketDebug();
+    }
+
+    public void setEnablePacketDebug(boolean flag) {
+        this.mc.setEnablePacketDebug(flag);
+    }
+
+    public boolean getEnableQueryTimeouts() {
+        return this.mc.getEnableQueryTimeouts();
+    }
+
+    public void setEnableQueryTimeouts(boolean flag) {
+        this.mc.setEnableQueryTimeouts(flag);
+    }
+
+    public String getEncoding() {
+        return this.mc.getEncoding();
+    }
+
+    public void setEncoding(String property) {
+        this.mc.setEncoding(property);
+    }
+
+    public boolean getExplainSlowQueries() {
+        return this.mc.getExplainSlowQueries();
+    }
+
+    public void setExplainSlowQueries(boolean flag) {
+        this.mc.setExplainSlowQueries(flag);
+    }
+
+    public boolean getFailOverReadOnly() {
+        return this.mc.getFailOverReadOnly();
+    }
+
+    public void setFailOverReadOnly(boolean flag) {
+        this.mc.setFailOverReadOnly(flag);
+    }
+
+    public boolean getFunctionsNeverReturnBlobs() {
+        return this.mc.getFunctionsNeverReturnBlobs();
+    }
+
+    public void setFunctionsNeverReturnBlobs(boolean flag) {
+        this.mc.setFunctionsNeverReturnBlobs(flag);
+    }
+
+    public boolean getGatherPerfMetrics() {
+        return this.mc.getGatherPerfMetrics();
+    }
+
+    public void setGatherPerfMetrics(boolean flag) {
+        this.mc.setGatherPerfMetrics(flag);
+    }
+
+    public boolean getGatherPerformanceMetrics() {
+        return this.mc.getGatherPerformanceMetrics();
+    }
+
+    public void setGatherPerformanceMetrics(boolean flag) {
+        this.mc.setGatherPerformanceMetrics(flag);
+    }
+
+    public boolean getGenerateSimpleParameterMetadata() {
+        return this.mc.getGenerateSimpleParameterMetadata();
+    }
+
+    public void setGenerateSimpleParameterMetadata(boolean flag) {
+        this.mc.setGenerateSimpleParameterMetadata(flag);
+    }
+
+    public boolean getHoldResultsOpenOverStatementClose() {
+        return this.mc.getHoldResultsOpenOverStatementClose();
+    }
+
+    public void setHoldResultsOpenOverStatementClose(boolean flag) {
+        this.mc.setHoldResultsOpenOverStatementClose(flag);
+    }
+
+    public boolean getIgnoreNonTxTables() {
+        return this.mc.getIgnoreNonTxTables();
+    }
+
+    public void setIgnoreNonTxTables(boolean property) {
+        this.mc.setIgnoreNonTxTables(property);
+    }
+
+    public boolean getIncludeInnodbStatusInDeadlockExceptions() {
+        return this.mc.getIncludeInnodbStatusInDeadlockExceptions();
+    }
+
+    public void setIncludeInnodbStatusInDeadlockExceptions(boolean flag) {
+        this.mc.setIncludeInnodbStatusInDeadlockExceptions(flag);
+    }
+
+    public int getInitialTimeout() {
+        return this.mc.getInitialTimeout();
+    }
+
+    public void setInitialTimeout(int property) throws SQLException {
+        this.mc.setInitialTimeout(property);
+    }
+
+    public boolean getInteractiveClient() {
+        return this.mc.getInteractiveClient();
+    }
+
+    public void setInteractiveClient(boolean property) {
+        this.mc.setInteractiveClient(property);
+    }
+
+    public boolean getIsInteractiveClient() {
+        return this.mc.getIsInteractiveClient();
+    }
+
+    public void setIsInteractiveClient(boolean property) {
+        this.mc.setIsInteractiveClient(property);
+    }
+
+    public boolean getJdbcCompliantTruncation() {
+        return this.mc.getJdbcCompliantTruncation();
+    }
+
+    public void setJdbcCompliantTruncation(boolean flag) {
+        this.mc.setJdbcCompliantTruncation(flag);
+    }
+
+    public boolean getJdbcCompliantTruncationForReads() {
+        return this.mc.getJdbcCompliantTruncationForReads();
+    }
+
+    public void setJdbcCompliantTruncationForReads(boolean jdbcCompliantTruncationForReads) {
+        this.mc.setJdbcCompliantTruncationForReads(jdbcCompliantTruncationForReads);
+    }
+
+    public String getLargeRowSizeThreshold() {
+        return this.mc.getLargeRowSizeThreshold();
+    }
+
+    public void setLargeRowSizeThreshold(String value) throws SQLException {
+        this.mc.setLargeRowSizeThreshold(value);
+    }
+
+    public String getLoadBalanceStrategy() {
+        return this.mc.getLoadBalanceStrategy();
+    }
+
+    public void setLoadBalanceStrategy(String strategy) {
+        this.mc.setLoadBalanceStrategy(strategy);
+    }
+
+    public String getLocalSocketAddress() {
+        return this.mc.getLocalSocketAddress();
+    }
+
+    public void setLocalSocketAddress(String address) {
+        this.mc.setLocalSocketAddress(address);
+    }
+
+    public int getLocatorFetchBufferSize() {
+        return this.mc.getLocatorFetchBufferSize();
+    }
+
+    public void setLocatorFetchBufferSize(String value) throws SQLException {
+        this.mc.setLocatorFetchBufferSize(value);
+    }
+
+    public boolean getLogSlowQueries() {
+        return this.mc.getLogSlowQueries();
+    }
+
+    public void setLogSlowQueries(boolean flag) {
+        this.mc.setLogSlowQueries(flag);
+    }
+
+    public boolean getLogXaCommands() {
+        return this.mc.getLogXaCommands();
+    }
+
+    public void setLogXaCommands(boolean flag) {
+        this.mc.setLogXaCommands(flag);
+    }
+
+    public String getLogger() {
+        return this.mc.getLogger();
+    }
+
+    public void setLogger(String property) {
+        this.mc.setLogger(property);
+    }
+
+    public String getLoggerClassName() {
+        return this.mc.getLoggerClassName();
+    }
+
+    public void setLoggerClassName(String className) {
+        this.mc.setLoggerClassName(className);
+    }
+
+    public boolean getMaintainTimeStats() {
+        return this.mc.getMaintainTimeStats();
+    }
+
+    public void setMaintainTimeStats(boolean flag) {
+        this.mc.setMaintainTimeStats(flag);
+    }
+
+    public int getMaxQuerySizeToLog() {
+        return this.mc.getMaxQuerySizeToLog();
+    }
+
+    public void setMaxQuerySizeToLog(int sizeInBytes) throws SQLException {
+        this.mc.setMaxQuerySizeToLog(sizeInBytes);
+    }
+
+    public int getMaxReconnects() {
+        return this.mc.getMaxReconnects();
+    }
+
+    public void setMaxReconnects(int property) throws SQLException {
+        this.mc.setMaxReconnects(property);
+    }
+
+    public int getMaxRows() {
+        return this.mc.getMaxRows();
+    }
+
+    public void setMaxRows(int property) throws SQLException {
+        this.mc.setMaxRows(property);
+    }
+
+    public int getMetadataCacheSize() {
+        return this.mc.getMetadataCacheSize();
+    }
+
+    public void setMetadataCacheSize(int value) throws SQLException {
+        this.mc.setMetadataCacheSize(value);
+    }
+
+    public int getNetTimeoutForStreamingResults() {
+        return this.mc.getNetTimeoutForStreamingResults();
+    }
+
+    public void setNetTimeoutForStreamingResults(int value) throws SQLException {
+        this.mc.setNetTimeoutForStreamingResults(value);
+    }
+
+    public boolean getNoAccessToProcedureBodies() {
+        return this.mc.getNoAccessToProcedureBodies();
+    }
+
+    public void setNoAccessToProcedureBodies(boolean flag) {
+        this.mc.setNoAccessToProcedureBodies(flag);
+    }
+
+    public boolean getNoDatetimeStringSync() {
+        return this.mc.getNoDatetimeStringSync();
+    }
+
+    public void setNoDatetimeStringSync(boolean flag) {
+        this.mc.setNoDatetimeStringSync(flag);
+    }
+
+    public boolean getNoTimezoneConversionForTimeType() {
+        return this.mc.getNoTimezoneConversionForTimeType();
+    }
+
+    public void setNoTimezoneConversionForTimeType(boolean flag) {
+        this.mc.setNoTimezoneConversionForTimeType(flag);
+    }
+
+    public boolean getNoTimezoneConversionForDateType() {
+        return this.mc.getNoTimezoneConversionForDateType();
+    }
+
+    public void setNoTimezoneConversionForDateType(boolean flag) {
+        this.mc.setNoTimezoneConversionForDateType(flag);
+    }
+
+    public boolean getCacheDefaultTimezone() {
+        return this.mc.getCacheDefaultTimezone();
+    }
+
+    public void setCacheDefaultTimezone(boolean flag) {
+        this.mc.setCacheDefaultTimezone(flag);
+    }
+
+    public boolean getNullCatalogMeansCurrent() {
+        return this.mc.getNullCatalogMeansCurrent();
+    }
+
+    public void setNullCatalogMeansCurrent(boolean value) {
+        this.mc.setNullCatalogMeansCurrent(value);
+    }
+
+    public boolean getNullNamePatternMatchesAll() {
+        return this.mc.getNullNamePatternMatchesAll();
+    }
+
+    public void setNullNamePatternMatchesAll(boolean value) {
+        this.mc.setNullNamePatternMatchesAll(value);
+    }
+
+    public boolean getOverrideSupportsIntegrityEnhancementFacility() {
+        return this.mc.getOverrideSupportsIntegrityEnhancementFacility();
+    }
+
+    public void setOverrideSupportsIntegrityEnhancementFacility(boolean flag) {
+        this.mc.setOverrideSupportsIntegrityEnhancementFacility(flag);
+    }
+
+    public int getPacketDebugBufferSize() {
+        return this.mc.getPacketDebugBufferSize();
+    }
+
+    public void setPacketDebugBufferSize(int size) throws SQLException {
+        this.mc.setPacketDebugBufferSize(size);
+    }
+
+    public boolean getPadCharsWithSpace() {
+        return this.mc.getPadCharsWithSpace();
+    }
+
+    public void setPadCharsWithSpace(boolean flag) {
+        this.mc.setPadCharsWithSpace(flag);
+    }
+
+    public boolean getParanoid() {
+        return this.mc.getParanoid();
+    }
+
+    public void setParanoid(boolean property) {
+        this.mc.setParanoid(property);
+    }
+
+    public boolean getPedantic() {
+        return this.mc.getPedantic();
+    }
+
+    public void setPedantic(boolean property) {
+        this.mc.setPedantic(property);
+    }
+
+    public boolean getPinGlobalTxToPhysicalConnection() {
+        return this.mc.getPinGlobalTxToPhysicalConnection();
+    }
+
+    public void setPinGlobalTxToPhysicalConnection(boolean flag) {
+        this.mc.setPinGlobalTxToPhysicalConnection(flag);
+    }
+
+    public boolean getPopulateInsertRowWithDefaultValues() {
+        return this.mc.getPopulateInsertRowWithDefaultValues();
+    }
+
+    public void setPopulateInsertRowWithDefaultValues(boolean flag) {
+        this.mc.setPopulateInsertRowWithDefaultValues(flag);
+    }
+
+    public int getPrepStmtCacheSize() {
+        return this.mc.getPrepStmtCacheSize();
+    }
+
+    public void setPrepStmtCacheSize(int cacheSize) throws SQLException {
+        this.mc.setPrepStmtCacheSize(cacheSize);
+    }
+
+    public int getPrepStmtCacheSqlLimit() {
+        return this.mc.getPrepStmtCacheSqlLimit();
+    }
+
+    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException {
+        this.mc.setPrepStmtCacheSqlLimit(sqlLimit);
+    }
+
+    public int getPreparedStatementCacheSize() {
+        return this.mc.getPreparedStatementCacheSize();
+    }
+
+    public void setPreparedStatementCacheSize(int cacheSize) throws SQLException {
+        this.mc.setPreparedStatementCacheSize(cacheSize);
+    }
+
+    public int getPreparedStatementCacheSqlLimit() {
+        return this.mc.getPreparedStatementCacheSqlLimit();
+    }
+
+    public void setPreparedStatementCacheSqlLimit(int cacheSqlLimit) throws SQLException {
+        this.mc.setPreparedStatementCacheSqlLimit(cacheSqlLimit);
+    }
+
+    public boolean getProcessEscapeCodesForPrepStmts() {
+        return this.mc.getProcessEscapeCodesForPrepStmts();
+    }
+
+    public void setProcessEscapeCodesForPrepStmts(boolean flag) {
+        this.mc.setProcessEscapeCodesForPrepStmts(flag);
+    }
+
+    public boolean getProfileSQL() {
+        return this.mc.getProfileSQL();
+    }
+
+    public void setProfileSQL(boolean flag) {
+        this.mc.setProfileSQL(flag);
+    }
+
+    public boolean getProfileSql() {
+        return this.mc.getProfileSql();
+    }
+
+    public void setProfileSql(boolean property) {
+        this.mc.setProfileSql(property);
+    }
+
+    public String getPropertiesTransform() {
+        return this.mc.getPropertiesTransform();
+    }
+
+    public void setPropertiesTransform(String value) {
+        this.mc.setPropertiesTransform(value);
+    }
+
+    public int getQueriesBeforeRetryMaster() {
+        return this.mc.getQueriesBeforeRetryMaster();
+    }
+
+    public void setQueriesBeforeRetryMaster(int property) throws SQLException {
+        this.mc.setQueriesBeforeRetryMaster(property);
+    }
+
+    public boolean getReconnectAtTxEnd() {
+        return this.mc.getReconnectAtTxEnd();
+    }
+
+    public void setReconnectAtTxEnd(boolean property) {
+        this.mc.setReconnectAtTxEnd(property);
+    }
+
+    public boolean getRelaxAutoCommit() {
+        return this.mc.getRelaxAutoCommit();
+    }
+
+    public void setRelaxAutoCommit(boolean property) {
+        this.mc.setRelaxAutoCommit(property);
+    }
+
+    public int getReportMetricsIntervalMillis() {
+        return this.mc.getReportMetricsIntervalMillis();
+    }
+
+    public void setReportMetricsIntervalMillis(int millis) throws SQLException {
+        this.mc.setReportMetricsIntervalMillis(millis);
+    }
+
+    public boolean getRequireSSL() {
+        return this.mc.getRequireSSL();
+    }
+
+    public void setRequireSSL(boolean property) {
+        this.mc.setRequireSSL(property);
+    }
+
+    public String getResourceId() {
+        return this.mc.getResourceId();
+    }
+
+    public void setResourceId(String resourceId) {
+        this.mc.setResourceId(resourceId);
+    }
+
+    public int getResultSetSizeThreshold() {
+        return this.mc.getResultSetSizeThreshold();
+    }
+
+    public void setResultSetSizeThreshold(int threshold) throws SQLException {
+        this.mc.setResultSetSizeThreshold(threshold);
+    }
+
+    public boolean getRewriteBatchedStatements() {
+        return this.mc.getRewriteBatchedStatements();
+    }
+
+    public void setRewriteBatchedStatements(boolean flag) {
+        this.mc.setRewriteBatchedStatements(flag);
+    }
+
+    public boolean getRollbackOnPooledClose() {
+        return this.mc.getRollbackOnPooledClose();
+    }
+
+    public void setRollbackOnPooledClose(boolean flag) {
+        this.mc.setRollbackOnPooledClose(flag);
+    }
+
+    public boolean getRoundRobinLoadBalance() {
+        return this.mc.getRoundRobinLoadBalance();
+    }
+
+    public void setRoundRobinLoadBalance(boolean flag) {
+        this.mc.setRoundRobinLoadBalance(flag);
+    }
+
+    public boolean getRunningCTS13() {
+        return this.mc.getRunningCTS13();
+    }
+
+    public void setRunningCTS13(boolean flag) {
+        this.mc.setRunningCTS13(flag);
+    }
+
+    public int getSecondsBeforeRetryMaster() {
+        return this.mc.getSecondsBeforeRetryMaster();
+    }
+
+    public void setSecondsBeforeRetryMaster(int property) throws SQLException {
+        this.mc.setSecondsBeforeRetryMaster(property);
+    }
+
+    public String getServerTimezone() {
+        return this.mc.getServerTimezone();
+    }
+
+    public void setServerTimezone(String property) {
+        this.mc.setServerTimezone(property);
+    }
+
+    public String getSessionVariables() {
+        return this.mc.getSessionVariables();
+    }
+
+    public void setSessionVariables(String variables) {
+        this.mc.setSessionVariables(variables);
+    }
+
+    public int getSlowQueryThresholdMillis() {
+        return this.mc.getSlowQueryThresholdMillis();
+    }
+
+    public void setSlowQueryThresholdMillis(int millis) throws SQLException {
+        this.mc.setSlowQueryThresholdMillis(millis);
+    }
+
+    public long getSlowQueryThresholdNanos() {
+        return this.mc.getSlowQueryThresholdNanos();
+    }
+
+    public void setSlowQueryThresholdNanos(long nanos) throws SQLException {
+        this.mc.setSlowQueryThresholdNanos(nanos);
+    }
+
+    public String getSocketFactory() {
+        return this.mc.getSocketFactory();
+    }
+
+    public void setSocketFactory(String name) {
+        this.mc.setSocketFactory(name);
+    }
+
+    public String getSocketFactoryClassName() {
+        return this.mc.getSocketFactoryClassName();
+    }
+
+    public void setSocketFactoryClassName(String property) {
+        this.mc.setSocketFactoryClassName(property);
+    }
+
+    public int getSocketTimeout() {
+        return this.mc.getSocketTimeout();
+    }
+
+    public void setSocketTimeout(int property) throws SQLException {
+        this.mc.setSocketTimeout(property);
+    }
+
+    public String getStatementInterceptors() {
+        return this.mc.getStatementInterceptors();
+    }
+
+    public void setStatementInterceptors(String value) {
+        this.mc.setStatementInterceptors(value);
+    }
+
+    public boolean getStrictFloatingPoint() {
+        return this.mc.getStrictFloatingPoint();
+    }
+
+    public void setStrictFloatingPoint(boolean property) {
+        this.mc.setStrictFloatingPoint(property);
+    }
+
+    public boolean getStrictUpdates() {
+        return this.mc.getStrictUpdates();
+    }
+
+    public void setStrictUpdates(boolean property) {
+        this.mc.setStrictUpdates(property);
+    }
+
+    public boolean getTcpKeepAlive() {
+        return this.mc.getTcpKeepAlive();
+    }
+
+    public void setTcpKeepAlive(boolean flag) {
+        this.mc.setTcpKeepAlive(flag);
+    }
+
+    public boolean getTcpNoDelay() {
+        return this.mc.getTcpNoDelay();
+    }
+
+    public void setTcpNoDelay(boolean flag) {
+        this.mc.setTcpNoDelay(flag);
+    }
+
+    public int getTcpRcvBuf() {
+        return this.mc.getTcpRcvBuf();
+    }
+
+    public void setTcpRcvBuf(int bufSize) throws SQLException {
+        this.mc.setTcpRcvBuf(bufSize);
+    }
+
+    public int getTcpSndBuf() {
+        return this.mc.getTcpSndBuf();
+    }
+
+    public void setTcpSndBuf(int bufSize) throws SQLException {
+        this.mc.setTcpSndBuf(bufSize);
+    }
+
+    public int getTcpTrafficClass() {
+        return this.mc.getTcpTrafficClass();
+    }
+
+    public void setTcpTrafficClass(int classFlags) throws SQLException {
+        this.mc.setTcpTrafficClass(classFlags);
+    }
+
+    public boolean getTinyInt1isBit() {
+        return this.mc.getTinyInt1isBit();
+    }
+
+    public void setTinyInt1isBit(boolean flag) {
+        this.mc.setTinyInt1isBit(flag);
+    }
+
+    public boolean getTraceProtocol() {
+        return this.mc.getTraceProtocol();
+    }
+
+    public void setTraceProtocol(boolean flag) {
+        this.mc.setTraceProtocol(flag);
+    }
+
+    public boolean getTransformedBitIsBoolean() {
+        return this.mc.getTransformedBitIsBoolean();
+    }
+
+    public void setTransformedBitIsBoolean(boolean flag) {
+        this.mc.setTransformedBitIsBoolean(flag);
+    }
+
+    public boolean getTreatUtilDateAsTimestamp() {
+        return this.mc.getTreatUtilDateAsTimestamp();
+    }
+
+    public void setTreatUtilDateAsTimestamp(boolean flag) {
+        this.mc.setTreatUtilDateAsTimestamp(flag);
+    }
+
+    public String getTrustCertificateKeyStorePassword() {
+        return this.mc.getTrustCertificateKeyStorePassword();
+    }
+
+    public void setTrustCertificateKeyStorePassword(String value) {
+        this.mc.setTrustCertificateKeyStorePassword(value);
+    }
+
+    public String getTrustCertificateKeyStoreType() {
+        return this.mc.getTrustCertificateKeyStoreType();
+    }
+
+    public void setTrustCertificateKeyStoreType(String value) {
+        this.mc.setTrustCertificateKeyStoreType(value);
+    }
+
+    public String getTrustCertificateKeyStoreUrl() {
+        return this.mc.getTrustCertificateKeyStoreUrl();
+    }
+
+    public void setTrustCertificateKeyStoreUrl(String value) {
+        this.mc.setTrustCertificateKeyStoreUrl(value);
+    }
+
+    public boolean getUltraDevHack() {
+        return this.mc.getUltraDevHack();
+    }
+
+    public void setUltraDevHack(boolean flag) {
+        this.mc.setUltraDevHack(flag);
+    }
+
+    public boolean getUseBlobToStoreUTF8OutsideBMP() {
+        return this.mc.getUseBlobToStoreUTF8OutsideBMP();
+    }
+
+    public void setUseBlobToStoreUTF8OutsideBMP(boolean flag) {
+        this.mc.setUseBlobToStoreUTF8OutsideBMP(flag);
+    }
+
+    public boolean getUseCompression() {
+        return this.mc.getUseCompression();
+    }
+
+    public void setUseCompression(boolean property) {
+        this.mc.setUseCompression(property);
+    }
+
+    public String getUseConfigs() {
+        return this.mc.getUseConfigs();
+    }
+
+    public void setUseConfigs(String configs) {
+        this.mc.setUseConfigs(configs);
+    }
+
+    public boolean getUseCursorFetch() {
+        return this.mc.getUseCursorFetch();
+    }
+
+    public void setUseCursorFetch(boolean flag) {
+        this.mc.setUseCursorFetch(flag);
+    }
+
+    public boolean getUseDirectRowUnpack() {
+        return this.mc.getUseDirectRowUnpack();
+    }
+
+    public void setUseDirectRowUnpack(boolean flag) {
+        this.mc.setUseDirectRowUnpack(flag);
+    }
+
+    public boolean getUseDynamicCharsetInfo() {
+        return this.mc.getUseDynamicCharsetInfo();
+    }
+
+    public void setUseDynamicCharsetInfo(boolean flag) {
+        this.mc.setUseDynamicCharsetInfo(flag);
+    }
+
+    public boolean getUseFastDateParsing() {
+        return this.mc.getUseFastDateParsing();
+    }
+
+    public void setUseFastDateParsing(boolean flag) {
+        this.mc.setUseFastDateParsing(flag);
+    }
+
+    public boolean getUseFastIntParsing() {
+        return this.mc.getUseFastIntParsing();
+    }
+
+    public void setUseFastIntParsing(boolean flag) {
+        this.mc.setUseFastIntParsing(flag);
+    }
+
+    public boolean getUseGmtMillisForDatetimes() {
+        return this.mc.getUseGmtMillisForDatetimes();
+    }
+
+    public void setUseGmtMillisForDatetimes(boolean flag) {
+        this.mc.setUseGmtMillisForDatetimes(flag);
+    }
+
+    public boolean getUseHostsInPrivileges() {
+        return this.mc.getUseHostsInPrivileges();
+    }
+
+    public void setUseHostsInPrivileges(boolean property) {
+        this.mc.setUseHostsInPrivileges(property);
+    }
+
+    public boolean getUseInformationSchema() {
+        return this.mc.getUseInformationSchema();
+    }
+
+    public void setUseInformationSchema(boolean flag) {
+        this.mc.setUseInformationSchema(flag);
+    }
+
+    public boolean getUseJDBCCompliantTimezoneShift() {
+        return this.mc.getUseJDBCCompliantTimezoneShift();
+    }
+
+    public void setUseJDBCCompliantTimezoneShift(boolean flag) {
+        this.mc.setUseJDBCCompliantTimezoneShift(flag);
+    }
+
+    public boolean getUseJvmCharsetConverters() {
+        return this.mc.getUseJvmCharsetConverters();
+    }
+
+    public void setUseJvmCharsetConverters(boolean flag) {
+        this.mc.setUseJvmCharsetConverters(flag);
+    }
+
+    public boolean getUseLocalSessionState() {
+        return this.mc.getUseLocalSessionState();
+    }
+
+    public void setUseLocalSessionState(boolean flag) {
+        this.mc.setUseLocalSessionState(flag);
+    }
+
+    public boolean getUseNanosForElapsedTime() {
+        return this.mc.getUseNanosForElapsedTime();
+    }
+
+    public void setUseNanosForElapsedTime(boolean flag) {
+        this.mc.setUseNanosForElapsedTime(flag);
+    }
+
+    public boolean getUseOldAliasMetadataBehavior() {
+        return this.mc.getUseOldAliasMetadataBehavior();
+    }
+
+    public void setUseOldAliasMetadataBehavior(boolean flag) {
+        this.mc.setUseOldAliasMetadataBehavior(flag);
+    }
+
+    public boolean getUseOldUTF8Behavior() {
+        return this.mc.getUseOldUTF8Behavior();
+    }
+
+    public void setUseOldUTF8Behavior(boolean flag) {
+        this.mc.setUseOldUTF8Behavior(flag);
+    }
+
+    public boolean getUseOnlyServerErrorMessages() {
+        return this.mc.getUseOnlyServerErrorMessages();
+    }
+
+    public void setUseOnlyServerErrorMessages(boolean flag) {
+        this.mc.setUseOnlyServerErrorMessages(flag);
+    }
+
+    public boolean getUseReadAheadInput() {
+        return this.mc.getUseReadAheadInput();
+    }
+
+    public void setUseReadAheadInput(boolean flag) {
+        this.mc.setUseReadAheadInput(flag);
+    }
+
+    public boolean getUseSSL() {
+        return this.mc.getUseSSL();
+    }
+
+    public void setUseSSL(boolean property) {
+        this.mc.setUseSSL(property);
+    }
+
+    public boolean getUseSSPSCompatibleTimezoneShift() {
+        return this.mc.getUseSSPSCompatibleTimezoneShift();
+    }
+
+    public void setUseSSPSCompatibleTimezoneShift(boolean flag) {
+        this.mc.setUseSSPSCompatibleTimezoneShift(flag);
+    }
+
+    public boolean getUseServerPrepStmts() {
+        return this.mc.getUseServerPrepStmts();
+    }
+
+    public void setUseServerPrepStmts(boolean flag) {
+        this.mc.setUseServerPrepStmts(flag);
+    }
+
+    public boolean getUseServerPreparedStmts() {
+        return this.mc.getUseServerPreparedStmts();
+    }
+
+    public void setUseServerPreparedStmts(boolean flag) {
+        this.mc.setUseServerPreparedStmts(flag);
+    }
+
+    public boolean getUseSqlStateCodes() {
+        return this.mc.getUseSqlStateCodes();
+    }
+
+    public void setUseSqlStateCodes(boolean flag) {
+        this.mc.setUseSqlStateCodes(flag);
+    }
+
+    public boolean getUseStreamLengthsInPrepStmts() {
+        return this.mc.getUseStreamLengthsInPrepStmts();
+    }
+
+    public void setUseStreamLengthsInPrepStmts(boolean property) {
+        this.mc.setUseStreamLengthsInPrepStmts(property);
+    }
+
+    public boolean getUseTimezone() {
+        return this.mc.getUseTimezone();
+    }
+
+    public void setUseTimezone(boolean property) {
+        this.mc.setUseTimezone(property);
+    }
+
+    public boolean getUseUltraDevWorkAround() {
+        return this.mc.getUseUltraDevWorkAround();
+    }
+
+    public void setUseUltraDevWorkAround(boolean property) {
+        this.mc.setUseUltraDevWorkAround(property);
+    }
+
+    public boolean getUseUnbufferedInput() {
+        return this.mc.getUseUnbufferedInput();
+    }
+
+    public void setUseUnbufferedInput(boolean flag) {
+        this.mc.setUseUnbufferedInput(flag);
+    }
+
+    public boolean getUseUnicode() {
+        return this.mc.getUseUnicode();
+    }
+
+    public void setUseUnicode(boolean flag) {
+        this.mc.setUseUnicode(flag);
+    }
+
+    public boolean getUseUsageAdvisor() {
+        return this.mc.getUseUsageAdvisor();
+    }
+
+    public void setUseUsageAdvisor(boolean useUsageAdvisorFlag) {
+        this.mc.setUseUsageAdvisor(useUsageAdvisorFlag);
+    }
+
+    public String getUtf8OutsideBmpExcludedColumnNamePattern() {
+        return this.mc.getUtf8OutsideBmpExcludedColumnNamePattern();
+    }
+
+    public void setUtf8OutsideBmpExcludedColumnNamePattern(String regexPattern) {
+        this.mc.setUtf8OutsideBmpExcludedColumnNamePattern(regexPattern);
+    }
+
+    public String getUtf8OutsideBmpIncludedColumnNamePattern() {
+        return this.mc.getUtf8OutsideBmpIncludedColumnNamePattern();
+    }
+
+    public void setUtf8OutsideBmpIncludedColumnNamePattern(String regexPattern) {
+        this.mc.setUtf8OutsideBmpIncludedColumnNamePattern(regexPattern);
+    }
+
+    public boolean getYearIsDateType() {
+        return this.mc.getYearIsDateType();
+    }
+
+    public void setYearIsDateType(boolean flag) {
+        this.mc.setYearIsDateType(flag);
+    }
+
+    public String getZeroDateTimeBehavior() {
+        return this.mc.getZeroDateTimeBehavior();
+    }
+
+    public void setZeroDateTimeBehavior(String behavior) {
+        this.mc.setZeroDateTimeBehavior(behavior);
     }
 
     public void setAutoReconnect(boolean flag) {
@@ -1762,644 +2376,16 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         this.mc.setAutoReconnectForConnectionPools(property);
     }
 
-    public void setAutoReconnectForPools(boolean flag) {
-        this.mc.setAutoReconnectForPools(flag);
-    }
-
-    public void setAutoSlowLog(boolean flag) {
-        this.mc.setAutoSlowLog(flag);
-    }
-
-    public void setBlobSendChunkSize(String value) throws SQLException {
-        this.mc.setBlobSendChunkSize(value);
-    }
-
-    public void setBlobsAreStrings(boolean flag) {
-        this.mc.setBlobsAreStrings(flag);
-    }
-
-    public void setCacheCallableStatements(boolean flag) {
-        this.mc.setCacheCallableStatements(flag);
-    }
-
-    public void setCacheCallableStmts(boolean flag) {
-        this.mc.setCacheCallableStmts(flag);
-    }
-
-    public void setCachePrepStmts(boolean flag) {
-        this.mc.setCachePrepStmts(flag);
-    }
-
-    public void setCachePreparedStatements(boolean flag) {
-        this.mc.setCachePreparedStatements(flag);
-    }
-
-    public void setCacheResultSetMetadata(boolean property) {
-        this.mc.setCacheResultSetMetadata(property);
-    }
-
-    public void setCacheServerConfiguration(boolean flag) {
-        this.mc.setCacheServerConfiguration(flag);
-    }
-
-    public void setCallableStatementCacheSize(int size) throws SQLException {
-        this.mc.setCallableStatementCacheSize(size);
-    }
-
-    public void setCallableStmtCacheSize(int cacheSize) throws SQLException {
-        this.mc.setCallableStmtCacheSize(cacheSize);
-    }
-
     public void setCapitalizeDBMDTypes(boolean property) {
         this.mc.setCapitalizeDBMDTypes(property);
-    }
-
-    public void setCapitalizeTypeNames(boolean flag) {
-        this.mc.setCapitalizeTypeNames(flag);
     }
 
     public void setCharacterEncoding(String encoding) {
         this.mc.setCharacterEncoding(encoding);
     }
 
-    public void setCharacterSetResults(String characterSet) {
-        this.mc.setCharacterSetResults(characterSet);
-    }
-
-    public void setClientCertificateKeyStorePassword(String value) {
-        this.mc.setClientCertificateKeyStorePassword(value);
-    }
-
-    public void setClientCertificateKeyStoreType(String value) {
-        this.mc.setClientCertificateKeyStoreType(value);
-    }
-
-    public void setClientCertificateKeyStoreUrl(String value) {
-        this.mc.setClientCertificateKeyStoreUrl(value);
-    }
-
-    public void setClientInfoProvider(String classname) {
-        this.mc.setClientInfoProvider(classname);
-    }
-
-    public void setClobCharacterEncoding(String encoding) {
-        this.mc.setClobCharacterEncoding(encoding);
-    }
-
-    public void setClobberStreamingResults(boolean flag) {
-        this.mc.setClobberStreamingResults(flag);
-    }
-
-    public void setConnectTimeout(int timeoutMs) throws SQLException {
-        this.mc.setConnectTimeout(timeoutMs);
-    }
-
-    public void setConnectionCollation(String collation) {
-        this.mc.setConnectionCollation(collation);
-    }
-
-    public void setConnectionLifecycleInterceptors(String interceptors) {
-        this.mc.setConnectionLifecycleInterceptors(interceptors);
-    }
-
-    public void setContinueBatchOnError(boolean property) {
-        this.mc.setContinueBatchOnError(property);
-    }
-
-    public void setCreateDatabaseIfNotExist(boolean flag) {
-        this.mc.setCreateDatabaseIfNotExist(flag);
-    }
-
-    public void setDefaultFetchSize(int n) throws SQLException {
-        this.mc.setDefaultFetchSize(n);
-    }
-
     public void setDetectServerPreparedStmts(boolean property) {
         this.mc.setDetectServerPreparedStmts(property);
-    }
-
-    public void setDontTrackOpenResources(boolean flag) {
-        this.mc.setDontTrackOpenResources(flag);
-    }
-
-    public void setDumpMetadataOnColumnNotFound(boolean flag) {
-        this.mc.setDumpMetadataOnColumnNotFound(flag);
-    }
-
-    public void setDumpQueriesOnException(boolean flag) {
-        this.mc.setDumpQueriesOnException(flag);
-    }
-
-    public void setDynamicCalendars(boolean flag) {
-        this.mc.setDynamicCalendars(flag);
-    }
-
-    public void setElideSetAutoCommits(boolean flag) {
-        this.mc.setElideSetAutoCommits(flag);
-    }
-
-    public void setEmptyStringsConvertToZero(boolean flag) {
-        this.mc.setEmptyStringsConvertToZero(flag);
-    }
-
-    public void setEmulateLocators(boolean property) {
-        this.mc.setEmulateLocators(property);
-    }
-
-    public void setEmulateUnsupportedPstmts(boolean flag) {
-        this.mc.setEmulateUnsupportedPstmts(flag);
-    }
-
-    public void setEnablePacketDebug(boolean flag) {
-        this.mc.setEnablePacketDebug(flag);
-    }
-
-    public void setEnableQueryTimeouts(boolean flag) {
-        this.mc.setEnableQueryTimeouts(flag);
-    }
-
-    public void setEncoding(String property) {
-        this.mc.setEncoding(property);
-    }
-
-    public void setExplainSlowQueries(boolean flag) {
-        this.mc.setExplainSlowQueries(flag);
-    }
-
-    public void setFailOverReadOnly(boolean flag) {
-        this.mc.setFailOverReadOnly(flag);
-    }
-
-    public void setFunctionsNeverReturnBlobs(boolean flag) {
-        this.mc.setFunctionsNeverReturnBlobs(flag);
-    }
-
-    public void setGatherPerfMetrics(boolean flag) {
-        this.mc.setGatherPerfMetrics(flag);
-    }
-
-    public void setGatherPerformanceMetrics(boolean flag) {
-        this.mc.setGatherPerformanceMetrics(flag);
-    }
-
-    public void setGenerateSimpleParameterMetadata(boolean flag) {
-        this.mc.setGenerateSimpleParameterMetadata(flag);
-    }
-
-    public void setHoldResultsOpenOverStatementClose(boolean flag) {
-        this.mc.setHoldResultsOpenOverStatementClose(flag);
-    }
-
-    public void setIgnoreNonTxTables(boolean property) {
-        this.mc.setIgnoreNonTxTables(property);
-    }
-
-    public void setIncludeInnodbStatusInDeadlockExceptions(boolean flag) {
-        this.mc.setIncludeInnodbStatusInDeadlockExceptions(flag);
-    }
-
-    public void setInitialTimeout(int property) throws SQLException {
-        this.mc.setInitialTimeout(property);
-    }
-
-    public void setInteractiveClient(boolean property) {
-        this.mc.setInteractiveClient(property);
-    }
-
-    public void setIsInteractiveClient(boolean property) {
-        this.mc.setIsInteractiveClient(property);
-    }
-
-    public void setJdbcCompliantTruncation(boolean flag) {
-        this.mc.setJdbcCompliantTruncation(flag);
-    }
-
-    public void setJdbcCompliantTruncationForReads(boolean jdbcCompliantTruncationForReads) {
-        this.mc.setJdbcCompliantTruncationForReads(jdbcCompliantTruncationForReads);
-    }
-
-    public void setLargeRowSizeThreshold(String value) throws SQLException {
-        this.mc.setLargeRowSizeThreshold(value);
-    }
-
-    public void setLoadBalanceStrategy(String strategy) {
-        this.mc.setLoadBalanceStrategy(strategy);
-    }
-
-    public void setLocalSocketAddress(String address) {
-        this.mc.setLocalSocketAddress(address);
-    }
-
-    public void setLocatorFetchBufferSize(String value) throws SQLException {
-        this.mc.setLocatorFetchBufferSize(value);
-    }
-
-    public void setLogSlowQueries(boolean flag) {
-        this.mc.setLogSlowQueries(flag);
-    }
-
-    public void setLogXaCommands(boolean flag) {
-        this.mc.setLogXaCommands(flag);
-    }
-
-    public void setLogger(String property) {
-        this.mc.setLogger(property);
-    }
-
-    public void setLoggerClassName(String className) {
-        this.mc.setLoggerClassName(className);
-    }
-
-    public void setMaintainTimeStats(boolean flag) {
-        this.mc.setMaintainTimeStats(flag);
-    }
-
-    public void setMaxQuerySizeToLog(int sizeInBytes) throws SQLException {
-        this.mc.setMaxQuerySizeToLog(sizeInBytes);
-    }
-
-    public void setMaxReconnects(int property) throws SQLException {
-        this.mc.setMaxReconnects(property);
-    }
-
-    public void setMaxRows(int property) throws SQLException {
-        this.mc.setMaxRows(property);
-    }
-
-    public void setMetadataCacheSize(int value) throws SQLException {
-        this.mc.setMetadataCacheSize(value);
-    }
-
-    public void setNetTimeoutForStreamingResults(int value) throws SQLException {
-        this.mc.setNetTimeoutForStreamingResults(value);
-    }
-
-    public void setNoAccessToProcedureBodies(boolean flag) {
-        this.mc.setNoAccessToProcedureBodies(flag);
-    }
-
-    public void setNoDatetimeStringSync(boolean flag) {
-        this.mc.setNoDatetimeStringSync(flag);
-    }
-
-    public void setNoTimezoneConversionForTimeType(boolean flag) {
-        this.mc.setNoTimezoneConversionForTimeType(flag);
-    }
-
-    public void setNoTimezoneConversionForDateType(boolean flag) {
-        this.mc.setNoTimezoneConversionForDateType(flag);
-    }
-
-    public void setCacheDefaultTimezone(boolean flag) {
-        this.mc.setCacheDefaultTimezone(flag);
-    }
-
-    public void setNullCatalogMeansCurrent(boolean value) {
-        this.mc.setNullCatalogMeansCurrent(value);
-    }
-
-    public void setNullNamePatternMatchesAll(boolean value) {
-        this.mc.setNullNamePatternMatchesAll(value);
-    }
-
-    public void setOverrideSupportsIntegrityEnhancementFacility(boolean flag) {
-        this.mc.setOverrideSupportsIntegrityEnhancementFacility(flag);
-    }
-
-    public void setPacketDebugBufferSize(int size) throws SQLException {
-        this.mc.setPacketDebugBufferSize(size);
-    }
-
-    public void setPadCharsWithSpace(boolean flag) {
-        this.mc.setPadCharsWithSpace(flag);
-    }
-
-    public void setParanoid(boolean property) {
-        this.mc.setParanoid(property);
-    }
-
-    public void setPedantic(boolean property) {
-        this.mc.setPedantic(property);
-    }
-
-    public void setPinGlobalTxToPhysicalConnection(boolean flag) {
-        this.mc.setPinGlobalTxToPhysicalConnection(flag);
-    }
-
-    public void setPopulateInsertRowWithDefaultValues(boolean flag) {
-        this.mc.setPopulateInsertRowWithDefaultValues(flag);
-    }
-
-    public void setPrepStmtCacheSize(int cacheSize) throws SQLException {
-        this.mc.setPrepStmtCacheSize(cacheSize);
-    }
-
-    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException {
-        this.mc.setPrepStmtCacheSqlLimit(sqlLimit);
-    }
-
-    public void setPreparedStatementCacheSize(int cacheSize) throws SQLException {
-        this.mc.setPreparedStatementCacheSize(cacheSize);
-    }
-
-    public void setPreparedStatementCacheSqlLimit(int cacheSqlLimit) throws SQLException {
-        this.mc.setPreparedStatementCacheSqlLimit(cacheSqlLimit);
-    }
-
-    public void setProcessEscapeCodesForPrepStmts(boolean flag) {
-        this.mc.setProcessEscapeCodesForPrepStmts(flag);
-    }
-
-    public void setProfileSQL(boolean flag) {
-        this.mc.setProfileSQL(flag);
-    }
-
-    public void setProfileSql(boolean property) {
-        this.mc.setProfileSql(property);
-    }
-
-    public void setPropertiesTransform(String value) {
-        this.mc.setPropertiesTransform(value);
-    }
-
-    public void setQueriesBeforeRetryMaster(int property) throws SQLException {
-        this.mc.setQueriesBeforeRetryMaster(property);
-    }
-
-    public void setReconnectAtTxEnd(boolean property) {
-        this.mc.setReconnectAtTxEnd(property);
-    }
-
-    public void setRelaxAutoCommit(boolean property) {
-        this.mc.setRelaxAutoCommit(property);
-    }
-
-    public void setReportMetricsIntervalMillis(int millis) throws SQLException {
-        this.mc.setReportMetricsIntervalMillis(millis);
-    }
-
-    public void setRequireSSL(boolean property) {
-        this.mc.setRequireSSL(property);
-    }
-
-    public void setResourceId(String resourceId) {
-        this.mc.setResourceId(resourceId);
-    }
-
-    public void setResultSetSizeThreshold(int threshold) throws SQLException {
-        this.mc.setResultSetSizeThreshold(threshold);
-    }
-
-    public void setRetainStatementAfterResultSetClose(boolean flag) {
-        this.mc.setRetainStatementAfterResultSetClose(flag);
-    }
-
-    public void setRewriteBatchedStatements(boolean flag) {
-        this.mc.setRewriteBatchedStatements(flag);
-    }
-
-    public void setRollbackOnPooledClose(boolean flag) {
-        this.mc.setRollbackOnPooledClose(flag);
-    }
-
-    public void setRoundRobinLoadBalance(boolean flag) {
-        this.mc.setRoundRobinLoadBalance(flag);
-    }
-
-    public void setRunningCTS13(boolean flag) {
-        this.mc.setRunningCTS13(flag);
-    }
-
-    public void setSecondsBeforeRetryMaster(int property) throws SQLException {
-        this.mc.setSecondsBeforeRetryMaster(property);
-    }
-
-    public void setServerTimezone(String property) {
-        this.mc.setServerTimezone(property);
-    }
-
-    public void setSessionVariables(String variables) {
-        this.mc.setSessionVariables(variables);
-    }
-
-    public void setSlowQueryThresholdMillis(int millis) throws SQLException {
-        this.mc.setSlowQueryThresholdMillis(millis);
-    }
-
-    public void setSlowQueryThresholdNanos(long nanos) throws SQLException {
-        this.mc.setSlowQueryThresholdNanos(nanos);
-    }
-
-    public void setSocketFactory(String name) {
-        this.mc.setSocketFactory(name);
-    }
-
-    public void setSocketFactoryClassName(String property) {
-        this.mc.setSocketFactoryClassName(property);
-    }
-
-    public void setSocketTimeout(int property) throws SQLException {
-        this.mc.setSocketTimeout(property);
-    }
-
-    public void setStatementInterceptors(String value) {
-        this.mc.setStatementInterceptors(value);
-    }
-
-    public void setStrictFloatingPoint(boolean property) {
-        this.mc.setStrictFloatingPoint(property);
-    }
-
-    public void setStrictUpdates(boolean property) {
-        this.mc.setStrictUpdates(property);
-    }
-
-    public void setTcpKeepAlive(boolean flag) {
-        this.mc.setTcpKeepAlive(flag);
-    }
-
-    public void setTcpNoDelay(boolean flag) {
-        this.mc.setTcpNoDelay(flag);
-    }
-
-    public void setTcpRcvBuf(int bufSize) throws SQLException {
-        this.mc.setTcpRcvBuf(bufSize);
-    }
-
-    public void setTcpSndBuf(int bufSize) throws SQLException {
-        this.mc.setTcpSndBuf(bufSize);
-    }
-
-    public void setTcpTrafficClass(int classFlags) throws SQLException {
-        this.mc.setTcpTrafficClass(classFlags);
-    }
-
-    public void setTinyInt1isBit(boolean flag) {
-        this.mc.setTinyInt1isBit(flag);
-    }
-
-    public void setTraceProtocol(boolean flag) {
-        this.mc.setTraceProtocol(flag);
-    }
-
-    public void setTransformedBitIsBoolean(boolean flag) {
-        this.mc.setTransformedBitIsBoolean(flag);
-    }
-
-    public void setTreatUtilDateAsTimestamp(boolean flag) {
-        this.mc.setTreatUtilDateAsTimestamp(flag);
-    }
-
-    public void setTrustCertificateKeyStorePassword(String value) {
-        this.mc.setTrustCertificateKeyStorePassword(value);
-    }
-
-    public void setTrustCertificateKeyStoreType(String value) {
-        this.mc.setTrustCertificateKeyStoreType(value);
-    }
-
-    public void setTrustCertificateKeyStoreUrl(String value) {
-        this.mc.setTrustCertificateKeyStoreUrl(value);
-    }
-
-    public void setUltraDevHack(boolean flag) {
-        this.mc.setUltraDevHack(flag);
-    }
-
-    public void setUseBlobToStoreUTF8OutsideBMP(boolean flag) {
-        this.mc.setUseBlobToStoreUTF8OutsideBMP(flag);
-    }
-
-    public void setUseCompression(boolean property) {
-        this.mc.setUseCompression(property);
-    }
-
-    public void setUseConfigs(String configs) {
-        this.mc.setUseConfigs(configs);
-    }
-
-    public void setUseCursorFetch(boolean flag) {
-        this.mc.setUseCursorFetch(flag);
-    }
-
-    public void setUseDirectRowUnpack(boolean flag) {
-        this.mc.setUseDirectRowUnpack(flag);
-    }
-
-    public void setUseDynamicCharsetInfo(boolean flag) {
-        this.mc.setUseDynamicCharsetInfo(flag);
-    }
-
-    public void setUseFastDateParsing(boolean flag) {
-        this.mc.setUseFastDateParsing(flag);
-    }
-
-    public void setUseFastIntParsing(boolean flag) {
-        this.mc.setUseFastIntParsing(flag);
-    }
-
-    public void setUseGmtMillisForDatetimes(boolean flag) {
-        this.mc.setUseGmtMillisForDatetimes(flag);
-    }
-
-    public void setUseHostsInPrivileges(boolean property) {
-        this.mc.setUseHostsInPrivileges(property);
-    }
-
-    public void setUseInformationSchema(boolean flag) {
-        this.mc.setUseInformationSchema(flag);
-    }
-
-    public void setUseJDBCCompliantTimezoneShift(boolean flag) {
-        this.mc.setUseJDBCCompliantTimezoneShift(flag);
-    }
-
-    public void setUseJvmCharsetConverters(boolean flag) {
-        this.mc.setUseJvmCharsetConverters(flag);
-    }
-
-    public void setUseLocalSessionState(boolean flag) {
-        this.mc.setUseLocalSessionState(flag);
-    }
-
-    public void setUseNanosForElapsedTime(boolean flag) {
-        this.mc.setUseNanosForElapsedTime(flag);
-    }
-
-    public void setUseOldAliasMetadataBehavior(boolean flag) {
-        this.mc.setUseOldAliasMetadataBehavior(flag);
-    }
-
-    public void setUseOldUTF8Behavior(boolean flag) {
-        this.mc.setUseOldUTF8Behavior(flag);
-    }
-
-    public void setUseOnlyServerErrorMessages(boolean flag) {
-        this.mc.setUseOnlyServerErrorMessages(flag);
-    }
-
-    public void setUseReadAheadInput(boolean flag) {
-        this.mc.setUseReadAheadInput(flag);
-    }
-
-    public void setUseSSL(boolean property) {
-        this.mc.setUseSSL(property);
-    }
-
-    public void setUseSSPSCompatibleTimezoneShift(boolean flag) {
-        this.mc.setUseSSPSCompatibleTimezoneShift(flag);
-    }
-
-    public void setUseServerPrepStmts(boolean flag) {
-        this.mc.setUseServerPrepStmts(flag);
-    }
-
-    public void setUseServerPreparedStmts(boolean flag) {
-        this.mc.setUseServerPreparedStmts(flag);
-    }
-
-    public void setUseSqlStateCodes(boolean flag) {
-        this.mc.setUseSqlStateCodes(flag);
-    }
-
-    public void setUseStreamLengthsInPrepStmts(boolean property) {
-        this.mc.setUseStreamLengthsInPrepStmts(property);
-    }
-
-    public void setUseTimezone(boolean property) {
-        this.mc.setUseTimezone(property);
-    }
-
-    public void setUseUltraDevWorkAround(boolean property) {
-        this.mc.setUseUltraDevWorkAround(property);
-    }
-
-    public void setUseUnbufferedInput(boolean flag) {
-        this.mc.setUseUnbufferedInput(flag);
-    }
-
-    public void setUseUnicode(boolean flag) {
-        this.mc.setUseUnicode(flag);
-    }
-
-    public void setUseUsageAdvisor(boolean useUsageAdvisorFlag) {
-        this.mc.setUseUsageAdvisor(useUsageAdvisorFlag);
-    }
-
-    public void setUtf8OutsideBmpExcludedColumnNamePattern(String regexPattern) {
-        this.mc.setUtf8OutsideBmpExcludedColumnNamePattern(regexPattern);
-    }
-
-    public void setUtf8OutsideBmpIncludedColumnNamePattern(String regexPattern) {
-        this.mc.setUtf8OutsideBmpIncludedColumnNamePattern(regexPattern);
-    }
-
-    public void setYearIsDateType(boolean flag) {
-        this.mc.setYearIsDateType(flag);
-    }
-
-    public void setZeroDateTimeBehavior(String behavior) {
-        this.mc.setZeroDateTimeBehavior(behavior);
     }
 
     public boolean useUnbufferedInput() {
@@ -2446,12 +2432,12 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getSelfDestructOnPingMaxOperations();
     }
 
-    public int getSelfDestructOnPingSecondsLifetime() {
-        return this.mc.getSelfDestructOnPingSecondsLifetime();
-    }
-
     public void setSelfDestructOnPingMaxOperations(int maxOperations) throws SQLException {
         this.mc.setSelfDestructOnPingMaxOperations(maxOperations);
+    }
+
+    public int getSelfDestructOnPingSecondsLifetime() {
+        return this.mc.getSelfDestructOnPingSecondsLifetime();
     }
 
     public void setSelfDestructOnPingSecondsLifetime(int seconds) throws SQLException {
@@ -2526,12 +2512,12 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         this.mc.setLoadBalanceValidateConnectionOnSwapServer(loadBalanceValidateConnectionOnSwapServer);
     }
 
-    public void setRetriesAllDown(int retriesAllDown) throws SQLException {
-        this.mc.setRetriesAllDown(retriesAllDown);
-    }
-
     public int getRetriesAllDown() {
         return this.mc.getRetriesAllDown();
+    }
+
+    public void setRetriesAllDown(int retriesAllDown) throws SQLException {
+        this.mc.setRetriesAllDown(retriesAllDown);
     }
 
     public ExceptionInterceptor getExceptionInterceptor() {
@@ -2574,6 +2560,10 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getRetainStatementAfterResultSetClose();
     }
 
+    public void setRetainStatementAfterResultSetClose(boolean flag) {
+        this.mc.setRetainStatementAfterResultSetClose(flag);
+    }
+
     public int getMaxAllowedPacket() {
         return this.mc.getMaxAllowedPacket();
     }
@@ -2582,25 +2572,13 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getLoadBalanceConnectionGroup();
     }
 
-    public boolean getLoadBalanceEnableJMX() {
-        return this.mc.getLoadBalanceEnableJMX();
-    }
-
-    public String getLoadBalanceExceptionChecker() {
-        return this.mc.getLoadBalanceExceptionChecker();
-    }
-
-    public String getLoadBalanceSQLExceptionSubclassFailover() {
-        return this.mc.getLoadBalanceSQLExceptionSubclassFailover();
-    }
-
-    public String getLoadBalanceSQLStateFailover() {
-        return this.mc.getLoadBalanceSQLStateFailover();
-    }
-
     public void setLoadBalanceConnectionGroup(String loadBalanceConnectionGroup) {
         this.mc.setLoadBalanceConnectionGroup(loadBalanceConnectionGroup);
 
+    }
+
+    public boolean getLoadBalanceEnableJMX() {
+        return this.mc.getLoadBalanceEnableJMX();
     }
 
     public void setLoadBalanceEnableJMX(boolean loadBalanceEnableJMX) {
@@ -2608,14 +2586,26 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
 
     }
 
+    public String getLoadBalanceExceptionChecker() {
+        return this.mc.getLoadBalanceExceptionChecker();
+    }
+
     public void setLoadBalanceExceptionChecker(String loadBalanceExceptionChecker) {
         this.mc.setLoadBalanceExceptionChecker(loadBalanceExceptionChecker);
 
     }
 
+    public String getLoadBalanceSQLExceptionSubclassFailover() {
+        return this.mc.getLoadBalanceSQLExceptionSubclassFailover();
+    }
+
     public void setLoadBalanceSQLExceptionSubclassFailover(String loadBalanceSQLExceptionSubclassFailover) {
         this.mc.setLoadBalanceSQLExceptionSubclassFailover(loadBalanceSQLExceptionSubclassFailover);
 
+    }
+
+    public String getLoadBalanceSQLStateFailover() {
+        return this.mc.getLoadBalanceSQLStateFailover();
     }
 
     public void setLoadBalanceSQLStateFailover(String loadBalanceSQLStateFailover) {
@@ -2627,13 +2617,13 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getLoadBalanceAutoCommitStatementRegex();
     }
 
-    public int getLoadBalanceAutoCommitStatementThreshold() {
-        return this.mc.getLoadBalanceAutoCommitStatementThreshold();
-    }
-
     public void setLoadBalanceAutoCommitStatementRegex(String loadBalanceAutoCommitStatementRegex) {
         this.mc.setLoadBalanceAutoCommitStatementRegex(loadBalanceAutoCommitStatementRegex);
 
+    }
+
+    public int getLoadBalanceAutoCommitStatementThreshold() {
+        return this.mc.getLoadBalanceAutoCommitStatementThreshold();
     }
 
     public void setLoadBalanceAutoCommitStatementThreshold(int loadBalanceAutoCommitStatementThreshold) throws SQLException {
@@ -2641,22 +2631,12 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
 
     }
 
-    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException {
-        this.mc.setLoadBalanceHostRemovalGracePeriod(loadBalanceHostRemovalGracePeriod);
-    }
-
     public int getLoadBalanceHostRemovalGracePeriod() {
         return this.mc.getLoadBalanceHostRemovalGracePeriod();
     }
 
-    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-        checkClosed();
-
-        try {
-            this.mc.setTypeMap(map);
-        } catch (SQLException sqlException) {
-            checkAndFireConnectionError(sqlException);
-        }
+    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException {
+        this.mc.setLoadBalanceHostRemovalGracePeriod(loadBalanceHostRemovalGracePeriod);
     }
 
     public boolean getIncludeThreadDumpInDeadlockExceptions() {
@@ -2680,20 +2660,24 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.isServerLocal();
     }
 
+    public String getAuthenticationPlugins() {
+        return this.mc.getAuthenticationPlugins();
+    }
+
     public void setAuthenticationPlugins(String authenticationPlugins) {
         this.mc.setAuthenticationPlugins(authenticationPlugins);
     }
 
-    public String getAuthenticationPlugins() {
-        return this.mc.getAuthenticationPlugins();
+    public String getDisabledAuthenticationPlugins() {
+        return this.mc.getDisabledAuthenticationPlugins();
     }
 
     public void setDisabledAuthenticationPlugins(String disabledAuthenticationPlugins) {
         this.mc.setDisabledAuthenticationPlugins(disabledAuthenticationPlugins);
     }
 
-    public String getDisabledAuthenticationPlugins() {
-        return this.mc.getDisabledAuthenticationPlugins();
+    public String getDefaultAuthenticationPlugin() {
+        return this.mc.getDefaultAuthenticationPlugin();
     }
 
     public void setDefaultAuthenticationPlugin(String defaultAuthenticationPlugin) {
@@ -2701,24 +2685,20 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
 
     }
 
-    public String getDefaultAuthenticationPlugin() {
-        return this.mc.getDefaultAuthenticationPlugin();
+    public String getParseInfoCacheFactory() {
+        return this.mc.getParseInfoCacheFactory();
     }
 
     public void setParseInfoCacheFactory(String factoryClassname) {
         this.mc.setParseInfoCacheFactory(factoryClassname);
     }
 
-    public String getParseInfoCacheFactory() {
-        return this.mc.getParseInfoCacheFactory();
+    public String getSchema() throws SQLException {
+        return this.mc.getSchema();
     }
 
     public void setSchema(String schema) throws SQLException {
         this.mc.setSchema(schema);
-    }
-
-    public String getSchema() throws SQLException {
-        return this.mc.getSchema();
     }
 
     public void abort(Executor executor) throws SQLException {
@@ -2733,28 +2713,28 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getNetworkTimeout();
     }
 
-    public void setServerConfigCacheFactory(String factoryClassname) {
-        this.mc.setServerConfigCacheFactory(factoryClassname);
-    }
-
     public String getServerConfigCacheFactory() {
         return this.mc.getServerConfigCacheFactory();
     }
 
-    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords) {
-        this.mc.setDisconnectOnExpiredPasswords(disconnectOnExpiredPasswords);
+    public void setServerConfigCacheFactory(String factoryClassname) {
+        this.mc.setServerConfigCacheFactory(factoryClassname);
     }
 
     public boolean getDisconnectOnExpiredPasswords() {
         return this.mc.getDisconnectOnExpiredPasswords();
     }
 
-    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions) {
-        this.mc.setGetProceduresReturnsFunctions(getProcedureReturnsFunctions);
+    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords) {
+        this.mc.setDisconnectOnExpiredPasswords(disconnectOnExpiredPasswords);
     }
 
     public boolean getGetProceduresReturnsFunctions() {
         return this.mc.getGetProceduresReturnsFunctions();
+    }
+
+    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions) {
+        this.mc.setGetProceduresReturnsFunctions(getProcedureReturnsFunctions);
     }
 
     public void abortInternal() throws SQLException {
@@ -2802,12 +2782,12 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         return this.mc.getConnectionAttributes();
     }
 
-    public void setDetectCustomCollations(boolean detectCustomCollations) {
-        this.mc.setDetectCustomCollations(detectCustomCollations);
-    }
-
     public boolean getDetectCustomCollations() {
         return this.mc.getDetectCustomCollations();
+    }
+
+    public void setDetectCustomCollations(boolean detectCustomCollations) {
+        this.mc.setDetectCustomCollations(detectCustomCollations);
     }
 
     public int getSessionMaxRows() {
@@ -2834,28 +2814,28 @@ public class ConnectionWrapper extends WrapperBase implements Connection {
         this.mc.setAllowPublicKeyRetrieval(allowPublicKeyRetrieval);
     }
 
-    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL) {
-        this.mc.setDontCheckOnDuplicateKeyUpdateInSQL(dontCheckOnDuplicateKeyUpdateInSQL);
-    }
-
     public boolean getDontCheckOnDuplicateKeyUpdateInSQL() {
         return this.mc.getDontCheckOnDuplicateKeyUpdateInSQL();
     }
 
-    public void setSocksProxyHost(String socksProxyHost) {
-        this.mc.setSocksProxyHost(socksProxyHost);
+    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL) {
+        this.mc.setDontCheckOnDuplicateKeyUpdateInSQL(dontCheckOnDuplicateKeyUpdateInSQL);
     }
 
     public String getSocksProxyHost() {
         return this.mc.getSocksProxyHost();
     }
 
-    public void setSocksProxyPort(int socksProxyPort) throws SQLException {
-        this.mc.setSocksProxyPort(socksProxyPort);
+    public void setSocksProxyHost(String socksProxyHost) {
+        this.mc.setSocksProxyHost(socksProxyHost);
     }
 
     public int getSocksProxyPort() {
         return this.mc.getSocksProxyPort();
+    }
+
+    public void setSocksProxyPort(int socksProxyPort) throws SQLException {
+        this.mc.setSocksProxyPort(socksProxyPort);
     }
 
     public boolean getReadOnlyPropagatesToServer() {

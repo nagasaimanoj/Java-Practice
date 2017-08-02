@@ -9,7 +9,7 @@ public class Phone implements PhoneDesign {
 
     @Override
     public void functionality() {
-        System.out.println(model+" is created");
+        System.out.println(model + " is created");
     }
 
     Phone setPrice(double temp) {

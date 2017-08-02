@@ -1,7 +1,6 @@
 package com.gnsmk;
 
 import java.util.*;
-import java.lang.*;
 
 public class Employee {
     String name, country, id, age;

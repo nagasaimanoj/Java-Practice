@@ -12,7 +12,7 @@ class Function2 extends Function3 {
 }
 
 class Function1 extends Function2 {
-//@Override
+    //@Override
     void eat() {
         System.out.println("9");
     }

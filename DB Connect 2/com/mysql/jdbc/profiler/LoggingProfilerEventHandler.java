@@ -23,11 +23,11 @@
 
 package com.mysql.jdbc.profiler;
 
-import java.sql.SQLException;
-import java.util.Properties;
-
 import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.log.Log;
+
+import java.sql.SQLException;
+import java.util.Properties;
 
 /**
  * A profile event handler that just logs to the standard logging mechanism of the JDBC driver.

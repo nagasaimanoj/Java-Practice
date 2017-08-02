@@ -23,12 +23,12 @@
 
 package com.mysql.fabric;
 
+import com.mysql.fabric.proto.xmlrpc.XmlRpcClient;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import com.mysql.fabric.proto.xmlrpc.XmlRpcClient;
 
 public class FabricConnection {
     private XmlRpcClient client;

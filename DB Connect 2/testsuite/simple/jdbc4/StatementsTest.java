@@ -23,21 +23,14 @@
 
 package testsuite.simple.jdbc4;
 
-import java.io.Reader;
-import java.io.StringReader;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.NClob;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
-
 import com.mysql.jdbc.NonRegisteringDriver;
-
 import testsuite.BaseTestCase;
 import testsuite.regression.ConnectionRegressionTest.CountingReBalanceStrategy;
+
+import java.io.Reader;
+import java.io.StringReader;
+import java.sql.*;
+import java.util.Properties;
 
 public class StatementsTest extends BaseTestCase {
 
@@ -48,7 +41,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.getNCharacterStream()
-     * 
+     *
      * @throws Exception
      */
     public void testGetNCharacterSteram() throws Exception {
@@ -67,7 +60,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.getNClob()
-     * 
+     *
      * @throws Exception
      */
     public void testGetNClob() throws Exception {
@@ -100,7 +93,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.getNString()
-     * 
+     *
      * @throws Exception
      */
     public void testGetNString() throws Exception {
@@ -115,7 +108,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for PreparedStatement.setNCharacterSteam()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNCharacterStream() throws Exception {
@@ -166,7 +159,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ServerPreparedStatement.setNCharacterSteam()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNCharacterStreamServer() throws Exception {
@@ -206,7 +199,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for PreparedStatement.setNClob()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNClob() throws Exception {
@@ -261,7 +254,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ServerPreparedStatement.setNClob()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNClobServer() throws Exception {
@@ -315,7 +308,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for PreparedStatement.setNString()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNString() throws Exception {
@@ -366,7 +359,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ServerPreparedStatement.setNString()
-     * 
+     *
      * @throws Exception
      */
     public void testSetNStringServer() throws Exception {
@@ -406,7 +399,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.updateNCharacterStream()
-     * 
+     *
      * @throws Exception
      */
     public void testUpdateNCharacterStream() throws Exception {
@@ -465,7 +458,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.updateNClob()
-     * 
+     *
      * @throws Exception
      */
     public void testUpdateNClob() throws Exception {
@@ -532,7 +525,7 @@ public class StatementsTest extends BaseTestCase {
 
     /**
      * Tests for ResultSet.updateNString()
-     * 
+     *
      * @throws Exception
      */
     public void testUpdateNString() throws Exception {
@@ -600,7 +593,7 @@ public class StatementsTest extends BaseTestCase {
             portNumber = "3306";
         }
 
-        Connection conn2 = this.getUnreliableLoadBalancedConnection(new String[] { "first", "second" }, props);
+        Connection conn2 = this.getUnreliableLoadBalancedConnection(new String[]{"first", "second"}, props);
         try {
             conn2.createNClob();
         } catch (SQLException e) {

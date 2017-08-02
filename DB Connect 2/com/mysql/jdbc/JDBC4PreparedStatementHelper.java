@@ -23,14 +23,10 @@
 
 package com.mysql.jdbc;
 
-import java.io.Reader;
-import java.sql.NClob;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.Types;
-
 import com.mysql.jdbc.PreparedStatement;
+
+import java.io.Reader;
+import java.sql.*;
 
 public class JDBC4PreparedStatementHelper {
     private JDBC4PreparedStatementHelper() {
@@ -43,14 +39,10 @@ public class JDBC4PreparedStatementHelper {
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing a NCLOB
+     * @throws SQLException if a database error occurs
      */
     static void setNClob(PreparedStatement pstmt, int parameterIndex, NClob value) throws SQLException {
         if (value == null) {
@@ -66,16 +58,11 @@ public class JDBC4PreparedStatementHelper {
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param reader
-     *            the java reader which contains the UNICODE data
-     * @param length
-     *            the number of characters in the stream
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param reader         the java reader which contains the UNICODE data
+     * @param length         the number of characters in the stream
+     * @throws SQLException if a database error occurs
      */
     static void setNClob(PreparedStatement pstmt, int parameterIndex, Reader reader, long length) throws SQLException {
         if (reader == null) {

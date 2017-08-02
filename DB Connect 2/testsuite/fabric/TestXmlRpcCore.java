@@ -23,15 +23,11 @@
 
 package testsuite.fabric;
 
-import java.util.Map;
-
 import com.mysql.fabric.proto.xmlrpc.DigestAuthentication;
 import com.mysql.fabric.xmlrpc.Client;
-import com.mysql.fabric.xmlrpc.base.MethodCall;
-import com.mysql.fabric.xmlrpc.base.MethodResponse;
-import com.mysql.fabric.xmlrpc.base.Param;
-import com.mysql.fabric.xmlrpc.base.Params;
-import com.mysql.fabric.xmlrpc.base.Value;
+import com.mysql.fabric.xmlrpc.base.*;
+
+import java.util.Map;
 
 public class TestXmlRpcCore extends BaseFabricTestCase {
 

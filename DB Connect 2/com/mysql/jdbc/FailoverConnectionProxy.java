@@ -43,79 +43,37 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     private static final int NO_CONNECTION_INDEX = -1;
     private static final int DEFAULT_PRIMARY_HOST_INDEX = 0;
-
-    private int secondsBeforeRetryPrimaryHost;
-    private long queriesBeforeRetryPrimaryHost;
-    private boolean failoverReadOnly;
-    private int retriesAllDown;
-
-    private int currentHostIndex = NO_CONNECTION_INDEX;
-    private int primaryHostIndex = DEFAULT_PRIMARY_HOST_INDEX;
-    private Boolean explicitlyReadOnly = null;
-    private boolean explicitlyAutoCommit = true;
-
-    private boolean enableFallBackToPrimaryHost = true;
-    private long primaryHostFailTimeMillis = 0;
-    private long queriesIssuedSinceFailover = 0;
-
     private static Class<?>[] INTERFACES_TO_PROXY;
 
     static {
         if (Util.isJdbc4()) {
             try {
-                INTERFACES_TO_PROXY = new Class<?>[] { Class.forName("com.mysql.jdbc.JDBC4MySQLConnection") };
+                INTERFACES_TO_PROXY = new Class<?>[]{Class.forName("com.mysql.jdbc.JDBC4MySQLConnection")};
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
         } else {
-            INTERFACES_TO_PROXY = new Class<?>[] { MySQLConnection.class };
+            INTERFACES_TO_PROXY = new Class<?>[]{MySQLConnection.class};
         }
     }
 
-    /**
-     * Proxy class to intercept and deal with errors that may occur in any object bound to the current connection.
-     * Additionally intercepts query executions and triggers an execution count on the outer class.
-     */
-    class FailoverJdbcInterfaceProxy extends JdbcInterfaceProxy {
-        FailoverJdbcInterfaceProxy(Object toInvokeOn) {
-            super(toInvokeOn);
-        }
-
-        @SuppressWarnings("synthetic-access")
-        @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            String methodName = method.getName();
-
-            boolean isExecute = methodName.startsWith("execute");
-
-            if (FailoverConnectionProxy.this.connectedToSecondaryHost() && isExecute) {
-                FailoverConnectionProxy.this.incrementQueriesIssuedSinceFailover();
-            }
-
-            Object result = super.invoke(proxy, method, args);
-
-            if (FailoverConnectionProxy.this.explicitlyAutoCommit && isExecute && readyToFallBackToPrimaryHost()) {
-                // Fall back to primary host at transaction boundary
-                fallBackToPrimaryIfAvailable();
-            }
-
-            return result;
-        }
-    }
-
-    public static Connection createProxyInstance(List<String> hosts, Properties props) throws SQLException {
-        FailoverConnectionProxy connProxy = new FailoverConnectionProxy(hosts, props);
-
-        return (Connection) java.lang.reflect.Proxy.newProxyInstance(Connection.class.getClassLoader(), INTERFACES_TO_PROXY, connProxy);
-    }
+    private int secondsBeforeRetryPrimaryHost;
+    private long queriesBeforeRetryPrimaryHost;
+    private boolean failoverReadOnly;
+    private int retriesAllDown;
+    private int currentHostIndex = NO_CONNECTION_INDEX;
+    private int primaryHostIndex = DEFAULT_PRIMARY_HOST_INDEX;
+    private Boolean explicitlyReadOnly = null;
+    private boolean explicitlyAutoCommit = true;
+    private boolean enableFallBackToPrimaryHost = true;
+    private long primaryHostFailTimeMillis = 0;
+    private long queriesIssuedSinceFailover = 0;
 
     /**
      * Instantiates a new FailoverConnectionProxy for the given list of hosts and connection properties.
-     * 
-     * @param hosts
-     *            The lists of hosts available to switch on.
-     * @param props
-     *            The properties to be used in new internal connections.
+     *
+     * @param hosts The lists of hosts available to switch on.
+     * @param props The properties to be used in new internal connections.
      */
     private FailoverConnectionProxy(List<String> hosts, Properties props) throws SQLException {
         super(hosts, props);
@@ -135,9 +93,15 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
         this.explicitlyAutoCommit = this.currentConnection.getAutoCommit();
     }
 
+    public static Connection createProxyInstance(List<String> hosts, Properties props) throws SQLException {
+        FailoverConnectionProxy connProxy = new FailoverConnectionProxy(hosts, props);
+
+        return (Connection) java.lang.reflect.Proxy.newProxyInstance(Connection.class.getClassLoader(), INTERFACES_TO_PROXY, connProxy);
+    }
+
     /*
      * Gets locally bound instances of FailoverJdbcInterfaceProxy.
-     * 
+     *
      * @see com.mysql.jdbc.MultiHostConnectionProxy#getNewJdbcInterfaceProxy(java.lang.Object)
      */
     @Override
@@ -147,7 +111,7 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /*
      * Local implementation for the connection switch exception checker.
-     * 
+     *
      * @see com.mysql.jdbc.MultiHostConnectionProxy#shouldExceptionTriggerConnectionSwitch(java.lang.Throwable)
      */
     @Override
@@ -182,7 +146,7 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /*
      * Local implementation for the new connection picker.
-     * 
+     *
      * @see com.mysql.jdbc.MultiHostConnectionProxy#pickNewConnection()
      */
     @Override
@@ -205,11 +169,9 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /**
      * Creates a new connection instance for host pointed out by the given host index.
-     * 
-     * @param hostIndex
-     *            The host index in the global hosts list.
-     * @return
-     *         The new connection instance.
+     *
+     * @param hostIndex The host index in the global hosts list.
+     * @return The new connection instance.
      */
     synchronized ConnectionImpl createConnectionForHostIndex(int hostIndex) throws SQLException {
         return createConnectionForHost(this.hostList.get(hostIndex));
@@ -217,9 +179,8 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /**
      * Connects this dynamic failover connection proxy to the host pointed out by the given host index.
-     * 
-     * @param hostIndex
-     *            The host index in the global hosts list.
+     *
+     * @param hostIndex The host index in the global hosts list.
      */
     private synchronized void connectTo(int hostIndex) throws SQLException {
         try {
@@ -236,11 +197,9 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /**
      * Replaces the previous underlying connection by the connection given. State from previous connection, if any, is synchronized with the new one.
-     * 
-     * @param hostIndex
-     *            The host index in the global hosts list that matches the given connection.
-     * @param connection
-     *            The connection instance to switch to.
+     *
+     * @param hostIndex  The host index in the global hosts list that matches the given connection.
+     * @param connection The connection instance to switch to.
      */
     private synchronized void switchCurrentConnectionTo(int hostIndex, MySQLConnection connection) throws SQLException {
         invalidateCurrentConnection();
@@ -272,9 +231,8 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
     /**
      * Initiates a default failover procedure starting at the given host index.
      * This process tries to connect, sequentially, to the next host in the list. The primary host may or may not be excluded from the connection attempts.
-     * 
-     * @param failedHostIdx
-     *            The host index where to start from. First connection attempt will be the next one.
+     *
+     * @param failedHostIdx The host index where to start from. First connection attempt will be the next one.
      */
     private synchronized void failOver(int failedHostIdx) throws SQLException {
         int prevHostIndex = this.currentHostIndex;
@@ -350,11 +308,9 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
      * - not currently connected to any host.
      * - primary host is vouched (usually because connection to all secondary hosts has failed).
      * - conditions to fall back to primary host are met (or they are disabled).
-     * 
-     * @param currHostIdx
-     *            Current host index.
-     * @param vouchForPrimaryHost
-     *            Allows to return the primary host index even if the usual required conditions aren't met.
+     *
+     * @param currHostIdx         Current host index.
+     * @param vouchForPrimaryHost Allows to return the primary host index even if the usual required conditions aren't met.
      */
     private int nextHost(int currHostIdx, boolean vouchForPrimaryHost) {
         int nextHostIdx = (currHostIdx + 1) % this.hostList.size();
@@ -389,9 +345,8 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
 
     /**
      * Checks if the given host index points to the primary host.
-     * 
-     * @param hostIndex
-     *            The host index in the global hosts list.
+     *
+     * @param hostIndex The host index in the global hosts list.
      */
     synchronized boolean isPrimaryHostIndex(int hostIndex) {
         return hostIndex == this.primaryHostIndex;
@@ -506,5 +461,36 @@ public class FailoverConnectionProxy extends MultiHostConnectionProxy {
         }
 
         return result;
+    }
+
+    /**
+     * Proxy class to intercept and deal with errors that may occur in any object bound to the current connection.
+     * Additionally intercepts query executions and triggers an execution count on the outer class.
+     */
+    class FailoverJdbcInterfaceProxy extends JdbcInterfaceProxy {
+        FailoverJdbcInterfaceProxy(Object toInvokeOn) {
+            super(toInvokeOn);
+        }
+
+        @SuppressWarnings("synthetic-access")
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            String methodName = method.getName();
+
+            boolean isExecute = methodName.startsWith("execute");
+
+            if (FailoverConnectionProxy.this.connectedToSecondaryHost() && isExecute) {
+                FailoverConnectionProxy.this.incrementQueriesIssuedSinceFailover();
+            }
+
+            Object result = super.invoke(proxy, method, args);
+
+            if (FailoverConnectionProxy.this.explicitlyAutoCommit && isExecute && readyToFallBackToPrimaryHost()) {
+                // Fall back to primary host at transaction boundary
+                fallBackToPrimaryIfAvailable();
+            }
+
+            return result;
+        }
     }
 }

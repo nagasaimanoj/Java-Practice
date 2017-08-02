@@ -23,10 +23,10 @@
 
 package com.mysql.fabric.xmlrpc.exceptions;
 
-import java.sql.SQLException;
-
 import com.mysql.fabric.xmlrpc.base.Fault;
 import com.mysql.fabric.xmlrpc.base.Struct;
+
+import java.sql.SQLException;
 
 public class MySQLFabricException extends SQLException {
 

@@ -31,22 +31,6 @@ import java.util.TreeSet;
  * A shard mapping that partitions data by ranges.
  */
 public class RangeShardMapping extends ShardMapping {
-    /**
-     * A sorter that sorts shard indices from highest to lowest based on the integer
-     * value of their bounds. For a range shard mapping, the bound is a lowest bound.
-     */
-    private static class RangeShardIndexSorter implements Comparator<ShardIndex> {
-        public int compare(ShardIndex i1, ShardIndex i2) {
-            Integer bound1, bound2;
-            bound1 = Integer.parseInt(i1.getBound());
-            bound2 = Integer.parseInt(i2.getBound());
-            return bound2.compareTo(bound1); // this reverses it
-        }
-
-        // singleton instance
-        public static final RangeShardIndexSorter instance = new RangeShardIndexSorter();
-    }
-
     public RangeShardMapping(int mappingId, ShardingType shardingType, String globalGroupName, Set<ShardTable> shardTables, Set<ShardIndex> shardIndices) {
         // sort shard indices eagerly so {@link getShardIndexForKey} has them in the necessary order
         super(mappingId, shardingType, globalGroupName, shardTables, new TreeSet<ShardIndex>(RangeShardIndexSorter.instance));
@@ -69,5 +53,21 @@ public class RangeShardMapping extends ShardMapping {
             }
         }
         return null;
+    }
+
+    /**
+     * A sorter that sorts shard indices from highest to lowest based on the integer
+     * value of their bounds. For a range shard mapping, the bound is a lowest bound.
+     */
+    private static class RangeShardIndexSorter implements Comparator<ShardIndex> {
+        // singleton instance
+        public static final RangeShardIndexSorter instance = new RangeShardIndexSorter();
+
+        public int compare(ShardIndex i1, ShardIndex i2) {
+            Integer bound1, bound2;
+            bound1 = Integer.parseInt(i1.getBound());
+            bound2 = Integer.parseInt(i2.getBound());
+            return bound2.compareTo(bound1); // this reverses it
+        }
     }
 }

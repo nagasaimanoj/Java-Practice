@@ -23,18 +23,17 @@
 
 package testsuite.regression;
 
+import com.mysql.jdbc.Connection;
+import com.mysql.jdbc.ExceptionInterceptor;
+import com.mysql.jdbc.SQLError;
+import com.mysql.jdbc.TimeUtil;
+import testsuite.BaseTestCase;
+
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
-
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.TimeUtil;
-
-import testsuite.BaseTestCase;
 
 /**
  * Regression tests for utility classes.
@@ -43,9 +42,8 @@ public class UtilsRegressionTest extends BaseTestCase {
 
     /**
      * Creates a new UtilsRegressionTest.
-     * 
-     * @param name
-     *            the name of the test
+     *
+     * @param name the name of the test
      */
     public UtilsRegressionTest(String name) {
         super(name);
@@ -53,7 +51,7 @@ public class UtilsRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
@@ -62,9 +60,8 @@ public class UtilsRegressionTest extends BaseTestCase {
 
     /**
      * Tests all TimeZone mappings supported.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testTimeZones() throws Exception {
         /*
@@ -629,9 +626,8 @@ public class UtilsRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#70436 - Incorrect mapping of windows timezone to Olson timezone.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug70436() throws Exception {
         assertEquals("Asia/Yerevan", TimeUtil.getCanonicalTimezone("Caucasus Standard Time", null));

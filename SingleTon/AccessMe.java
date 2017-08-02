@@ -1,7 +1,6 @@
 public class AccessMe {
-    int i = 987;
-
     static AccessMe am = new AccessMe();
+    int i = 987;
 
     private AccessMe() {
     }

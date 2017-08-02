@@ -36,6 +36,52 @@ import java.util.Properties;
  * A socket factory for named pipes (on Windows)
  */
 public class NamedPipeSocketFactory implements SocketFactory, SocketMetadata {
+    public static final String NAMED_PIPE_PROP_NAME = "namedPipePath";
+    private Socket namedPipeSocket;
+
+    /**
+     * Constructor for NamedPipeSocketFactory.
+     */
+    public NamedPipeSocketFactory() {
+        super();
+    }
+
+    /**
+     * @see com.mysql.jdbc.SocketFactory#afterHandshake()
+     */
+    public Socket afterHandshake() throws SocketException, IOException {
+        return this.namedPipeSocket;
+    }
+
+    /**
+     * @see com.mysql.jdbc.SocketFactory#beforeHandshake()
+     */
+    public Socket beforeHandshake() throws SocketException, IOException {
+        return this.namedPipeSocket;
+    }
+
+    /**
+     * @see com.mysql.jdbc.SocketFactory#connect(String, Properties)
+     */
+    public Socket connect(String host, int portNumber /* ignored */, Properties props) throws SocketException, IOException {
+        String namedPipePath = props.getProperty(NAMED_PIPE_PROP_NAME);
+
+        if (namedPipePath == null) {
+            namedPipePath = "\\\\.\\pipe\\MySQL";
+        } else if (namedPipePath.length() == 0) {
+            throw new SocketException(Messages.getString("NamedPipeSocketFactory.2") + NAMED_PIPE_PROP_NAME + Messages.getString("NamedPipeSocketFactory.3"));
+        }
+
+        this.namedPipeSocket = new NamedPipeSocket(namedPipePath);
+
+        return this.namedPipeSocket;
+    }
+
+    public boolean isLocallyConnected(ConnectionImpl conn) throws SQLException {
+        // Until I learn otherwise (or learn how to detect it), I assume that we are
+        return true;
+    }
+
     /**
      * A socket that encapsulates named pipes on Windows
      */
@@ -177,52 +223,5 @@ public class NamedPipeSocketFactory implements SocketFactory, SocketMetadata {
         @Override
         public void write(int b) throws IOException {
         }
-    }
-
-    public static final String NAMED_PIPE_PROP_NAME = "namedPipePath";
-
-    private Socket namedPipeSocket;
-
-    /**
-     * Constructor for NamedPipeSocketFactory.
-     */
-    public NamedPipeSocketFactory() {
-        super();
-    }
-
-    /**
-     * @see com.mysql.jdbc.SocketFactory#afterHandshake()
-     */
-    public Socket afterHandshake() throws SocketException, IOException {
-        return this.namedPipeSocket;
-    }
-
-    /**
-     * @see com.mysql.jdbc.SocketFactory#beforeHandshake()
-     */
-    public Socket beforeHandshake() throws SocketException, IOException {
-        return this.namedPipeSocket;
-    }
-
-    /**
-     * @see com.mysql.jdbc.SocketFactory#connect(String, Properties)
-     */
-    public Socket connect(String host, int portNumber /* ignored */, Properties props) throws SocketException, IOException {
-        String namedPipePath = props.getProperty(NAMED_PIPE_PROP_NAME);
-
-        if (namedPipePath == null) {
-            namedPipePath = "\\\\.\\pipe\\MySQL";
-        } else if (namedPipePath.length() == 0) {
-            throw new SocketException(Messages.getString("NamedPipeSocketFactory.2") + NAMED_PIPE_PROP_NAME + Messages.getString("NamedPipeSocketFactory.3"));
-        }
-
-        this.namedPipeSocket = new NamedPipeSocket(namedPipePath);
-
-        return this.namedPipeSocket;
-    }
-
-    public boolean isLocallyConnected(ConnectionImpl conn) throws SQLException {
-        // Until I learn otherwise (or learn how to detect it), I assume that we are
-        return true;
     }
 }

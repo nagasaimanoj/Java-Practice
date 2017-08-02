@@ -5,14 +5,15 @@ class S {
         System.out.println("constructor");
     }
 
-   public static S getmethod() {
+    public static S getmethod() {
         System.out.println("get method");
         return m;
-    }}
+    }
+}
 
-class D{
+class D {
 
     public static void main(String args[]) {
         S pp = S.getmethod();
-}
+    }
 }

@@ -23,26 +23,12 @@
 
 package testsuite.simple.jdbc42;
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.JDBCType;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.OffsetTime;
-import java.time.ZoneOffset;
-import java.util.concurrent.Callable;
-
 import com.mysql.jdbc.NotUpdatable;
-
 import testsuite.BaseTestCase;
+
+import java.sql.*;
+import java.time.*;
+import java.util.concurrent.Callable;
 
 public class ResultSetTest extends BaseTestCase {
 

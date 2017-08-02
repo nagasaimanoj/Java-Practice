@@ -23,21 +23,12 @@
 
 package com.mysql.jdbc;
 
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.NClob;
-import java.sql.Struct;
-import java.util.Properties;
-import java.util.TimerTask;
-
-import com.mysql.jdbc.ConnectionImpl;
-import com.mysql.jdbc.LoadBalancedMySQLConnection;
 import com.mysql.jdbc.LoadBalancedConnectionProxy;
-import com.mysql.jdbc.Messages;
+import com.mysql.jdbc.LoadBalancedMySQLConnection;
 import com.mysql.jdbc.SQLError;
+
+import java.sql.*;
+import java.util.Properties;
 
 public class JDBC4LoadBalancedMySQLConnection extends LoadBalancedMySQLConnection implements JDBC4MySQLConnection {
 
@@ -65,16 +56,16 @@ public class JDBC4LoadBalancedMySQLConnection extends LoadBalancedMySQLConnectio
         return this.getJDBC4Connection().getClientInfo();
     }
 
+    public void setClientInfo(Properties properties) throws SQLClientInfoException {
+        this.getJDBC4Connection().setClientInfo(properties);
+    }
+
     public String getClientInfo(String name) throws SQLException {
         return this.getJDBC4Connection().getClientInfo(name);
     }
 
     public boolean isValid(int timeout) throws SQLException {
         return this.getJDBC4Connection().isValid(timeout);
-    }
-
-    public void setClientInfo(Properties properties) throws SQLClientInfoException {
-        this.getJDBC4Connection().setClientInfo(properties);
     }
 
     public void setClientInfo(String name, String value) throws SQLClientInfoException {

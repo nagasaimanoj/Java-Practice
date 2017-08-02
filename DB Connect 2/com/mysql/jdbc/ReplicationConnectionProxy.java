@@ -37,28 +37,6 @@ import java.util.concurrent.Executor;
  * read-only, and use slave(s) when the connection is read-only.
  */
 public class ReplicationConnectionProxy extends MultiHostConnectionProxy implements PingTarget {
-    private ReplicationConnection thisAsReplicationConnection;
-
-    private NonRegisteringDriver driver;
-
-    protected boolean enableJMX = false;
-    protected boolean allowMasterDownConnections = false;
-    protected boolean allowSlaveDownConnections = false;
-    protected boolean readFromMasterWhenNoSlaves = false;
-    protected boolean readFromMasterWhenNoSlavesOriginal = false;
-    protected boolean readOnly = false;
-
-    ReplicationConnectionGroup connectionGroup;
-    private long connectionGroupID = -1;
-
-    private List<String> masterHosts;
-    private Properties masterProperties;
-    protected LoadBalancedConnection masterConnection;
-
-    private List<String> slaveHosts;
-    private Properties slaveProperties;
-    protected LoadBalancedConnection slavesConnection;
-
     private static Constructor<?> JDBC_4_REPL_CONNECTION_CTOR;
     private static Class<?>[] INTERFACES_TO_PROXY;
 
@@ -66,8 +44,8 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_REPL_CONNECTION_CTOR = Class.forName("com.mysql.jdbc.JDBC4ReplicationMySQLConnection")
-                        .getConstructor(new Class[] { ReplicationConnectionProxy.class });
-                INTERFACES_TO_PROXY = new Class<?>[] { ReplicationConnection.class, Class.forName("com.mysql.jdbc.JDBC4MySQLConnection") };
+                        .getConstructor(new Class[]{ReplicationConnectionProxy.class});
+                INTERFACES_TO_PROXY = new Class<?>[]{ReplicationConnection.class, Class.forName("com.mysql.jdbc.JDBC4MySQLConnection")};
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -76,29 +54,35 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
                 throw new RuntimeException(e);
             }
         } else {
-            INTERFACES_TO_PROXY = new Class<?>[] { ReplicationConnection.class };
+            INTERFACES_TO_PROXY = new Class<?>[]{ReplicationConnection.class};
         }
     }
 
-    public static ReplicationConnection createProxyInstance(List<String> masterHostList, Properties masterProperties, List<String> slaveHostList,
-            Properties slaveProperties) throws SQLException {
-        ReplicationConnectionProxy connProxy = new ReplicationConnectionProxy(masterHostList, masterProperties, slaveHostList, slaveProperties);
-
-        return (ReplicationConnection) java.lang.reflect.Proxy.newProxyInstance(ReplicationConnection.class.getClassLoader(), INTERFACES_TO_PROXY, connProxy);
-    }
+    protected boolean enableJMX = false;
+    protected boolean allowMasterDownConnections = false;
+    protected boolean allowSlaveDownConnections = false;
+    protected boolean readFromMasterWhenNoSlaves = false;
+    protected boolean readFromMasterWhenNoSlavesOriginal = false;
+    protected boolean readOnly = false;
+    protected LoadBalancedConnection masterConnection;
+    protected LoadBalancedConnection slavesConnection;
+    ReplicationConnectionGroup connectionGroup;
+    private ReplicationConnection thisAsReplicationConnection;
+    private NonRegisteringDriver driver;
+    private long connectionGroupID = -1;
+    private List<String> masterHosts;
+    private Properties masterProperties;
+    private List<String> slaveHosts;
+    private Properties slaveProperties;
 
     /**
      * Creates a proxy for java.sql.Connection that routes requests to a load-balanced connection of master servers or a load-balanced connection of slave
      * servers. Each sub-connection is created with its own set of independent properties.
-     * 
-     * @param masterHostList
-     *            The list of hosts to use in the masters connection.
-     * @param masterProperties
-     *            The properties for the masters connection.
-     * @param slaveHostList
-     *            The list of hosts to use in the slaves connection.
-     * @param slaveProperties
-     *            The properties for the slaves connection.
+     *
+     * @param masterHostList   The list of hosts to use in the masters connection.
+     * @param masterProperties The properties for the masters connection.
+     * @param slaveHostList    The list of hosts to use in the slaves connection.
+     * @param slaveProperties  The properties for the slaves connection.
      * @throws SQLException
      */
     private ReplicationConnectionProxy(List<String> masterHostList, Properties masterProperties, List<String> slaveHostList, Properties slaveProperties)
@@ -112,7 +96,7 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
             this.enableJMX = Boolean.parseBoolean(enableJMXAsString);
         } catch (Exception e) {
             throw SQLError.createSQLException(
-                    Messages.getString("ReplicationConnectionProxy.badValueForReplicationEnableJMX", new Object[] { enableJMXAsString }),
+                    Messages.getString("ReplicationConnectionProxy.badValueForReplicationEnableJMX", new Object[]{enableJMXAsString}),
                     SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null);
         }
 
@@ -121,7 +105,7 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
             this.allowMasterDownConnections = Boolean.parseBoolean(allowMasterDownConnectionsAsString);
         } catch (Exception e) {
             throw SQLError.createSQLException(
-                    Messages.getString("ReplicationConnectionProxy.badValueForAllowMasterDownConnections", new Object[] { allowMasterDownConnectionsAsString }),
+                    Messages.getString("ReplicationConnectionProxy.badValueForAllowMasterDownConnections", new Object[]{allowMasterDownConnectionsAsString}),
                     SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null);
         }
 
@@ -130,7 +114,7 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
             this.allowSlaveDownConnections = Boolean.parseBoolean(allowSlaveDownConnectionsAsString);
         } catch (Exception e) {
             throw SQLError.createSQLException(
-                    Messages.getString("ReplicationConnectionProxy.badValueForAllowSlaveDownConnections", new Object[] { allowSlaveDownConnectionsAsString }),
+                    Messages.getString("ReplicationConnectionProxy.badValueForAllowSlaveDownConnections", new Object[]{allowSlaveDownConnectionsAsString}),
                     SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null);
         }
 
@@ -140,7 +124,7 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
 
         } catch (Exception e) {
             throw SQLError.createSQLException(
-                    Messages.getString("ReplicationConnectionProxy.badValueForReadFromMasterWhenNoSlaves", new Object[] { readFromMasterWhenNoSlavesAsString }),
+                    Messages.getString("ReplicationConnectionProxy.badValueForReadFromMasterWhenNoSlaves", new Object[]{readFromMasterWhenNoSlavesAsString}),
                     SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null);
         }
 
@@ -202,25 +186,30 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
         }
     }
 
+    public static ReplicationConnection createProxyInstance(List<String> masterHostList, Properties masterProperties, List<String> slaveHostList,
+                                                            Properties slaveProperties) throws SQLException {
+        ReplicationConnectionProxy connProxy = new ReplicationConnectionProxy(masterHostList, masterProperties, slaveHostList, slaveProperties);
+
+        return (ReplicationConnection) java.lang.reflect.Proxy.newProxyInstance(ReplicationConnection.class.getClassLoader(), INTERFACES_TO_PROXY, connProxy);
+    }
+
     /**
      * Wraps this object with a new replication Connection instance.
-     * 
-     * @return
-     *         The connection object instance that wraps 'this'.
+     *
+     * @return The connection object instance that wraps 'this'.
      */
     @Override
     MySQLConnection getNewWrapperForThisAsConnection() throws SQLException {
         if (Util.isJdbc4() || JDBC_4_REPL_CONNECTION_CTOR != null) {
-            return (MySQLConnection) Util.handleNewInstance(JDBC_4_REPL_CONNECTION_CTOR, new Object[] { this }, null);
+            return (MySQLConnection) Util.handleNewInstance(JDBC_4_REPL_CONNECTION_CTOR, new Object[]{this}, null);
         }
         return new ReplicationMySQLConnection(this);
     }
 
     /**
      * Propagates the connection proxy down through all live connections.
-     * 
-     * @param proxyConn
-     *            The top level connection in the multi-host connections chain.
+     *
+     * @param proxyConn The top level connection in the multi-host connections chain.
      */
     @Override
     protected void propagateProxyDown(MySQLConnection proxyConn) {
@@ -234,9 +223,8 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
 
     /**
      * Has no use in replication connections. Always return <code>false</code>.
-     * 
-     * @param ex
-     *            The Exception instance to check.
+     *
+     * @param ex The Exception instance to check.
      */
     @Override
     boolean shouldExceptionTriggerConnectionSwitch(Throwable t) {
@@ -642,6 +630,10 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
 
     }
 
+    public boolean isReadOnly() throws SQLException {
+        return !isMasterConnection() || this.readOnly;
+    }
+
     public synchronized void setReadOnly(boolean readOnly) throws SQLException {
         if (readOnly) {
             if (!isSlavesConnection() || this.currentConnection.isClosed()) {
@@ -687,10 +679,6 @@ public class ReplicationConnectionProxy extends MultiHostConnectionProxy impleme
         if (this.readFromMasterWhenNoSlaves && isMasterConnection()) {
             this.currentConnection.setReadOnly(this.readOnly);
         }
-    }
-
-    public boolean isReadOnly() throws SQLException {
-        return !isMasterConnection() || this.readOnly;
     }
 
     private void resetReadFromMasterWhenNoSlaves() {

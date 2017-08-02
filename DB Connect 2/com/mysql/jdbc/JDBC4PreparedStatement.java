@@ -23,17 +23,13 @@
 
 package com.mysql.jdbc;
 
-import java.io.InputStream;
-import java.io.Reader;
-import java.sql.NClob;
-import java.sql.RowId;
-import java.sql.SQLXML;
-import java.sql.SQLException;
-import java.sql.Types;
-
-import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.PreparedStatement;
 import com.mysql.jdbc.PreparedStatement.ParseInfo;
+
+import java.sql.NClob;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLXML;
 
 public class JDBC4PreparedStatement extends PreparedStatement {
 
@@ -55,14 +51,10 @@ public class JDBC4PreparedStatement extends PreparedStatement {
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing a NCLOB
+     * @throws SQLException if a database error occurs
      */
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
         JDBC4PreparedStatementHelper.setNClob(this, parameterIndex, value);

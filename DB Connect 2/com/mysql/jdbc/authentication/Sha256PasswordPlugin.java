@@ -23,25 +23,12 @@
 
 package com.mysql.jdbc.authentication;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import com.mysql.jdbc.*;
+
+import java.io.*;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
-
-import com.mysql.jdbc.AuthenticationPlugin;
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ExportControlled;
-import com.mysql.jdbc.Messages;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.MysqlIO;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Security;
-import com.mysql.jdbc.StringUtils;
 
 /**
  * MySQL Clear Password Authentication Plugin
@@ -54,6 +41,65 @@ public class Sha256PasswordPlugin implements AuthenticationPlugin {
     private String seed = null;
     private boolean publicKeyRequested = false;
     private String publicKeyString = null;
+
+    private static byte[] encryptPassword(String password, String seed, Connection connection, String key) throws SQLException {
+        byte[] input = null;
+        try {
+            input = password != null ? StringUtils.getBytesNullTerminated(password, connection.getPasswordCharacterEncoding()) : new byte[]{0};
+        } catch (UnsupportedEncodingException e) {
+            throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.3", new Object[]{connection.getPasswordCharacterEncoding()}),
+                    SQLError.SQL_STATE_GENERAL_ERROR, null);
+        }
+        byte[] mysqlScrambleBuff = new byte[input.length];
+        Security.xorString(input, mysqlScrambleBuff, seed.getBytes(), input.length);
+        return ExportControlled.encryptWithRSAPublicKey(mysqlScrambleBuff,
+                ExportControlled.decodeRSAPublicKey(key, ((MySQLConnection) connection).getExceptionInterceptor()),
+                ((MySQLConnection) connection).getExceptionInterceptor());
+    }
+
+    private static String readRSAKey(Connection connection, String pkPath) throws SQLException {
+        String res = null;
+        byte[] fileBuf = new byte[2048];
+
+        BufferedInputStream fileIn = null;
+
+        try {
+            File f = new File(pkPath);
+            String canonicalPath = f.getCanonicalPath();
+            fileIn = new BufferedInputStream(new FileInputStream(canonicalPath));
+
+            int bytesRead = 0;
+
+            StringBuilder sb = new StringBuilder();
+            while ((bytesRead = fileIn.read(fileBuf)) != -1) {
+                sb.append(StringUtils.toAsciiString(fileBuf, 0, bytesRead));
+            }
+            res = sb.toString();
+
+        } catch (IOException ioEx) {
+
+            if (connection.getParanoid()) {
+                throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.0", new Object[]{""}), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
+                        connection.getExceptionInterceptor());
+            }
+            throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.0", new Object[]{"'" + pkPath + "'"}),
+                    SQLError.SQL_STATE_ILLEGAL_ARGUMENT, ioEx, connection.getExceptionInterceptor());
+
+        } finally {
+            if (fileIn != null) {
+                try {
+                    fileIn.close();
+                } catch (Exception ex) {
+                    SQLException sqlEx = SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.1"), SQLError.SQL_STATE_GENERAL_ERROR, ex,
+                            connection.getExceptionInterceptor());
+
+                    throw sqlEx;
+                }
+            }
+        }
+
+        return res;
+    }
 
     public void init(Connection conn, Properties props) throws SQLException {
         this.connection = conn;
@@ -91,7 +137,7 @@ public class Sha256PasswordPlugin implements AuthenticationPlugin {
 
         if (this.password == null || this.password.length() == 0 || fromServer == null) {
             // no password
-            Buffer bresp = new Buffer(new byte[] { 0 });
+            Buffer bresp = new Buffer(new byte[]{0});
             toServer.add(bresp);
 
         } else if (((MySQLConnection) this.connection).getIO().isSSLEstablished()) {
@@ -100,7 +146,7 @@ public class Sha256PasswordPlugin implements AuthenticationPlugin {
             try {
                 bresp = new Buffer(StringUtils.getBytes(this.password, this.connection.getPasswordCharacterEncoding()));
             } catch (UnsupportedEncodingException e) {
-                throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.3", new Object[] { this.connection.getPasswordCharacterEncoding() }),
+                throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.3", new Object[]{this.connection.getPasswordCharacterEncoding()}),
                         SQLError.SQL_STATE_GENERAL_ERROR, null);
             }
             bresp.setPosition(bresp.getBufLength());
@@ -134,71 +180,12 @@ public class Sha256PasswordPlugin implements AuthenticationPlugin {
             } else {
                 // build and send Public Key Retrieval packet
                 this.seed = fromServer.readString();
-                Buffer bresp = new Buffer(new byte[] { 1 });
+                Buffer bresp = new Buffer(new byte[]{1});
                 toServer.add(bresp);
                 this.publicKeyRequested = true;
             }
         }
         return true;
-    }
-
-    private static byte[] encryptPassword(String password, String seed, Connection connection, String key) throws SQLException {
-        byte[] input = null;
-        try {
-            input = password != null ? StringUtils.getBytesNullTerminated(password, connection.getPasswordCharacterEncoding()) : new byte[] { 0 };
-        } catch (UnsupportedEncodingException e) {
-            throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.3", new Object[] { connection.getPasswordCharacterEncoding() }),
-                    SQLError.SQL_STATE_GENERAL_ERROR, null);
-        }
-        byte[] mysqlScrambleBuff = new byte[input.length];
-        Security.xorString(input, mysqlScrambleBuff, seed.getBytes(), input.length);
-        return ExportControlled.encryptWithRSAPublicKey(mysqlScrambleBuff,
-                ExportControlled.decodeRSAPublicKey(key, ((MySQLConnection) connection).getExceptionInterceptor()),
-                ((MySQLConnection) connection).getExceptionInterceptor());
-    }
-
-    private static String readRSAKey(Connection connection, String pkPath) throws SQLException {
-        String res = null;
-        byte[] fileBuf = new byte[2048];
-
-        BufferedInputStream fileIn = null;
-
-        try {
-            File f = new File(pkPath);
-            String canonicalPath = f.getCanonicalPath();
-            fileIn = new BufferedInputStream(new FileInputStream(canonicalPath));
-
-            int bytesRead = 0;
-
-            StringBuilder sb = new StringBuilder();
-            while ((bytesRead = fileIn.read(fileBuf)) != -1) {
-                sb.append(StringUtils.toAsciiString(fileBuf, 0, bytesRead));
-            }
-            res = sb.toString();
-
-        } catch (IOException ioEx) {
-
-            if (connection.getParanoid()) {
-                throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.0", new Object[] { "" }), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
-                        connection.getExceptionInterceptor());
-            }
-            throw SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.0", new Object[] { "'" + pkPath + "'" }),
-                    SQLError.SQL_STATE_ILLEGAL_ARGUMENT, ioEx, connection.getExceptionInterceptor());
-
-        } finally {
-            if (fileIn != null) {
-                try {
-                    fileIn.close();
-                } catch (Exception ex) {
-                    SQLException sqlEx = SQLError.createSQLException(Messages.getString("Sha256PasswordPlugin.1"), SQLError.SQL_STATE_GENERAL_ERROR, ex,
-                            connection.getExceptionInterceptor());
-
-                    throw sqlEx;
-                }
-            }
-        }
-
-        return res;
     }
 
 }

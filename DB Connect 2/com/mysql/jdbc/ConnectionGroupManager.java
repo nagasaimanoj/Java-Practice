@@ -23,14 +23,10 @@
 
 package com.mysql.jdbc;
 
-import java.sql.SQLException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import com.mysql.jdbc.jmx.LoadBalanceConnectionGroupManager;
+
+import java.sql.SQLException;
+import java.util.*;
 
 public class ConnectionGroupManager {
 

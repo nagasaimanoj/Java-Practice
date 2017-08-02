@@ -31,47 +31,29 @@ import java.lang.ref.ReferenceQueue;
 import java.net.URLDecoder;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.StringTokenizer;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The Java SQL framework allows for multiple database drivers. Each driver should supply a class that implements the Driver interface
- * 
+ * <p>
  * <p>
  * The DriverManager will try to load as many drivers as it can find and then for any given connection request, it will ask each driver in turn to try to
  * connect to the target URL.
  * </p>
- * 
+ * <p>
  * <p>
  * It is strongly recommended that each Driver class should be small and standalone so that the Driver class can be loaded and queried without bringing in vast
  * quantities of supporting code.
  * </p>
- * 
+ * <p>
  * <p>
  * When a Driver class is loaded, it should create an instance of itself and register it with the DriverManager. This means that a user can load and register a
  * driver by doing Class.forName("foo.bah.Driver")
  * </p>
  */
 public class NonRegisteringDriver implements java.sql.Driver {
-    private static final String ALLOWED_QUOTES = "\"'";
-
-    private static final String REPLICATION_URL_PREFIX = "jdbc:mysql:replication://";
-
-    private static final String URL_PREFIX = "jdbc:mysql://";
-
-    private static final String MXJ_URL_PREFIX = "jdbc:mysql:mxj://";
-
     public static final String LOADBALANCE_URL_PREFIX = "jdbc:mysql:loadbalance://";
-
-    protected static final ConcurrentHashMap<ConnectionPhantomReference, ConnectionPhantomReference> connectionPhantomRefs = new ConcurrentHashMap<ConnectionPhantomReference, ConnectionPhantomReference>();
-
-    protected static final ReferenceQueue<ConnectionImpl> refQueue = new ReferenceQueue<ConnectionImpl>();
-
     public static final String OS = getOSName();
     public static final String PLATFORM = getPlatform();
     public static final String LICENSE = "@MYSQL_CJ_LICENSE_TYPE@";
@@ -79,26 +61,58 @@ public class NonRegisteringDriver implements java.sql.Driver {
     public static final String RUNTIME_VERSION = System.getProperty("java.version");
     public static final String VERSION = "@MYSQL_CJ_VERSION@";
     public static final String NAME = "@MYSQL_CJ_DISPLAY_PROD_NAME@";
-
-    /*
-     * Standardizes OS name information to align with other drivers/clients
-     * for MySQL connection attributes
-     * 
-     * @return the transformed, standardized OS name
+    /**
+     * Key used to retreive the database value from the properties instance
+     * passed to the driver.
      */
-    public static String getOSName() {
-        return System.getProperty("os.name");
-    }
-
-    /*
-     * Standardizes platform information to align with other drivers/clients
-     * for MySQL connection attributes
-     * 
-     * @return the transformed, standardized platform details
+    public static final String DBNAME_PROPERTY_KEY = "DBNAME";
+    /**
+     * Should the driver generate debugging output?
      */
-    public static String getPlatform() {
-        return System.getProperty("os.arch");
-    }
+    public static final boolean DEBUG = false;
+    /**
+     * Index for hostname coming out of parseHostPortPair().
+     */
+    public final static int HOST_NAME_INDEX = 0;
+    /**
+     * Key used to retreive the hostname value from the properties instance
+     * passed to the driver.
+     */
+    public static final String HOST_PROPERTY_KEY = "HOST";
+    public static final String NUM_HOSTS_PROPERTY_KEY = "NUM_HOSTS";
+    /**
+     * Key used to retreive the password value from the properties instance
+     * passed to the driver.
+     */
+    public static final String PASSWORD_PROPERTY_KEY = "password";
+    /**
+     * Index for port # coming out of parseHostPortPair().
+     */
+    public final static int PORT_NUMBER_INDEX = 1;
+    /**
+     * Key used to retreive the port number value from the properties instance
+     * passed to the driver.
+     */
+    public static final String PORT_PROPERTY_KEY = "PORT";
+    public static final String PROPERTIES_TRANSFORM_KEY = "propertiesTransform";
+    /**
+     * Should the driver generate method-call traces?
+     */
+    public static final boolean TRACE = false;
+    public static final String USE_CONFIG_PROPERTY_KEY = "useConfigs";
+    /**
+     * Key used to retreive the username value from the properties instance
+     * passed to the driver.
+     */
+    public static final String USER_PROPERTY_KEY = "user";
+    public static final String PROTOCOL_PROPERTY_KEY = "PROTOCOL";
+    public static final String PATH_PROPERTY_KEY = "PATH";
+    protected static final ConcurrentHashMap<ConnectionPhantomReference, ConnectionPhantomReference> connectionPhantomRefs = new ConcurrentHashMap<ConnectionPhantomReference, ConnectionPhantomReference>();
+    protected static final ReferenceQueue<ConnectionImpl> refQueue = new ReferenceQueue<ConnectionImpl>();
+    private static final String ALLOWED_QUOTES = "\"'";
+    private static final String REPLICATION_URL_PREFIX = "jdbc:mysql:replication://";
+    private static final String URL_PREFIX = "jdbc:mysql://";
+    private static final String MXJ_URL_PREFIX = "jdbc:mysql:mxj://";
 
     static {
         try {
@@ -109,60 +123,37 @@ public class NonRegisteringDriver implements java.sql.Driver {
     }
 
     /**
-     * Key used to retreive the database value from the properties instance
-     * passed to the driver.
+     * Construct a new driver and register it with DriverManager
+     *
+     * @throws SQLException if a database error occurs.
      */
-    public static final String DBNAME_PROPERTY_KEY = "DBNAME";
+    public NonRegisteringDriver() throws SQLException {
+        // Required for Class.forName().newInstance()
+    }
 
-    /** Should the driver generate debugging output? */
-    public static final boolean DEBUG = false;
-
-    /** Index for hostname coming out of parseHostPortPair(). */
-    public final static int HOST_NAME_INDEX = 0;
-
-    /**
-     * Key used to retreive the hostname value from the properties instance
-     * passed to the driver.
+    /*
+     * Standardizes OS name information to align with other drivers/clients
+     * for MySQL connection attributes
+     *
+     * @return the transformed, standardized OS name
      */
-    public static final String HOST_PROPERTY_KEY = "HOST";
+    public static String getOSName() {
+        return System.getProperty("os.name");
+    }
 
-    public static final String NUM_HOSTS_PROPERTY_KEY = "NUM_HOSTS";
-
-    /**
-     * Key used to retreive the password value from the properties instance
-     * passed to the driver.
+    /*
+     * Standardizes platform information to align with other drivers/clients
+     * for MySQL connection attributes
+     *
+     * @return the transformed, standardized platform details
      */
-    public static final String PASSWORD_PROPERTY_KEY = "password";
-
-    /** Index for port # coming out of parseHostPortPair(). */
-    public final static int PORT_NUMBER_INDEX = 1;
-
-    /**
-     * Key used to retreive the port number value from the properties instance
-     * passed to the driver.
-     */
-    public static final String PORT_PROPERTY_KEY = "PORT";
-
-    public static final String PROPERTIES_TRANSFORM_KEY = "propertiesTransform";
-
-    /** Should the driver generate method-call traces? */
-    public static final boolean TRACE = false;
-
-    public static final String USE_CONFIG_PROPERTY_KEY = "useConfigs";
-
-    /**
-     * Key used to retreive the username value from the properties instance
-     * passed to the driver.
-     */
-    public static final String USER_PROPERTY_KEY = "user";
-
-    public static final String PROTOCOL_PROPERTY_KEY = "PROTOCOL";
-
-    public static final String PATH_PROPERTY_KEY = "PATH";
+    public static String getPlatform() {
+        return System.getProperty("os.arch");
+    }
 
     /**
      * Gets the drivers major version number
-     * 
+     *
      * @return the drivers major version number
      */
     static int getMajorVersionInternal() {
@@ -171,7 +162,7 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
     /**
      * Get the drivers minor version number
-     * 
+     *
      * @return the drivers minor version number
      */
     static int getMinorVersionInternal() {
@@ -183,14 +174,10 @@ public class NonRegisteringDriver implements java.sql.Driver {
      * element of index HOST_NAME_INDEX being the host (or null if not
      * specified), and the element of index PORT_NUMBER_INDEX being the port (or
      * null if not specified).
-     * 
-     * @param hostPortPair
-     *            host and port in form of of [host][:port]
-     * 
+     *
+     * @param hostPortPair host and port in form of of [host][:port]
      * @return array containing host and port as Strings
-     * 
-     * @throws SQLException
-     *             if a parse error occurs
+     * @throws SQLException if a parse error occurs
      */
     protected static String[] parseHostPortPair(String hostPortPair) throws SQLException {
 
@@ -234,29 +221,70 @@ public class NonRegisteringDriver implements java.sql.Driver {
         }
     }
 
+    protected static void trackConnection(Connection newConn) {
+
+        ConnectionPhantomReference phantomRef = new ConnectionPhantomReference((ConnectionImpl) newConn, refQueue);
+        connectionPhantomRefs.put(phantomRef, phantomRef);
+    }
+
+    //
+    // return the database name property
+    //
+
     /**
-     * Construct a new driver and register it with DriverManager
-     * 
-     * @throws SQLException
-     *             if a database error occurs.
+     * Expands hosts of the form address=(protocol=tcp)(host=localhost)(port=3306)
+     * into a java.util.Properties. Special characters (in this case () and =) must be quoted.
+     * Any values that are string-quoted ("" or '') are also stripped of quotes.
      */
-    public NonRegisteringDriver() throws SQLException {
-        // Required for Class.forName().newInstance()
+    public static Properties expandHostKeyValues(String host) {
+        Properties hostProps = new Properties();
+
+        if (isHostPropertiesList(host)) {
+            host = host.substring("address=".length() + 1);
+            List<String> hostPropsList = StringUtils.split(host, ")", "'\"", "'\"", true);
+
+            for (String propDef : hostPropsList) {
+                if (propDef.startsWith("(")) {
+                    propDef = propDef.substring(1);
+                }
+
+                List<String> kvp = StringUtils.split(propDef, "=", "'\"", "'\"", true);
+
+                String key = kvp.get(0);
+                String value = kvp.size() > 1 ? kvp.get(1) : null;
+
+                if (value != null && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
+                    value = value.substring(1, value.length() - 1);
+                }
+
+                if (value != null) {
+                    if (HOST_PROPERTY_KEY.equalsIgnoreCase(key) || DBNAME_PROPERTY_KEY.equalsIgnoreCase(key) || PORT_PROPERTY_KEY.equalsIgnoreCase(key)
+                            || PROTOCOL_PROPERTY_KEY.equalsIgnoreCase(key) || PATH_PROPERTY_KEY.equalsIgnoreCase(key)) {
+                        key = key.toUpperCase(Locale.ENGLISH);
+                    } else if (USER_PROPERTY_KEY.equalsIgnoreCase(key) || PASSWORD_PROPERTY_KEY.equalsIgnoreCase(key)) {
+                        key = key.toLowerCase(Locale.ENGLISH);
+                    }
+
+                    hostProps.setProperty(key, value);
+                }
+            }
+        }
+
+        return hostProps;
+    }
+
+    public static boolean isHostPropertiesList(String host) {
+        return host != null && StringUtils.startsWithIgnoreCase(host, "address=");
     }
 
     /**
      * Typically, drivers will return true if they understand the subprotocol
      * specified in the URL and false if they don't. This driver's protocols
      * start with jdbc:mysql:
-     * 
-     * @param url
-     *            the URL of the driver
-     * 
+     *
+     * @param url the URL of the driver
      * @return true if this driver accepts the given URL
-     * 
-     * @exception SQLException
-     *                if a database access error occurs or the url is null
-     * 
+     * @throws SQLException if a database access error occurs or the url is null
      * @see java.sql.Driver#acceptsURL
      */
     public boolean acceptsURL(String url) throws SQLException {
@@ -266,43 +294,33 @@ public class NonRegisteringDriver implements java.sql.Driver {
         return (parseURL(url, null) != null);
     }
 
-    //
-    // return the database name property
-    //
-
     /**
      * Try to make a database connection to the given URL. The driver should return "null" if it realizes it is the wrong kind of driver to connect to the given
      * URL. This will be common, as when the JDBC driverManager is asked to connect to a given URL, it passes the URL to each loaded driver in turn.
-     * 
+     * <p>
      * <p>
      * The driver should raise an SQLException if the URL is null or if it is the right driver to connect to the given URL, but has trouble connecting to the
      * database.
      * </p>
-     * 
+     * <p>
      * <p>
      * The java.util.Properties argument can be used to pass arbitrary string tag/value pairs as connection arguments. These properties take precedence over any
      * properties sent in the URL.
      * </p>
-     * 
+     * <p>
      * <p>
      * MySQL protocol takes the form:
-     * 
+     * <p>
      * <PRE>
      * jdbc:mysql://host:port/database
      * </PRE>
-     * 
+     * <p>
      * </p>
-     * 
-     * @param url
-     *            the URL of the database to connect to
-     * @param info
-     *            a list of arbitrary tag/value pairs as connection arguments
-     * 
+     *
+     * @param url  the URL of the database to connect to
+     * @param info a list of arbitrary tag/value pairs as connection arguments
      * @return a connection to the URL or null if it isn't us
-     * 
-     * @exception SQLException
-     *                if a database access error occurs or the url is null
-     * 
+     * @throws SQLException if a database access error occurs or the url is null
      * @see java.sql.Driver#connect
      */
     public java.sql.Connection connect(String url, Properties info) throws SQLException {
@@ -343,12 +361,6 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
             throw sqlEx;
         }
-    }
-
-    protected static void trackConnection(Connection newConn) {
-
-        ConnectionPhantomReference phantomRef = new ConnectionPhantomReference((ConnectionImpl) newConn, refQueue);
-        connectionPhantomRefs.put(phantomRef, phantomRef);
     }
 
     private java.sql.Connection connectLoadBalanced(String url, Properties info) throws SQLException {
@@ -471,10 +483,8 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
     /**
      * Returns the database property from <code>props</code>
-     * 
-     * @param props
-     *            the Properties to look for the database property.
-     * 
+     *
+     * @param props the Properties to look for the database property.
      * @return the database name.
      */
     public String database(Properties props) {
@@ -483,16 +493,20 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
     /**
      * Gets the drivers major version number
-     * 
+     *
      * @return the drivers major version number
      */
     public int getMajorVersion() {
         return getMajorVersionInternal();
     }
 
+    //
+    // return the value of any property this driver knows about
+    //
+
     /**
      * Get the drivers minor version number
-     * 
+     *
      * @return the drivers minor version number
      */
     public int getMinorVersion() {
@@ -503,25 +517,19 @@ public class NonRegisteringDriver implements java.sql.Driver {
      * The getPropertyInfo method is intended to allow a generic GUI tool to
      * discover what properties it should prompt a human for in order to get
      * enough information to connect to a database.
-     * 
+     * <p>
      * <p>
      * Note that depending on the values the human has supplied so far, additional values may become necessary, so it may be necessary to iterate through
      * several calls to getPropertyInfo
      * </p>
-     * 
-     * @param url
-     *            the Url of the database to connect to
-     * @param info
-     *            a proposed list of tag/value pairs that will be sent on
-     *            connect open.
-     * 
+     *
+     * @param url  the Url of the database to connect to
+     * @param info a proposed list of tag/value pairs that will be sent on
+     *             connect open.
      * @return An array of DriverPropertyInfo objects describing possible
-     *         properties. This array may be an empty array if no properties are
-     *         required
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
-     * 
+     * properties. This array may be an empty array if no properties are
+     * required
+     * @throws SQLException if a database-access error occurs
      * @see java.sql.Driver#getPropertyInfo
      */
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
@@ -564,17 +572,11 @@ public class NonRegisteringDriver implements java.sql.Driver {
         return dpi;
     }
 
-    //
-    // return the value of any property this driver knows about
-    //
-
     /**
      * Returns the hostname property
-     * 
-     * @param props
-     *            the java.util.Properties instance to retrieve the hostname
-     *            from.
-     * 
+     *
+     * @param props the java.util.Properties instance to retrieve the hostname
+     *              from.
      * @return the hostname
      */
     public String host(Properties props) {
@@ -586,11 +588,11 @@ public class NonRegisteringDriver implements java.sql.Driver {
      * may only report "true" here if it passes the JDBC compliance tests,
      * otherwise it is required to return false. JDBC compliance requires full
      * support for the JDBC API and full support for SQL 92 Entry Level.
-     * 
+     * <p>
      * <p>
      * MySQL is not SQL92 compliant
      * </p>
-     * 
+     *
      * @return is this driver JDBC compliant?
      */
     public boolean jdbcCompliant() {
@@ -815,10 +817,8 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
     /**
      * Returns the port number property
-     * 
-     * @param props
-     *            the properties to get the port number from
-     * 
+     *
+     * @param props the properties to get the port number from
      * @return the port number
      */
     public int port(Properties props) {
@@ -827,62 +827,13 @@ public class NonRegisteringDriver implements java.sql.Driver {
 
     /**
      * Returns the given property from <code>props</code>
-     * 
-     * @param name
-     *            the property name
-     * @param props
-     *            the property instance to look in
-     * 
+     *
+     * @param name  the property name
+     * @param props the property instance to look in
      * @return the property value, or null if not found.
      */
     public String property(String name, Properties props) {
         return props.getProperty(name);
-    }
-
-    /**
-     * Expands hosts of the form address=(protocol=tcp)(host=localhost)(port=3306)
-     * into a java.util.Properties. Special characters (in this case () and =) must be quoted.
-     * Any values that are string-quoted ("" or '') are also stripped of quotes.
-     */
-    public static Properties expandHostKeyValues(String host) {
-        Properties hostProps = new Properties();
-
-        if (isHostPropertiesList(host)) {
-            host = host.substring("address=".length() + 1);
-            List<String> hostPropsList = StringUtils.split(host, ")", "'\"", "'\"", true);
-
-            for (String propDef : hostPropsList) {
-                if (propDef.startsWith("(")) {
-                    propDef = propDef.substring(1);
-                }
-
-                List<String> kvp = StringUtils.split(propDef, "=", "'\"", "'\"", true);
-
-                String key = kvp.get(0);
-                String value = kvp.size() > 1 ? kvp.get(1) : null;
-
-                if (value != null && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
-                    value = value.substring(1, value.length() - 1);
-                }
-
-                if (value != null) {
-                    if (HOST_PROPERTY_KEY.equalsIgnoreCase(key) || DBNAME_PROPERTY_KEY.equalsIgnoreCase(key) || PORT_PROPERTY_KEY.equalsIgnoreCase(key)
-                            || PROTOCOL_PROPERTY_KEY.equalsIgnoreCase(key) || PATH_PROPERTY_KEY.equalsIgnoreCase(key)) {
-                        key = key.toUpperCase(Locale.ENGLISH);
-                    } else if (USER_PROPERTY_KEY.equalsIgnoreCase(key) || PASSWORD_PROPERTY_KEY.equalsIgnoreCase(key)) {
-                        key = key.toLowerCase(Locale.ENGLISH);
-                    }
-
-                    hostProps.setProperty(key, value);
-                }
-            }
-        }
-
-        return hostProps;
-    }
-
-    public static boolean isHostPropertiesList(String host) {
-        return host != null && StringUtils.startsWithIgnoreCase(host, "address=");
     }
 
     static class ConnectionPhantomReference extends PhantomReference<ConnectionImpl> {

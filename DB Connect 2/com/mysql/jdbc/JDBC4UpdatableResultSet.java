@@ -23,6 +23,8 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.*;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
@@ -30,14 +32,6 @@ import java.sql.NClob;
 import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.SQLXML;
-
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.Field;
-import com.mysql.jdbc.NotUpdatable;
-import com.mysql.jdbc.RowData;
-import com.mysql.jdbc.Statement;
-import com.mysql.jdbc.StringUtils;
-import com.mysql.jdbc.UpdatableResultSet;
 
 public class JDBC4UpdatableResultSet extends UpdatableResultSet {
     public JDBC4UpdatableResultSet(String catalog, Field[] fields, RowData tuples, MySQLConnection conn, StatementImpl creatorStmt) throws SQLException {
@@ -190,16 +184,11 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * insert row. The updateXXX() methods do not update the underlying
      * database, instead the updateRow() or insertRow() methods are called to
      * update the database.
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2, ...
-     * @param x
-     *            the new column value
-     * @param length
-     *            the length of the stream
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
+     *
+     * @param columnIndex the first column is 1, the second is 2, ...
+     * @param x           the new column value
+     * @param length      the length of the stream
+     * @throws SQLException if a database-access error occurs
      */
     public void updateNCharacterStream(int columnIndex, java.io.Reader x, int length) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -233,16 +222,11 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * insert row. The updateXXX() methods do not update the underlying
      * database, instead the updateRow() or insertRow() methods are called to
      * update the database.
-     * 
-     * @param columnName
-     *            the name of the column
-     * @param reader
-     *            the new column value
-     * @param length
-     *            of the stream
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
+     *
+     * @param columnName the name of the column
+     * @param reader     the new column value
+     * @param length     of the stream
+     * @throws SQLException if a database-access error occurs
      */
     public void updateNCharacterStream(String columnName, java.io.Reader reader, int length) throws SQLException {
         updateNCharacterStream(findColumn(columnName), reader, length);
@@ -278,14 +262,10 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * are used to update column values in the current row, or the insert row.
      * The updateXXX() methods do not update the underlying database, instead
      * the updateRow() or insertRow() methods are called to update the database.
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2, ...
-     * @param x
-     *            the new column value
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
+     *
+     * @param columnIndex the first column is 1, the second is 2, ...
+     * @param x           the new column value
+     * @throws SQLException if a database-access error occurs
      */
     public void updateNString(int columnIndex, String x) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -319,14 +299,10 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * are used to update column values in the current row, or the insert row.
      * The updateXXX() methods do not update the underlying database, instead
      * the updateRow() or insertRow() methods are called to update the database.
-     * 
-     * @param columnName
-     *            the name of the column
-     * @param x
-     *            the new column value
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
+     *
+     * @param columnName the name of the column
+     * @param x          the new column value
+     * @throws SQLException if a database-access error occurs
      */
     public void updateNString(String columnName, String x) throws SQLException {
         updateNString(findColumn(columnName), x);
@@ -338,14 +314,10 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2, ...
-     * 
+     *
+     * @param columnIndex the first column is 1, the second is 2, ...
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected java.sql.NClob getNativeNClob(int columnIndex) throws SQLException {
         String stringVal = getStringForNClob(columnIndex);
@@ -359,18 +331,14 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * <p>
      * Get the value of a column in the current row as a java.io.Reader.
      * </p>
-     * 
-     * @param columnIndex
-     *            the column to get the value from
-     * 
+     *
+     * @param columnIndex the column to get the value from
      * @return the value in the column as a java.io.Reader.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public Reader getNCharacterStream(int columnIndex) throws SQLException {
         String fieldEncoding = this.fields[columnIndex - 1].getEncoding();
@@ -383,18 +351,14 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * <p>
      * Get the value of a column in the current row as a java.io.Reader.
      * </p>
-     * 
-     * @param columnName
-     *            the column name to retrieve the value from
-     * 
+     *
+     * @param columnName the column name to retrieve the value from
      * @return the value as a java.io.Reader
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public Reader getNCharacterStream(String columnName) throws SQLException {
         return getNCharacterStream(findColumn(columnName));
@@ -402,14 +366,10 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param i
-     *            the first column is 1, the second is 2, ...
-     * 
+     *
+     * @param i the first column is 1, the second is 2, ...
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public NClob getNClob(int columnIndex) throws SQLException {
         String fieldEncoding = this.fields[columnIndex - 1].getEncoding();
@@ -433,14 +393,10 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param colName
-     *            the column name
-     * 
+     *
+     * @param colName the column name
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public NClob getNClob(String columnName) throws SQLException {
         return getNClob(findColumn(columnName));
@@ -452,16 +408,12 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * Get the value of a column in the current row as a Java String
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param columnIndex the first column is 1, the second is 2...
      * @return the column value, null for SQL NULL
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getNString(int columnIndex) throws SQLException {
         String fieldEncoding = this.fields[columnIndex - 1].getEncoding();
@@ -475,17 +427,13 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * The following routines simply convert the columnName into a columnIndex
      * and then call the appropriate routine above.
-     * 
-     * @param columnName
-     *            is the SQL name of the column
-     * 
+     *
+     * @param columnName is the SQL name of the column
      * @return the column value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getNString(String columnName) throws SQLException {
         return getNString(findColumn(columnName));
@@ -546,14 +494,12 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * expensive <code>unwrap</code> calls that may fail. If this method
      * returns true then calling <code>unwrap</code> with the same argument
      * should succeed.
-     * 
-     * @param interfaces
-     *            a Class defining an interface.
+     *
+     * @param interfaces a Class defining an interface.
      * @return true if this implements the interface or directly or indirectly
-     *         wraps an object that does.
-     * @throws java.sql.SQLException
-     *             if an error occurs while determining whether this is a
-     *             wrapper for an object with the given interface.
+     * wraps an object that does.
+     * @throws java.sql.SQLException if an error occurs while determining whether this is a
+     *                               wrapper for an object with the given interface.
      * @since 1.6
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
@@ -573,13 +519,11 @@ public class JDBC4UpdatableResultSet extends UpdatableResultSet {
      * the result of calling <code>unwrap</code> recursively on the wrapped
      * object. If the receiver is not a wrapper and does not implement the
      * interface, then an <code>SQLException</code> is thrown.
-     * 
-     * @param iface
-     *            A Class defining an interface that the result must implement.
+     *
+     * @param iface A Class defining an interface that the result must implement.
      * @return an object that implements the interface. May be a proxy for the
-     *         actual implementing object.
-     * @throws java.sql.SQLException
-     *             If no object found that implements the interface
+     * actual implementing object.
+     * @throws java.sql.SQLException If no object found that implements the interface
      * @since 1.6
      */
     public <T> T unwrap(java.lang.Class<T> iface) throws java.sql.SQLException {

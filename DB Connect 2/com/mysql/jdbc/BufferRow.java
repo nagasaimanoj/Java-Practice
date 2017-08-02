@@ -23,27 +23,14 @@
 
 package com.mysql.jdbc;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
-import java.sql.Date;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.Calendar;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.TimeZone;
+import java.io.*;
+import java.sql.*;
+import java.util.*;
 
 /**
  * A RowHolder implementation that holds one row packet (which is re-used by the driver, and thus saves memory allocations), and tries when possible to avoid
  * allocations to break out the results as individual byte[]s.
- * 
+ * <p>
  * (this isn't possible when doing things like reading floating point values).
  */
 public class BufferRow extends ResultSetRow {
@@ -324,7 +311,7 @@ public class BufferRow extends ResultSetRow {
                 return null;
 
             case MysqlDefs.FIELD_TYPE_TINY:
-                return new byte[] { this.rowFromServer.readByte() };
+                return new byte[]{this.rowFromServer.readByte()};
 
             case MysqlDefs.FIELD_TYPE_SHORT:
             case MysqlDefs.FIELD_TYPE_YEAR:
@@ -710,7 +697,7 @@ public class BufferRow extends ResultSetRow {
 
     @Override
     public Object getNativeDateTimeValue(int columnIndex, Calendar targetCalendar, int jdbcType, int mysqlType, TimeZone tz, boolean rollForward,
-            MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                                         MySQLConnection conn, ResultSetImpl rs) throws SQLException {
         if (isNull(columnIndex)) {
             return null;
         }

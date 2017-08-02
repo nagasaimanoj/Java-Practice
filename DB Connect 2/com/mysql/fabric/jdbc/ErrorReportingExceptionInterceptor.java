@@ -23,16 +23,11 @@
 
 package com.mysql.fabric.jdbc;
 
+import com.mysql.fabric.FabricCommunicationException;
+import com.mysql.jdbc.*;
+
 import java.sql.SQLException;
 import java.util.Properties;
-
-import com.mysql.fabric.FabricCommunicationException;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ConnectionImpl;
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.SQLError;
 
 /**
  * Relay the exception to {@link FabricMySQLConnectionProxy} for error reporting. This class exists solely because extensions cannot be provided with instances

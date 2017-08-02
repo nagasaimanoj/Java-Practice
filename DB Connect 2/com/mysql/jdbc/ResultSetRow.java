@@ -25,12 +25,7 @@ package com.mysql.jdbc;
 
 import java.io.InputStream;
 import java.io.Reader;
-import java.sql.Date;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.util.Calendar;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
@@ -38,20 +33,19 @@ import java.util.TimeZone;
 /**
  * Classes that implement this interface represent one row of data from the MySQL server that might be stored in different ways depending on whether the result
  * set was streaming (so they wrap a reusable packet), or whether the result set was cached or via a server-side cursor (so they represent a byte[][]).
- * 
+ * <p>
  * Notice that <strong>no</strong> bounds checking is expected for implementors of this interface, it happens in ResultSetImpl.
  */
 public abstract class ResultSetRow {
     protected ExceptionInterceptor exceptionInterceptor;
-
-    protected ResultSetRow(ExceptionInterceptor exceptionInterceptor) {
-        this.exceptionInterceptor = exceptionInterceptor;
-    }
-
     /**
      * The metadata of the fields of this result set.
      */
     protected Field[] metadata;
+
+    protected ResultSetRow(ExceptionInterceptor exceptionInterceptor) {
+        this.exceptionInterceptor = exceptionInterceptor;
+    }
 
     /**
      * Called during navigation to next row to close all open
@@ -62,31 +56,26 @@ public abstract class ResultSetRow {
     /**
      * Returns data at the given index as an InputStream with no
      * character conversion.
-     * 
-     * @param columnIndex
-     *            of the column value (starting at 0) to return.
+     *
+     * @param columnIndex of the column value (starting at 0) to return.
      * @return the value at the given index as an InputStream or null
-     *         if null.
-     * 
-     * @throws SQLException
-     *             if an error occurs while retrieving the value.
+     * if null.
+     * @throws SQLException if an error occurs while retrieving the value.
      */
     public abstract InputStream getBinaryInputStream(int columnIndex) throws SQLException;
 
     /**
      * Returns the value at the given column (index starts at 0) "raw" (i.e.
      * as-returned by the server).
-     * 
-     * @param index
-     *            of the column value (starting at 0) to return.
+     *
+     * @param index of the column value (starting at 0) to return.
      * @return the value for the given column (including NULL if it is)
-     * @throws SQLException
-     *             if an error occurs while retrieving the value.
+     * @throws SQLException if an error occurs while retrieving the value.
      */
     public abstract byte[] getColumnValue(int index) throws SQLException;
 
     protected final java.sql.Date getDateFast(int columnIndex, byte[] dateAsBytes, int offset, int length, MySQLConnection conn, ResultSetImpl rs,
-            Calendar targetCalendar) throws SQLException {
+                                              Calendar targetCalendar) throws SQLException {
 
         int year = 0;
         int month = 0;
@@ -211,7 +200,7 @@ public abstract class ResultSetRow {
                     default:
                         throw SQLError.createSQLException(
                                 Messages.getString("ResultSet.Bad_format_for_Date",
-                                        new Object[] { StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1) }),
+                                        new Object[]{StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1)}),
                                 SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
                 }
             } else if (this.metadata[columnIndex].getMysqlType() == MysqlDefs.FIELD_TYPE_YEAR) {
@@ -240,7 +229,7 @@ public abstract class ResultSetRow {
 
                     throw SQLError.createSQLException(
                             Messages.getString("ResultSet.Bad_format_for_Date",
-                                    new Object[] { StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1) }),
+                                    new Object[]{StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1)}),
                             SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
                 }
 
@@ -263,7 +252,7 @@ public abstract class ResultSetRow {
             throw sqlEx; // don't re-wrap
         } catch (Exception e) {
             SQLException sqlEx = SQLError.createSQLException(
-                    Messages.getString("ResultSet.Bad_format_for_Date", new Object[] { StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1) }),
+                    Messages.getString("ResultSet.Bad_format_for_Date", new Object[]{StringUtils.toString(dateAsBytes), Integer.valueOf(columnIndex + 1)}),
                     SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
             sqlEx.initCause(e);
 
@@ -275,25 +264,21 @@ public abstract class ResultSetRow {
 
     /**
      * Returns the value at the given column (index starts at 0) as an int. *
-     * 
-     * @param index
-     *            of the column value (starting at 0) to return.
+     *
+     * @param index of the column value (starting at 0) to return.
      * @return the value for the given column (returns 0 if NULL, use isNull()
-     *         to determine if the value was actually NULL)
-     * @throws SQLException
-     *             if an error occurs while retrieving the value.
+     * to determine if the value was actually NULL)
+     * @throws SQLException if an error occurs while retrieving the value.
      */
     public abstract int getInt(int columnIndex) throws SQLException;
 
     /**
      * Returns the value at the given column (index starts at 0) as a long. *
-     * 
-     * @param index
-     *            of the column value (starting at 0) to return.
+     *
+     * @param index of the column value (starting at 0) to return.
      * @return the value for the given column (returns 0 if NULL, use isNull()
-     *         to determine if the value was actually NULL)
-     * @throws SQLException
-     *             if an error occurs while retrieving the value.
+     * to determine if the value was actually NULL)
+     * @throws SQLException if an error occurs while retrieving the value.
      */
     public abstract long getLong(int columnIndex) throws SQLException;
 
@@ -344,7 +329,7 @@ public abstract class ResultSetRow {
     public abstract Date getNativeDate(int columnIndex, MySQLConnection conn, ResultSetImpl rs, Calendar cal) throws SQLException;
 
     protected Object getNativeDateTimeValue(int columnIndex, byte[] bits, int offset, int length, Calendar targetCalendar, int jdbcType, int mysqlType,
-            TimeZone tz, boolean rollForward, MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                                            TimeZone tz, boolean rollForward, MySQLConnection conn, ResultSetImpl rs) throws SQLException {
 
         int year = 0;
         int month = 0;
@@ -492,7 +477,7 @@ public abstract class ResultSetRow {
     }
 
     public abstract Object getNativeDateTimeValue(int columnIndex, Calendar targetCalendar, int jdbcType, int mysqlType, TimeZone tz, boolean rollForward,
-            MySQLConnection conn, ResultSetImpl rs) throws SQLException;
+                                                  MySQLConnection conn, ResultSetImpl rs) throws SQLException;
 
     protected double getNativeDouble(byte[] bits, int offset) {
         long valueAsLong = (bits[offset + 0] & 0xff) | ((long) (bits[offset + 1] & 0xff) << 8) | ((long) (bits[offset + 2] & 0xff) << 16)
@@ -552,7 +537,7 @@ public abstract class ResultSetRow {
      * @throws SQLException
      */
     protected Time getNativeTime(int columnIndex, byte[] bits, int offset, int length, Calendar targetCalendar, TimeZone tz, boolean rollForward,
-            MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                                 MySQLConnection conn, ResultSetImpl rs) throws SQLException {
 
         int hour = 0;
         int minute = 0;
@@ -583,7 +568,7 @@ public abstract class ResultSetRow {
             throws SQLException;
 
     protected Timestamp getNativeTimestamp(byte[] bits, int offset, int length, Calendar targetCalendar, TimeZone tz, boolean rollForward, MySQLConnection conn,
-            ResultSetImpl rs) throws SQLException {
+                                           ResultSetImpl rs) throws SQLException {
         int year = 0;
         int month = 0;
         int day = 0;
@@ -640,7 +625,7 @@ public abstract class ResultSetRow {
     }
 
     public abstract Timestamp getNativeTimestamp(int columnIndex, Calendar targetCalendar, TimeZone tz, boolean rollForward, MySQLConnection conn,
-            ResultSetImpl rs) throws SQLException;
+                                                 ResultSetImpl rs) throws SQLException;
 
     public abstract Reader getReader(int columnIndex) throws SQLException;
 
@@ -648,42 +633,28 @@ public abstract class ResultSetRow {
      * Returns the value at the given column (index starts at 0) as a
      * java.lang.String with the requested encoding, using the given
      * MySQLConnection to find character converters.
-     * 
-     * @param index
-     *            of the column value (starting at 0) to return.
-     * @param encoding
-     *            the Java name for the character encoding
-     * @param conn
-     *            the connection that created this result set row
-     * 
+     *
+     * @param index    of the column value (starting at 0) to return.
+     * @param encoding the Java name for the character encoding
+     * @param conn     the connection that created this result set row
      * @return the value for the given column (including NULL if it is) as a
-     *         String
-     * 
-     * @throws SQLException
-     *             if an error occurs while retrieving the value.
+     * String
+     * @throws SQLException if an error occurs while retrieving the value.
      */
     public abstract String getString(int index, String encoding, MySQLConnection conn) throws SQLException;
 
     /**
      * Convenience method for turning a byte[] into a string with the given
      * encoding.
-     * 
-     * @param encoding
-     *            the Java encoding name for the byte[] -> char conversion
-     * @param conn
-     *            the MySQLConnection that created the result set
-     * @param value
-     *            the String value as a series of bytes, encoded using
-     *            "encoding"
-     * @param offset
-     *            where to start the decoding
-     * @param length
-     *            how many bytes to decode
-     * 
+     *
+     * @param encoding the Java encoding name for the byte[] -> char conversion
+     * @param conn     the MySQLConnection that created the result set
+     * @param value    the String value as a series of bytes, encoded using
+     *                 "encoding"
+     * @param offset   where to start the decoding
+     * @param length   how many bytes to decode
      * @return the String as decoded from bytes with the given encoding
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected String getString(String encoding, MySQLConnection conn, byte[] value, int offset, int length) throws SQLException {
         String stringVal = null;
@@ -713,7 +684,7 @@ public abstract class ResultSetRow {
     }
 
     protected Time getTimeFast(int columnIndex, byte[] timeAsBytes, int offset, int fullLength, Calendar targetCalendar, TimeZone tz, boolean rollForward,
-            MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                               MySQLConnection conn, ResultSetImpl rs) throws SQLException {
 
         int hr = 0;
         int min = 0;
@@ -808,7 +779,7 @@ public abstract class ResultSetRow {
                         sec = StringUtils.getInt(timeAsBytes, offset + length - 2, offset + length);
                     }
 
-                        break;
+                    break;
                     case 14:
                     case 12: {
                         hr = StringUtils.getInt(timeAsBytes, offset + length - 6, offset + length - 4);
@@ -816,7 +787,7 @@ public abstract class ResultSetRow {
                         sec = StringUtils.getInt(timeAsBytes, offset + length - 2, offset + length);
                     }
 
-                        break;
+                    break;
 
                     case 10: {
                         hr = StringUtils.getInt(timeAsBytes, offset + 6, offset + 8);
@@ -824,7 +795,7 @@ public abstract class ResultSetRow {
                         sec = 0;
                     }
 
-                        break;
+                    break;
 
                     default:
                         throw SQLError.createSQLException(Messages.getString("ResultSet.Timestamp_too_small_to_convert_to_Time_value_in_column__257")
@@ -898,7 +869,7 @@ public abstract class ResultSetRow {
             throws SQLException;
 
     protected Timestamp getTimestampFast(int columnIndex, byte[] timestampAsBytes, int offset, int length, Calendar targetCalendar, TimeZone tz,
-            boolean rollForward, MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                                         boolean rollForward, MySQLConnection conn, ResultSetImpl rs) throws SQLException {
 
         try {
             Calendar sessionCalendar = conn.getUseJDBCCompliantTimezoneShift() ? conn.getUtcCalendar() : rs.getCalendarInstanceForSessionOrNew();
@@ -1177,46 +1148,36 @@ public abstract class ResultSetRow {
     }
 
     public abstract Timestamp getTimestampFast(int columnIndex, Calendar targetCalendar, TimeZone tz, boolean rollForward, MySQLConnection conn,
-            ResultSetImpl rs) throws SQLException;
+                                               ResultSetImpl rs) throws SQLException;
 
     /**
      * Could the column value at the given index (which starts at 0) be
      * interpreted as a floating-point number (has +/-/E/e in it)?
-     * 
-     * @param index
-     *            of the column value (starting at 0) to check.
-     * 
+     *
+     * @param index of the column value (starting at 0) to check.
      * @return true if the column value at the given index looks like it might
-     *         be a floating-point number, false if not.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * be a floating-point number, false if not.
+     * @throws SQLException if an error occurs
      */
     public abstract boolean isFloatingPointNumber(int index) throws SQLException;
 
     /**
      * Is the column value at the given index (which starts at 0) NULL?
-     * 
-     * @param index
-     *            of the column value (starting at 0) to check.
-     * 
+     *
+     * @param index of the column value (starting at 0) to check.
      * @return true if the column value is NULL, false if not.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public abstract boolean isNull(int index) throws SQLException;
 
     /**
      * Returns the length of the column at the given index (which starts at 0).
-     * 
-     * @param index
-     *            of the column value (starting at 0) for which to return the
-     *            length.
+     *
+     * @param index of the column value (starting at 0) for which to return the
+     *              length.
      * @return the length of the requested column, 0 if null (clients of this
-     *         interface should use isNull() beforehand to determine status of
-     *         NULL values in the column).
-     * 
+     * interface should use isNull() beforehand to determine status of
+     * NULL values in the column).
      * @throws SQLException
      */
     public abstract long length(int index) throws SQLException;
@@ -1224,15 +1185,11 @@ public abstract class ResultSetRow {
     /**
      * Sets the given column value (only works currently with
      * ByteArrayRowHolder).
-     * 
-     * @param index
-     *            index of the column value (starting at 0) to set.
-     * @param value
-     *            the (raw) value to set
-     * 
-     * @throws SQLException
-     *             if an error occurs, or the concrete RowHolder doesn't support
-     *             this operation.
+     *
+     * @param index index of the column value (starting at 0) to set.
+     * @param value the (raw) value to set
+     * @throws SQLException if an error occurs, or the concrete RowHolder doesn't support
+     *                      this operation.
      */
     public abstract void setColumnValue(int index, byte[] value) throws SQLException;
 

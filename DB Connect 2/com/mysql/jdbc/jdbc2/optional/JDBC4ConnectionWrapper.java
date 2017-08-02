@@ -23,42 +23,21 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.NClob;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.sql.Struct;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import com.mysql.jdbc.ConnectionImpl;
 import com.mysql.jdbc.SQLError;
+
+import java.lang.reflect.Proxy;
+import java.sql.*;
+import java.util.HashMap;
+import java.util.Properties;
 
 public class JDBC4ConnectionWrapper extends ConnectionWrapper {
 
     /**
      * Construct a new LogicalHandle and set instance variables
-     * 
-     * @param mysqlPooledConnection
-     *            reference to object that instantiated this object
-     * @param mysqlConnection
-     *            physical connection to db
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     *
+     * @param mysqlPooledConnection reference to object that instantiated this object
+     * @param mysqlConnection       physical connection to db
+     * @throws SQLException if an error occurs.
      */
     public JDBC4ConnectionWrapper(MysqlPooledConnection mysqlPooledConnection, com.mysql.jdbc.Connection mysqlConnection, boolean forXa) throws SQLException {
         super(mysqlPooledConnection, mysqlConnection, forXa);
@@ -120,6 +99,23 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
         return null; // never reached, but compiler can't tell
     }
 
+    public void setClientInfo(Properties properties) throws SQLClientInfoException {
+        try {
+            checkClosed();
+
+            ((java.sql.Connection) this.mc).setClientInfo(properties);
+        } catch (SQLException sqlException) {
+            try {
+                checkAndFireConnectionError(sqlException);
+            } catch (SQLException sqlEx2) {
+                SQLClientInfoException clientEx = new SQLClientInfoException();
+                clientEx.initCause(sqlEx2);
+
+                throw clientEx;
+            }
+        }
+    }
+
     public String getClientInfo(String name) throws SQLException {
         checkClosed();
 
@@ -139,19 +135,17 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
      * this method is called.
      * <p>
      * The query submitted by the driver to validate the connection shall be executed in the context of the current transaction.
-     * 
-     * @param timeout
-     *            -
-     *            The time in seconds to wait for the database operation used to
-     *            validate the connection to complete. If the timeout period
-     *            expires before the operation completes, this method returns
-     *            false. A value of 0 indicates a timeout is not applied to the
-     *            database operation.
-     *            <p>
+     *
+     * @param timeout -
+     *                The time in seconds to wait for the database operation used to
+     *                validate the connection to complete. If the timeout period
+     *                expires before the operation completes, this method returns
+     *                false. A value of 0 indicates a timeout is not applied to the
+     *                database operation.
+     *                <p>
      * @return true if the connection is valid, false otherwise
-     * @exception SQLException
-     *                if the value supplied for <code>timeout</code> is less
-     *                then 0
+     * @throws SQLException if the value supplied for <code>timeout</code> is less
+     *                      then 0
      * @since 1.6
      */
     public synchronized boolean isValid(int timeout) throws SQLException {
@@ -162,23 +156,6 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
         }
 
         return false; // never reached, but compiler can't tell
-    }
-
-    public void setClientInfo(Properties properties) throws SQLClientInfoException {
-        try {
-            checkClosed();
-
-            ((java.sql.Connection) this.mc).setClientInfo(properties);
-        } catch (SQLException sqlException) {
-            try {
-                checkAndFireConnectionError(sqlException);
-            } catch (SQLException sqlEx2) {
-                SQLClientInfoException clientEx = new SQLClientInfoException();
-                clientEx.initCause(sqlEx2);
-
-                throw clientEx;
-            }
-        }
     }
 
     public void setClientInfo(String name, String value) throws SQLClientInfoException {
@@ -208,14 +185,12 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
      * expensive <code>unwrap</code> calls that may fail. If this method
      * returns true then calling <code>unwrap</code> with the same argument
      * should succeed.
-     * 
-     * @param interfaces
-     *            a Class defining an interface.
+     *
+     * @param interfaces a Class defining an interface.
      * @return true if this implements the interface or directly or indirectly
-     *         wraps an object that does.
-     * @throws java.sql.SQLException
-     *             if an error occurs while determining whether this is a
-     *             wrapper for an object with the given interface.
+     * wraps an object that does.
+     * @throws java.sql.SQLException if an error occurs while determining whether this is a
+     *                               wrapper for an object with the given interface.
      * @since 1.6
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
@@ -240,13 +215,11 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
      * the result of calling <code>unwrap</code> recursively on the wrapped
      * object. If the receiver is not a wrapper and does not implement the
      * interface, then an <code>SQLException</code> is thrown.
-     * 
-     * @param iface
-     *            A Class defining an interface that the result must implement.
+     *
+     * @param iface A Class defining an interface that the result must implement.
      * @return an object that implements the interface. May be a proxy for the
-     *         actual implementing object.
-     * @throws java.sql.SQLException
-     *             If no object found that implements the interface
+     * actual implementing object.
+     * @throws java.sql.SQLException If no object found that implements the interface
      * @since 1.6
      */
     public synchronized <T> T unwrap(java.lang.Class<T> iface) throws java.sql.SQLException {
@@ -262,7 +235,7 @@ public class JDBC4ConnectionWrapper extends ConnectionWrapper {
             Object cachedUnwrapped = unwrappedInterfaces.get(iface);
 
             if (cachedUnwrapped == null) {
-                cachedUnwrapped = Proxy.newProxyInstance(this.mc.getClass().getClassLoader(), new Class<?>[] { iface },
+                cachedUnwrapped = Proxy.newProxyInstance(this.mc.getClass().getClassLoader(), new Class<?>[]{iface},
                         new ConnectionErrorFiringInvocationHandler(this.mc));
                 unwrappedInterfaces.put(iface, cachedUnwrapped);
             }

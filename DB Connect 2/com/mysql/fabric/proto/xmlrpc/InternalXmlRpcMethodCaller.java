@@ -23,23 +23,12 @@
 
 package com.mysql.fabric.proto.xmlrpc;
 
-import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.mysql.fabric.FabricCommunicationException;
 import com.mysql.fabric.xmlrpc.Client;
-import com.mysql.fabric.xmlrpc.base.Array;
-import com.mysql.fabric.xmlrpc.base.Member;
-import com.mysql.fabric.xmlrpc.base.MethodCall;
-import com.mysql.fabric.xmlrpc.base.MethodResponse;
-import com.mysql.fabric.xmlrpc.base.Param;
-import com.mysql.fabric.xmlrpc.base.Params;
-import com.mysql.fabric.xmlrpc.base.Struct;
-import com.mysql.fabric.xmlrpc.base.Value;
+import com.mysql.fabric.xmlrpc.base.*;
+
+import java.net.MalformedURLException;
+import java.util.*;
 
 /**
  * An XML-RPC method caller which uses the internal XML-RPC client
@@ -92,7 +81,7 @@ public class InternalXmlRpcMethodCaller implements XmlRpcMethodCaller {
         MethodCall methodCall = new MethodCall();
         Params p = new Params();
         if (args == null) {
-            args = new Object[] {};
+            args = new Object[]{};
         }
         for (int i = 0; i < args.length; ++i) {
             if (args[i] == null) {

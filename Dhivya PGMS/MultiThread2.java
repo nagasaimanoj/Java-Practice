@@ -5,11 +5,11 @@ public class MultiThread2 {
 
         //an ArrayList with Threads as data type to store Thread objects, each have a SampleX's object
         ArrayList<Thread> threadList = new ArrayList<Thread>();
-		
+
         Thread th = new Thread(new SampleX(1));
         th.setPriority(10);
-		
-		threadList.add(th); //for thread named 1
+
+        threadList.add(th); //for thread named 1
         threadList.add(new Thread(new SampleX(2))); //for thread named 2
         threadList.add(new Thread(new SampleX(3))); //for thread named 3
         threadList.add(new Thread(new SampleX(4))); //for thread named 4

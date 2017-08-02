@@ -23,19 +23,12 @@
 
 package com.mysql.jdbc;
 
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.NClob;
-import java.sql.Struct;
-import java.util.Properties;
-import java.util.TimerTask;
-
 import com.mysql.jdbc.ConnectionImpl;
 import com.mysql.jdbc.Messages;
 import com.mysql.jdbc.SQLError;
+
+import java.sql.*;
+import java.util.Properties;
 
 public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnection {
 
@@ -63,6 +56,19 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
         return getClientInfoProviderImpl().getClientInfo(this);
     }
 
+    public void setClientInfo(Properties properties) throws SQLClientInfoException {
+        try {
+            getClientInfoProviderImpl().setClientInfo(this, properties);
+        } catch (SQLClientInfoException ciEx) {
+            throw ciEx;
+        } catch (SQLException sqlEx) {
+            SQLClientInfoException clientInfoEx = new SQLClientInfoException();
+            clientInfoEx.initCause(sqlEx);
+
+            throw clientInfoEx;
+        }
+    }
+
     public String getClientInfo(String name) throws SQLException {
         return getClientInfoProviderImpl().getClientInfo(this, name);
     }
@@ -74,18 +80,16 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
      * this method is called.
      * <p>
      * The query submitted by the driver to validate the connection shall be executed in the context of the current transaction.
-     * 
-     * @param timeout
-     *            - The time in seconds to wait for the database operation
-     *            used to validate the connection to complete. If
-     *            the timeout period expires before the operation
-     *            completes, this method returns false. A value of
-     *            0 indicates a timeout is not applied to the
-     *            database operation.
-     *            <p>
+     *
+     * @param timeout - The time in seconds to wait for the database operation
+     *                used to validate the connection to complete. If
+     *                the timeout period expires before the operation
+     *                completes, this method returns false. A value of
+     *                0 indicates a timeout is not applied to the
+     *                database operation.
+     *                <p>
      * @return true if the connection is valid, false otherwise
-     * @exception SQLException
-     *                if the value supplied for <code>timeout</code> is less then 0
+     * @throws SQLException if the value supplied for <code>timeout</code> is less then 0
      * @since 1.6
      */
     public boolean isValid(int timeout) throws SQLException {
@@ -115,19 +119,6 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
         }
     }
 
-    public void setClientInfo(Properties properties) throws SQLClientInfoException {
-        try {
-            getClientInfoProviderImpl().setClientInfo(this, properties);
-        } catch (SQLClientInfoException ciEx) {
-            throw ciEx;
-        } catch (SQLException sqlEx) {
-            SQLClientInfoException clientInfoEx = new SQLClientInfoException();
-            clientInfoEx.initCause(sqlEx);
-
-            throw clientInfoEx;
-        }
-    }
-
     public void setClientInfo(String name, String value) throws SQLClientInfoException {
         try {
             getClientInfoProviderImpl().setClientInfo(this, name, value);
@@ -149,13 +140,11 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
      * This method should be implemented as a low-cost operation compared to <code>unwrap</code> so that
      * callers can use this method to avoid expensive <code>unwrap</code> calls that may fail. If this method
      * returns true then calling <code>unwrap</code> with the same argument should succeed.
-     * 
-     * @param interfaces
-     *            a Class defining an interface.
+     *
+     * @param interfaces a Class defining an interface.
      * @return true if this implements the interface or directly or indirectly wraps an object that does.
-     * @throws java.sql.SQLException
-     *             if an error occurs while determining whether this is a wrapper
-     *             for an object with the given interface.
+     * @throws java.sql.SQLException if an error occurs while determining whether this is a wrapper
+     *                               for an object with the given interface.
      * @since 1.6
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
@@ -173,12 +162,10 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
      * and the wrapped object implements the interface then that is the object. Otherwise the object is
      * the result of calling <code>unwrap</code> recursively on the wrapped object. If the receiver is not a
      * wrapper and does not implement the interface, then an <code>SQLException</code> is thrown.
-     * 
-     * @param iface
-     *            A Class defining an interface that the result must implement.
+     *
+     * @param iface A Class defining an interface that the result must implement.
      * @return an object that implements the interface. May be a proxy for the actual implementing object.
-     * @throws java.sql.SQLException
-     *             If no object found that implements the interface
+     * @throws java.sql.SQLException If no object found that implements the interface
      * @since 1.6
      */
     public <T> T unwrap(java.lang.Class<T> iface) throws java.sql.SQLException {
@@ -226,7 +213,7 @@ public class JDBC4Connection extends ConnectionImpl implements JDBC4MySQLConnect
                         }
                     }
                 } catch (ClassCastException cce) {
-                    throw SQLError.createSQLException(Messages.getString("JDBC4Connection.ClientInfoNotImplemented", new Object[] { getClientInfoProvider() }),
+                    throw SQLError.createSQLException(Messages.getString("JDBC4Connection.ClientInfoNotImplemented", new Object[]{getClientInfoProvider()}),
                             SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
                 }
 

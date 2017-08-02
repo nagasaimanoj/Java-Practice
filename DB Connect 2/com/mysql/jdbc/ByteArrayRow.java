@@ -23,11 +23,7 @@
 
 package com.mysql.jdbc;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -245,7 +241,7 @@ public class ByteArrayRow extends ResultSetRow {
 
     @Override
     public Object getNativeDateTimeValue(int columnIndex, Calendar targetCalendar, int jdbcType, int mysqlType, TimeZone tz, boolean rollForward,
-            MySQLConnection conn, ResultSetImpl rs) throws SQLException {
+                                         MySQLConnection conn, ResultSetImpl rs) throws SQLException {
         byte[] columnValue = this.internalRowData[columnIndex];
 
         if (columnValue == null) {

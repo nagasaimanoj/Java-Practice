@@ -23,20 +23,15 @@
 
 package testsuite.regression.jdbc42;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.OffsetTime;
-import java.time.ZoneOffset;
-
 import testsuite.BaseTestCase;
+
+import java.time.*;
 
 public class ResultSetRegressionTest extends BaseTestCase {
     public ResultSetRegressionTest(String name) {
         super(name);
     }
-    
+
     /**
      * Tests fix for Bug#84189 - Allow null when extracting java.time.* classes from ResultSet.
      */

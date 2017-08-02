@@ -23,16 +23,12 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.lang.reflect.Constructor;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
-
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.StatementImpl;
 import com.mysql.jdbc.Util;
+
+import java.lang.reflect.Constructor;
+import java.sql.*;
 
 /**
  * Wraps statements so that errors can be reported correctly to ConnectionEventListeners.
@@ -44,7 +40,7 @@ public class StatementWrapper extends WrapperBase implements Statement {
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_STATEMENT_WRAPPER_CTOR = Class.forName("com.mysql.jdbc.jdbc2.optional.JDBC4StatementWrapper")
-                        .getConstructor(new Class[] { ConnectionWrapper.class, MysqlPooledConnection.class, Statement.class });
+                        .getConstructor(new Class[]{ConnectionWrapper.class, MysqlPooledConnection.class, Statement.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -57,22 +53,21 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
     }
 
-    protected static StatementWrapper getInstance(ConnectionWrapper c, MysqlPooledConnection conn, Statement toWrap) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new StatementWrapper(c, conn, toWrap);
-        }
-
-        return (StatementWrapper) Util.handleNewInstance(JDBC_4_STATEMENT_WRAPPER_CTOR, new Object[] { c, conn, toWrap }, conn.getExceptionInterceptor());
-    }
-
     protected Statement wrappedStmt;
-
     protected ConnectionWrapper wrappedConn;
 
     public StatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, Statement toWrap) {
         super(conn);
         this.wrappedStmt = toWrap;
         this.wrappedConn = c;
+    }
+
+    protected static StatementWrapper getInstance(ConnectionWrapper c, MysqlPooledConnection conn, Statement toWrap) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new StatementWrapper(c, conn, toWrap);
+        }
+
+        return (StatementWrapper) Util.handleNewInstance(JDBC_4_STATEMENT_WRAPPER_CTOR, new Object[]{c, conn, toWrap}, conn.getExceptionInterceptor());
     }
 
     public Connection getConnection() throws SQLException {
@@ -113,18 +108,6 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
     }
 
-    public void setFetchDirection(int direction) throws SQLException {
-        try {
-            if (this.wrappedStmt != null) {
-                this.wrappedStmt.setFetchDirection(direction);
-            } else {
-                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
-            }
-        } catch (SQLException sqlEx) {
-            checkAndFireConnectionError(sqlEx);
-        }
-    }
-
     public int getFetchDirection() throws SQLException {
         try {
             if (this.wrappedStmt != null) {
@@ -139,10 +122,10 @@ public class StatementWrapper extends WrapperBase implements Statement {
         return ResultSet.FETCH_FORWARD; // we actually never get here, but the compiler can't figure that out
     }
 
-    public void setFetchSize(int rows) throws SQLException {
+    public void setFetchDirection(int direction) throws SQLException {
         try {
             if (this.wrappedStmt != null) {
-                this.wrappedStmt.setFetchSize(rows);
+                this.wrappedStmt.setFetchDirection(direction);
             } else {
                 throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
             }
@@ -165,6 +148,18 @@ public class StatementWrapper extends WrapperBase implements Statement {
         return 0; // we actually never get here, but the compiler can't figure that out
     }
 
+    public void setFetchSize(int rows) throws SQLException {
+        try {
+            if (this.wrappedStmt != null) {
+                this.wrappedStmt.setFetchSize(rows);
+            } else {
+                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
+            }
+        } catch (SQLException sqlEx) {
+            checkAndFireConnectionError(sqlEx);
+        }
+    }
+
     public ResultSet getGeneratedKeys() throws SQLException {
         try {
             if (this.wrappedStmt != null) {
@@ -177,18 +172,6 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
 
         return null; // we actually never get here, but the compiler can't figure that out
-    }
-
-    public void setMaxFieldSize(int max) throws SQLException {
-        try {
-            if (this.wrappedStmt != null) {
-                this.wrappedStmt.setMaxFieldSize(max);
-            } else {
-                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
-            }
-        } catch (SQLException sqlEx) {
-            checkAndFireConnectionError(sqlEx);
-        }
     }
 
     public int getMaxFieldSize() throws SQLException {
@@ -205,10 +188,10 @@ public class StatementWrapper extends WrapperBase implements Statement {
         return 0; // we actually never get here, but the compiler can't figure that out
     }
 
-    public void setMaxRows(int max) throws SQLException {
+    public void setMaxFieldSize(int max) throws SQLException {
         try {
             if (this.wrappedStmt != null) {
-                this.wrappedStmt.setMaxRows(max);
+                this.wrappedStmt.setMaxFieldSize(max);
             } else {
                 throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
             }
@@ -229,6 +212,18 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
 
         return 0; // we actually never get here, but the compiler can't figure that out
+    }
+
+    public void setMaxRows(int max) throws SQLException {
+        try {
+            if (this.wrappedStmt != null) {
+                this.wrappedStmt.setMaxRows(max);
+            } else {
+                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
+            }
+        } catch (SQLException sqlEx) {
+            checkAndFireConnectionError(sqlEx);
+        }
     }
 
     public boolean getMoreResults() throws SQLException {
@@ -259,18 +254,6 @@ public class StatementWrapper extends WrapperBase implements Statement {
         return false;
     }
 
-    public void setQueryTimeout(int seconds) throws SQLException {
-        try {
-            if (this.wrappedStmt != null) {
-                this.wrappedStmt.setQueryTimeout(seconds);
-            } else {
-                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
-            }
-        } catch (SQLException sqlEx) {
-            checkAndFireConnectionError(sqlEx);
-        }
-    }
-
     public int getQueryTimeout() throws SQLException {
         try {
             if (this.wrappedStmt != null) {
@@ -283,6 +266,18 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
 
         return 0;
+    }
+
+    public void setQueryTimeout(int seconds) throws SQLException {
+        try {
+            if (this.wrappedStmt != null) {
+                this.wrappedStmt.setQueryTimeout(seconds);
+            } else {
+                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
+            }
+        } catch (SQLException sqlEx) {
+            checkAndFireConnectionError(sqlEx);
+        }
     }
 
     public ResultSet getResultSet() throws SQLException {
@@ -691,6 +686,22 @@ public class StatementWrapper extends WrapperBase implements Statement {
 
     /**
      * JDBC 4.2
+     * Same as {@link #setMaxRows(int)} but accepts a long value instead of an int.
+     */
+    public void setLargeMaxRows(long max) throws SQLException {
+        try {
+            if (this.wrappedStmt != null) {
+                ((StatementImpl) this.wrappedStmt).setLargeMaxRows(max);
+            } else {
+                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
+            }
+        } catch (SQLException sqlEx) {
+            checkAndFireConnectionError(sqlEx);
+        }
+    }
+
+    /**
+     * JDBC 4.2
      * Same as {@link #getUpdateCount()} but returns long instead of int;
      */
     public long getLargeUpdateCount() throws SQLException {
@@ -705,21 +716,5 @@ public class StatementWrapper extends WrapperBase implements Statement {
         }
 
         return -1;
-    }
-
-    /**
-     * JDBC 4.2
-     * Same as {@link #setMaxRows(int)} but accepts a long value instead of an int.
-     */
-    public void setLargeMaxRows(long max) throws SQLException {
-        try {
-            if (this.wrappedStmt != null) {
-                ((StatementImpl) this.wrappedStmt).setLargeMaxRows(max);
-            } else {
-                throw SQLError.createSQLException("Statement already closed", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, this.exceptionInterceptor);
-            }
-        } catch (SQLException sqlEx) {
-            checkAndFireConnectionError(sqlEx);
-        }
     }
 }

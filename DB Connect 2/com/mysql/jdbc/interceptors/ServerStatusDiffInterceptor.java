@@ -23,16 +23,12 @@
 
 package com.mysql.jdbc.interceptors;
 
+import com.mysql.jdbc.*;
+
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ResultSetInternalMethods;
-import com.mysql.jdbc.Statement;
-import com.mysql.jdbc.StatementInterceptor;
-import com.mysql.jdbc.Util;
 
 public class ServerStatusDiffInterceptor implements StatementInterceptor {
 

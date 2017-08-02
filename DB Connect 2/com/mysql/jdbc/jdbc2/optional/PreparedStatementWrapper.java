@@ -23,27 +23,16 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
+import com.mysql.jdbc.SQLError;
+import com.mysql.jdbc.Util;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.ParameterMetaData;
-import java.sql.PreparedStatement;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.Calendar;
-
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Util;
 
 /**
  * Wraps prepared statements so that errors can be reported correctly to ConnectionEventListeners.
@@ -57,7 +46,7 @@ public class PreparedStatementWrapper extends StatementWrapper implements Prepar
                 String jdbc4ClassName = Util.isJdbc42() ? "com.mysql.jdbc.jdbc2.optional.JDBC42PreparedStatementWrapper"
                         : "com.mysql.jdbc.jdbc2.optional.JDBC4PreparedStatementWrapper";
                 JDBC_4_PREPARED_STATEMENT_WRAPPER_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { ConnectionWrapper.class, MysqlPooledConnection.class, PreparedStatement.class });
+                        .getConstructor(new Class[]{ConnectionWrapper.class, MysqlPooledConnection.class, PreparedStatement.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -70,17 +59,17 @@ public class PreparedStatementWrapper extends StatementWrapper implements Prepar
         }
     }
 
+    PreparedStatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, PreparedStatement toWrap) {
+        super(c, conn, toWrap);
+    }
+
     protected static PreparedStatementWrapper getInstance(ConnectionWrapper c, MysqlPooledConnection conn, PreparedStatement toWrap) throws SQLException {
         if (!Util.isJdbc4()) {
             return new PreparedStatementWrapper(c, conn, toWrap);
         }
 
-        return (PreparedStatementWrapper) Util.handleNewInstance(JDBC_4_PREPARED_STATEMENT_WRAPPER_CTOR, new Object[] { c, conn, toWrap },
+        return (PreparedStatementWrapper) Util.handleNewInstance(JDBC_4_PREPARED_STATEMENT_WRAPPER_CTOR, new Object[]{c, conn, toWrap},
                 conn.getExceptionInterceptor());
-    }
-
-    PreparedStatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, PreparedStatement toWrap) {
-        super(c, conn, toWrap);
     }
 
     public void setArray(int parameterIndex, Array x) throws SQLException {
@@ -463,9 +452,7 @@ public class PreparedStatementWrapper extends StatementWrapper implements Prepar
      * @param parameterIndex
      * @param x
      * @param length
-     * 
      * @throws SQLException
-     * 
      * @see java.sql.PreparedStatement#setUnicodeStream(int, java.io.InputStream, int)
      * @deprecated
      */

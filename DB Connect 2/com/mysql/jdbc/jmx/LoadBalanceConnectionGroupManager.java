@@ -23,14 +23,13 @@
 
 package com.mysql.jdbc.jmx;
 
-import java.lang.management.ManagementFactory;
-import java.sql.SQLException;
+import com.mysql.jdbc.ConnectionGroupManager;
+import com.mysql.jdbc.SQLError;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-
-import com.mysql.jdbc.ConnectionGroupManager;
-import com.mysql.jdbc.SQLError;
+import java.lang.management.ManagementFactory;
+import java.sql.SQLException;
 
 public class LoadBalanceConnectionGroupManager implements LoadBalanceConnectionGroupManagerMBean {
 
