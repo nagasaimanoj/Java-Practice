@@ -1,21 +1,15 @@
 package com.Character;
 
-import org.h2.server.web.WebServlet;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.embedded.ServletRegistrationBean;
-import org.springframework.context.annotation.Bean;
-
-@SpringBootApplication
+@org.springframework.boot.autoconfigure.SpringBootApplication
 public class CharacterApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CharacterApplication.class, args);
+		org.springframework.boot.SpringApplication.run(CharacterApplication.class, args);
 	}
 
-	@Bean
-	public ServletRegistrationBean h2servletRegistration() {
-		ServletRegistrationBean registration = new ServletRegistrationBean(new WebServlet());
+	@org.springframework.context.annotation.Bean
+	public org.springframework.boot.context.embedded.ServletRegistrationBean h2servletRegistration() {
+		org.springframework.boot.context.embedded.ServletRegistrationBean registration = new org.springframework.boot.context.embedded.ServletRegistrationBean(new org.h2.server.web.WebServlet());
 		registration.addUrlMappings("/console/*");
 		return registration;
 	}
