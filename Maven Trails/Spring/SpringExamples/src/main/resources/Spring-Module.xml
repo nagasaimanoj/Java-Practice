@@ -8,6 +8,6 @@
         <property name="name" value="GNSMK" />
     </bean>
     <bean id="helloBean3" class="com.gnsmk.HelloWorld">
-        <property name="name" value="SilverStein" />
+        <property name="name" value="Dobby" />
     </bean>
 </beans>

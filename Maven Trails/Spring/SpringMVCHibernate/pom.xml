@@ -171,6 +171,17 @@
 					<mainClass>org.test.int1.Main</mainClass>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<version>1.5.6.RELEASE</version>
+				<configuration>
+					<profiles>
+						<profile>foo</profile>
+						<profile>bar</profile>
+					</profiles>
+				</configuration>
+			</plugin>
 		</plugins>
 		<finalName>${project.artifactId}</finalName>
 	</build>

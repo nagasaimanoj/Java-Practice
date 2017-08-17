@@ -1,0 +1,20 @@
+-------------------------------------------------------------------------------
+Test set: runner.RunCukesTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 0.385 sec <<< FAILURE!
+When I pass these values(Scenario: Add two numbers)  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NumberFormatException: For input string: "8.3"
+	at java.lang.NumberFormatException.forInputString(NumberFormatException.java:65)
+	at java.lang.Integer.parseInt(Integer.java:580)
+	at java.lang.Integer.parseInt(Integer.java:615)
+	at definitions.Calc1StepDefinitions.sumTest(Calc1StepDefinitions.java:37)
+	at ?.When I pass these values(Calc1.feature:10)
+
+Scenario: Add two numbers  Time elapsed: 0 sec  <<< ERROR!
+java.lang.NumberFormatException: For input string: "8.3"
+	at java.lang.NumberFormatException.forInputString(NumberFormatException.java:65)
+	at java.lang.Integer.parseInt(Integer.java:580)
+	at java.lang.Integer.parseInt(Integer.java:615)
+	at definitions.Calc1StepDefinitions.sumTest(Calc1StepDefinitions.java:37)
+	at ?.When I pass these values(Calc1.feature:10)
+
