@@ -9,12 +9,10 @@ abstract class Test {
 class Demo2 {
   public static void main(String args[]) {
 
-    Test t1 = new Test() {
+    new Test() {
       void display2() {
         System.out.println("this is from 2");
       }
-    };
-
-    t1.display2();
+    }.display2();
   }
 }

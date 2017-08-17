@@ -4,11 +4,10 @@ interface Test {
 
 public class Demo {
 	public static void main(String[] args) {
-		Test t = new Test() {
+		new Test() {
 			public void greet() {
 				System.out.print("\nHi, Best wishes to way2java.com\n");
 			}
-		};
-		t.greet();
+		}.greet();
 	}
 }

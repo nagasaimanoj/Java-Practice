@@ -9,7 +9,8 @@ public class CharacterApplication {
 
 	@org.springframework.context.annotation.Bean
 	public org.springframework.boot.context.embedded.ServletRegistrationBean h2servletRegistration() {
-		org.springframework.boot.context.embedded.ServletRegistrationBean registration = new org.springframework.boot.context.embedded.ServletRegistrationBean(new org.h2.server.web.WebServlet());
+		org.springframework.boot.context.embedded.ServletRegistrationBean registration = new org.springframework.boot.context.embedded.ServletRegistrationBean(
+				new org.h2.server.web.WebServlet());
 		registration.addUrlMappings("/console/*");
 		return registration;
 	}

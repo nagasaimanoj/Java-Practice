@@ -13,12 +13,7 @@ public class DoubleColonTest {
     }
 
     public static void main(String[] args) {
-        DoubleColonTest obj = new DoubleColonTest();
-        MyInterface dd = obj::method1;
-        dd.interfaceMethod(" test string ");
-        MyInterface second = DoubleColonTest::staticmethod;
-        second.interfaceMethod(" test static string ");
-
+        (new DoubleColonTest()::method1).interfaceMethod(" test string ");
+        (DoubleColonTest::staticmethod).interfaceMethod(" test static string ");
     }
-
 }

@@ -14,7 +14,8 @@ class CharacterController {
     }
 
     @org.springframework.web.bind.annotation.RequestMapping(value = "{id}", method = org.springframework.web.bind.annotation.RequestMethod.PUT)
-    public Character update(@org.springframework.web.bind.annotation.PathVariable Integer id, @org.springframework.web.bind.annotation.RequestBody Character updatedcharacter) {
+    public Character update(@org.springframework.web.bind.annotation.PathVariable Integer id,
+            @org.springframework.web.bind.annotation.RequestBody Character updatedcharacter) {
         Character character = characterRepository.getOne(id);
         character.setName(updatedcharacter.getName());
         return characterRepository.saveAndFlush(character);

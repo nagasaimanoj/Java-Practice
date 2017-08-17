@@ -1,28 +1,22 @@
 public class Runner{
     public static void main(String args[]){
-        PrintInterface ss;
         
-        //arrow operator to define functionality
-        ss = x -> System.out.print(x);
-        ss.printThis("this");
+        ((PrintInterface)(x -> System.out.print(x))).printThis("this ");
 
-        //double-colon operator to map functionality with existing function
-        ss = Runner::printThisToo;
-        ss.printThis(" is");
+        ((PrintInterface)(Runner::printThisToo)).printThis("is ");
 
-        //define logic while creating object for interface
-        ss = new PrintInterface(){
-            public void printThis(String z){
-                System.out.print(z);
+        new PrintInterface(){
+            public void printThis(String temp){
+                System.out.print(temp);
             }        
-        };
-        ss.printThis(" working");
+        }.printThis("working");
     }
-    static void printThisToo(String y){
-        System.out.print(y);
+
+    static void printThisToo(String temp){
+        System.out.print(temp);
     }
 }
 
 interface PrintInterface{
-    void printThis(String x);
+    void printThis(String temp);
 }

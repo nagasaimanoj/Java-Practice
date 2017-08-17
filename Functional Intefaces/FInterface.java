@@ -1,21 +1,16 @@
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-
 public class FInterface {
     public static void main(String[] args) {
-
-        Predicate<Integer> fii = s -> {
+        
+        if (((java.util.function.Predicate<Integer>)( s -> {
             if (s == 99)
                 return true;
             else
                 return false;
-        };
-        Consumer<String> gii = s -> System.out.println("hello " + s);
-
-        if (fii.test(99)) {
-            System.out.println("this is running");
+        })).test(99)) {
+            System.out.println("This will run in Java 8");
         }
 
-        gii.accept("suriyan");
+        
+        ((java.util.function.Consumer<String>)(s -> System.out.println("Hello " + s))).accept("World");
     }
 }

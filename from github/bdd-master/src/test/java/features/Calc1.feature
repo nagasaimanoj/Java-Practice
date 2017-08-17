@@ -11,4 +11,4 @@ Scenario: Add two numbers
 		| a | b	|
 		| 3 | 2	|
 		| 8 | 5	|
-		| 8.3 | 5	|
+		| 8.3 | 5 |

@@ -37,5 +37,4 @@ public class Data {
     void details() {
         System.out.println(this);
     }
-
 }

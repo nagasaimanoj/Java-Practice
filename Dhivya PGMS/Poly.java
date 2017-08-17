@@ -6,7 +6,6 @@ abstract class Myy {
 
 class Poly extends Myy {
     public static void main(String a[]) {
-        Myy m = new Myy();
-        m.myMethod();
+        new Myy().myMethod();
     }
 }

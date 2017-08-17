@@ -41,7 +41,6 @@ public class DBConnect {
                     try {
                         connection.close();
                     } catch (SQLException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
@@ -49,7 +48,6 @@ public class DBConnect {
                     try {
                         ps.close();
                     } catch (SQLException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
