@@ -16,17 +16,13 @@ public class RootFinder {
 				break;
 			} else if (tmpVar < num) {
 				start = (start + end) / 2;
-			} else if (tmpVar > num) {
+			} else{
 				end = (start + end) / 2;
 			}
-
 		}
 
 		System.out.println(root + " root of " + num + " is " + result);
 
-		double check = Math.pow(result, root);
-
-		System.out.println("(" + result + ")^" + root + " = " + check);
-
+		System.out.println("(" + result + ")^" + root + " = " + Math.pow(result, root));
 	}
 }

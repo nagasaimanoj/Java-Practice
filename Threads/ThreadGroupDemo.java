@@ -7,12 +7,9 @@ public class ThreadGroupDemo implements Runnable {
 
         ThreadGroup tg1 = new ThreadGroup("Thread Group");
 
-        Thread t1 = new Thread(tg1, new RunThis());
-        t1.start();
-        Thread t2 = new Thread(tg1, new RunThis());
-        t2.start();
-        Thread t3 = new Thread(tg1, new RunThis());
-        t3.start();
+        new Thread(tg1, new RunThis()).start();
+        new Thread(tg1, new RunThis()).start();
+        new Thread(tg1, new RunThis()).start();
 
         tg1.list();
     }

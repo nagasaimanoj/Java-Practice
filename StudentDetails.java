@@ -1,28 +1,27 @@
-import java.util.*;
+public class StudentDetails {
 
-public class StudentDetails{
-
-    static Scanner scan = new Scanner(System.in);
-    static ArrayList<Data> d = new ArrayList<Data>();
+    static java.util.Scanner scan = new java.util.Scanner(System.in);
+    static java.util.ArrayList<Data> d = new java.util.ArrayList<Data>();
 
     public static void main(String[] args) {
-        while(true){
+        while (true) {
             System.out.println("\nChoose an option\n1.Enter Details\n2.Show Details\n3.Exit");
-            switch(scan.nextInt()){
-                case 1:
-                    setDetails();
+            switch (scan.nextInt()) {
+            case 1:
+                setDetails();
                 break;
-                case 2:
-                    getDetails();
+            case 2:
+                getDetails();
                 break;
-                case 3:
-                    System.exit(0);
+            case 3:
+                System.exit(0);
                 break;
-                default:
-                    System.out.println("Input Error, please try again");
+            default:
+                System.out.println("Input Error, please try again");
             }
         }
     }
+
     static void setDetails() {
 
         String name;

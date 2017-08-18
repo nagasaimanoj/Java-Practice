@@ -1,15 +1,13 @@
-import java.util.ArrayList;
-
 public class MultiThread2 {
     public static void main(String[] args) {
 
-        ArrayList<Thread> tList = new ArrayList<Thread>();
+        java.util.ArrayList<Thread> tList = new java.util.ArrayList<Thread>();
         tList.add(new Thread(new SampleX(1)));
         tList.add(new Thread(new SampleX(2)));
         tList.add(new Thread(new SampleX(3)));
         tList.add(new Thread(new SampleX(4)));
         tList.add(new Thread(new SampleX(5)));
-		
+
 		tList.get(0).setPriority(10);
 
         for (Thread eachItem : tList) {
@@ -25,8 +23,8 @@ public class MultiThread2 {
 class SampleX implements Runnable {
     int threadNum;
 
-    SampleX(int a) {
-        threadNum = a;
+    SampleX(int temp) {
+        threadNum = temp;
     }
 
     @Override

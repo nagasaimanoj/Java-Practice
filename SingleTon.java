@@ -1,22 +1,21 @@
 public class SingleTon {
     public static void main(String[] args) {
-        System.out.println("This is working");
-
-        SingleTonX sx;
-
-        sx = SingleTonX.getInstance(1);
+        SingleTonX.getInstance(1).printThis("This is working");
     }
 }
 
 class SingleTonX {
+    static int count;
 
-    int count;
-
-    SingleTonX() {}
-
-    SingleTonX getInstance(int num) {
-        count = num;
-        return this;
+    private SingleTonX() {
     }
 
+    static SingleTonX getInstance(int temp) {
+        count = temp;
+        return new SingleTonX();
+    }
+
+    void printThis(String temp) {
+        System.out.println(temp);
+    }
 }
