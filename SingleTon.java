@@ -7,7 +7,13 @@ public class SingleTon {
 class SingleTonX {
     static int count;
 
+<<<<<<< HEAD
     private SingleTonX() {
+=======
+    int count;
+
+    SingleTonX() {
+>>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
     }
 
     static SingleTonX getInstance(int temp) {

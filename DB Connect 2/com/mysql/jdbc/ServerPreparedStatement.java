@@ -23,6 +23,11 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
+import com.mysql.jdbc.exceptions.MySQLTimeoutException;
+import com.mysql.jdbc.log.LogUtils;
+import com.mysql.jdbc.profiler.ProfilerEvent;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -31,31 +36,17 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.ParameterMetaData;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 
-import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
-import com.mysql.jdbc.exceptions.MySQLTimeoutException;
-import com.mysql.jdbc.log.LogUtils;
-import com.mysql.jdbc.profiler.ProfilerEvent;
-
 /**
  * JDBC Interface for MySQL-4.1 and newer server-side PreparedStatements.
  */
 public class ServerPreparedStatement extends PreparedStatement {
+    protected static final int BLOB_STREAM_READ_BUF_SIZE = 8192;
     private static final Constructor<?> JDBC_4_SPS_CTOR;
 
     static {
@@ -63,7 +54,7 @@ public class ServerPreparedStatement extends PreparedStatement {
             try {
                 String jdbc4ClassName = Util.isJdbc42() ? "com.mysql.jdbc.JDBC42ServerPreparedStatement" : "com.mysql.jdbc.JDBC4ServerPreparedStatement";
                 JDBC_4_SPS_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { MySQLConnection.class, String.class, String.class, Integer.TYPE, Integer.TYPE });
+                        .getConstructor(new Class[]{MySQLConnection.class, String.class, String.class, Integer.TYPE, Integer.TYPE});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -76,162 +67,8 @@ public class ServerPreparedStatement extends PreparedStatement {
         }
     }
 
-    protected static final int BLOB_STREAM_READ_BUF_SIZE = 8192;
-
-    public static class BatchedBindValues {
-        public BindValue[] batchedParameterValues;
-
-        BatchedBindValues(BindValue[] paramVals) {
-            int numParams = paramVals.length;
-
-            this.batchedParameterValues = new BindValue[numParams];
-
-            for (int i = 0; i < numParams; i++) {
-                this.batchedParameterValues[i] = new BindValue(paramVals[i]);
-            }
-        }
-    }
-
-    public static class BindValue {
-
-        public long boundBeforeExecutionNum = 0;
-
-        public long bindLength; /* Default length of data */
-
-        public int bufferType; /* buffer type */
-
-        public double doubleBinding;
-
-        public float floatBinding;
-
-        public boolean isLongData; /* long data indicator */
-
-        public boolean isNull; /* NULL indicator */
-
-        public boolean isSet = false; /* has this parameter been set? */
-
-        public long longBinding; /* all integral values are stored here */
-
-        public Object value; /* The value to store */
-
-        BindValue() {
-        }
-
-        BindValue(BindValue copyMe) {
-            this.value = copyMe.value;
-            this.isSet = copyMe.isSet;
-            this.isLongData = copyMe.isLongData;
-            this.isNull = copyMe.isNull;
-            this.bufferType = copyMe.bufferType;
-            this.bindLength = copyMe.bindLength;
-            this.longBinding = copyMe.longBinding;
-            this.floatBinding = copyMe.floatBinding;
-            this.doubleBinding = copyMe.doubleBinding;
-        }
-
-        void reset() {
-            this.isNull = false;
-            this.isSet = false;
-            this.value = null;
-            this.isLongData = false;
-
-            this.longBinding = 0L;
-            this.floatBinding = 0;
-            this.doubleBinding = 0D;
-        }
-
-        @Override
-        public String toString() {
-            return toString(false);
-        }
-
-        public String toString(boolean quoteIfNeeded) {
-            if (this.isLongData) {
-                return "' STREAM DATA '";
-            }
-
-            if (this.isNull) {
-                return "NULL";
-            }
-
-            switch (this.bufferType) {
-                case MysqlDefs.FIELD_TYPE_TINY:
-                case MysqlDefs.FIELD_TYPE_SHORT:
-                case MysqlDefs.FIELD_TYPE_LONG:
-                case MysqlDefs.FIELD_TYPE_LONGLONG:
-                    return String.valueOf(this.longBinding);
-                case MysqlDefs.FIELD_TYPE_FLOAT:
-                    return String.valueOf(this.floatBinding);
-                case MysqlDefs.FIELD_TYPE_DOUBLE:
-                    return String.valueOf(this.doubleBinding);
-                case MysqlDefs.FIELD_TYPE_TIME:
-                case MysqlDefs.FIELD_TYPE_DATE:
-                case MysqlDefs.FIELD_TYPE_DATETIME:
-                case MysqlDefs.FIELD_TYPE_TIMESTAMP:
-                case MysqlDefs.FIELD_TYPE_VAR_STRING:
-                case MysqlDefs.FIELD_TYPE_STRING:
-                case MysqlDefs.FIELD_TYPE_VARCHAR:
-                    if (quoteIfNeeded) {
-                        return "'" + String.valueOf(this.value) + "'";
-                    }
-                    return String.valueOf(this.value);
-
-                default:
-                    if (this.value instanceof byte[]) {
-                        return "byte data";
-                    }
-                    if (quoteIfNeeded) {
-                        return "'" + String.valueOf(this.value) + "'";
-                    }
-                    return String.valueOf(this.value);
-            }
-        }
-
-        long getBoundLength() {
-            if (this.isNull) {
-                return 0;
-            }
-
-            if (this.isLongData) {
-                return this.bindLength;
-            }
-
-            switch (this.bufferType) {
-
-                case MysqlDefs.FIELD_TYPE_TINY:
-                    return 1;
-                case MysqlDefs.FIELD_TYPE_SHORT:
-                    return 2;
-                case MysqlDefs.FIELD_TYPE_LONG:
-                    return 4;
-                case MysqlDefs.FIELD_TYPE_LONGLONG:
-                    return 8;
-                case MysqlDefs.FIELD_TYPE_FLOAT:
-                    return 4;
-                case MysqlDefs.FIELD_TYPE_DOUBLE:
-                    return 8;
-                case MysqlDefs.FIELD_TYPE_TIME:
-                    return 9;
-                case MysqlDefs.FIELD_TYPE_DATE:
-                    return 7;
-                case MysqlDefs.FIELD_TYPE_DATETIME:
-                case MysqlDefs.FIELD_TYPE_TIMESTAMP:
-                    return 11;
-                case MysqlDefs.FIELD_TYPE_VAR_STRING:
-                case MysqlDefs.FIELD_TYPE_STRING:
-                case MysqlDefs.FIELD_TYPE_VARCHAR:
-                case MysqlDefs.FIELD_TYPE_DECIMAL:
-                case MysqlDefs.FIELD_TYPE_NEW_DECIMAL:
-                    if (this.value instanceof byte[]) {
-                        return ((byte[]) this.value).length;
-                    }
-                    return ((String) this.value).length();
-
-                default:
-                    return 0;
-            }
-        }
-    }
+    protected boolean isCached = false;
+    private boolean hasOnDuplicateKeyUpdate = false;
 
     /* 1 (length) + 2 (year) + 1 (month) + 1 (day) */
     //private static final byte MAX_DATE_REP_LENGTH = (byte) 5;
@@ -247,119 +84,65 @@ public class ServerPreparedStatement extends PreparedStatement {
      * (seconds) + 4 (microseconds)
      */
     //private static final byte MAX_TIME_REP_LENGTH = 13;
-
-    private boolean hasOnDuplicateKeyUpdate = false;
-
-    private void storeTime(Buffer intoBuf, Time tm) throws SQLException {
-
-        intoBuf.ensureCapacity(9);
-        intoBuf.writeByte((byte) 8); // length
-        intoBuf.writeByte((byte) 0); // neg flag
-        intoBuf.writeLong(0); // tm->day, not used
-
-        Calendar sessionCalendar = getCalendarInstanceForSessionOrNew();
-
-        synchronized (sessionCalendar) {
-            java.util.Date oldTime = sessionCalendar.getTime();
-            try {
-                sessionCalendar.setTime(tm);
-                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.HOUR_OF_DAY));
-                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.MINUTE));
-                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.SECOND));
-
-                // intoBuf.writeLongInt(0); // tm-second_part
-            } finally {
-                sessionCalendar.setTime(oldTime);
-            }
-        }
-    }
-
     /**
      * Flag indicating whether or not the long parameters have been 'switched'
      * back to normal parameters. We can not execute() if clearParameters()
      * hasn't been called in this case.
      */
     private boolean detectedLongParameterSwitch = false;
-
     /**
      * The number of fields in the result set (if any) for this
      * PreparedStatement.
      */
     private int fieldCount;
-
-    /** Has this prepared statement been marked invalid? */
-    private boolean invalid = false;
-
-    /** If this statement has been marked invalid, what was the reason? */
-    private SQLException invalidationException;
-
-    private Buffer outByteBuffer;
-
-    /** Bind values for individual fields */
-    private BindValue[] parameterBindings;
-
-    /** Field-level metadata for parameters */
-    private Field[] parameterFields;
-
-    /** Field-level metadata for result sets. */
-    private Field[] resultFields;
-
-    /** Do we need to send/resend types to the server? */
-    private boolean sendTypesToServer = false;
-
-    /** The ID that the server uses to identify this PreparedStatement */
-    private long serverStatementId;
-
-    /** The type used for string bindings, changes from version-to-version */
-    private int stringTypeCode = MysqlDefs.FIELD_TYPE_STRING;
-
-    private boolean serverNeedsResetBeforeEachExecution;
-
     /**
-     * Creates a prepared statement instance -- We need to provide factory-style
-     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
-     * otherwise the class verifier complains when it tries to load JDBC4-only
-     * interface classes that are present in JDBC4 method signatures.
+     * Has this prepared statement been marked invalid?
      */
-
-    protected static ServerPreparedStatement getInstance(MySQLConnection conn, String sql, String catalog, int resultSetType, int resultSetConcurrency)
-            throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new ServerPreparedStatement(conn, sql, catalog, resultSetType, resultSetConcurrency);
-        }
-
-        try {
-            return (ServerPreparedStatement) JDBC_4_SPS_CTOR
-                    .newInstance(new Object[] { conn, sql, catalog, Integer.valueOf(resultSetType), Integer.valueOf(resultSetConcurrency) });
-        } catch (IllegalArgumentException e) {
-            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
-        } catch (InstantiationException e) {
-            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
-        } catch (IllegalAccessException e) {
-            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
-        } catch (InvocationTargetException e) {
-            Throwable target = e.getTargetException();
-
-            if (target instanceof SQLException) {
-                throw (SQLException) target;
-            }
-
-            throw new SQLException(target.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
-        }
-    }
+    private boolean invalid = false;
+    /**
+     * If this statement has been marked invalid, what was the reason?
+     */
+    private SQLException invalidationException;
+    private Buffer outByteBuffer;
+    /**
+     * Bind values for individual fields
+     */
+    private BindValue[] parameterBindings;
+    /**
+     * Field-level metadata for parameters
+     */
+    private Field[] parameterFields;
+    /**
+     * Field-level metadata for result sets.
+     */
+    private Field[] resultFields;
+    /**
+     * Do we need to send/resend types to the server?
+     */
+    private boolean sendTypesToServer = false;
+    /**
+     * The ID that the server uses to identify this PreparedStatement
+     */
+    private long serverStatementId;
+    /**
+     * The type used for string bindings, changes from version-to-version
+     */
+    private int stringTypeCode = MysqlDefs.FIELD_TYPE_STRING;
+    private boolean serverNeedsResetBeforeEachExecution;
+    private boolean useAutoSlowLog;
+    private Calendar serverTzCalendar;
+    private Calendar defaultTzCalendar;
+    private boolean hasCheckedRewrite = false;
+    private boolean canRewrite = false;
+    private int locationOfOnDuplicateKeyUpdate = -2;
 
     /**
      * Creates a new ServerPreparedStatement object.
-     * 
-     * @param conn
-     *            the connection creating us.
-     * @param sql
-     *            the SQL containing the statement to prepare.
-     * @param catalog
-     *            the catalog in use when we were created.
-     * 
-     * @throws SQLException
-     *             If an error occurs
+     *
+     * @param conn    the connection creating us.
+     * @param sql     the SQL containing the statement to prepare.
+     * @param catalog the catalog in use when we were created.
+     * @throws SQLException If an error occurs
      */
     protected ServerPreparedStatement(MySQLConnection conn, String sql, String catalog, int resultSetType, int resultSetConcurrency) throws SQLException {
         super(conn, catalog);
@@ -413,11 +196,66 @@ public class ServerPreparedStatement extends PreparedStatement {
     }
 
     /**
+     * Creates a prepared statement instance -- We need to provide factory-style
+     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
+     * otherwise the class verifier complains when it tries to load JDBC4-only
+     * interface classes that are present in JDBC4 method signatures.
+     */
+
+    protected static ServerPreparedStatement getInstance(MySQLConnection conn, String sql, String catalog, int resultSetType, int resultSetConcurrency)
+            throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new ServerPreparedStatement(conn, sql, catalog, resultSetType, resultSetConcurrency);
+        }
+
+        try {
+            return (ServerPreparedStatement) JDBC_4_SPS_CTOR
+                    .newInstance(new Object[]{conn, sql, catalog, Integer.valueOf(resultSetType), Integer.valueOf(resultSetConcurrency)});
+        } catch (IllegalArgumentException e) {
+            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
+        } catch (InstantiationException e) {
+            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
+        } catch (IllegalAccessException e) {
+            throw new SQLException(e.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
+        } catch (InvocationTargetException e) {
+            Throwable target = e.getTargetException();
+
+            if (target instanceof SQLException) {
+                throw (SQLException) target;
+            }
+
+            throw new SQLException(target.toString(), SQLError.SQL_STATE_GENERAL_ERROR);
+        }
+    }
+
+    private void storeTime(Buffer intoBuf, Time tm) throws SQLException {
+
+        intoBuf.ensureCapacity(9);
+        intoBuf.writeByte((byte) 8); // length
+        intoBuf.writeByte((byte) 0); // neg flag
+        intoBuf.writeLong(0); // tm->day, not used
+
+        Calendar sessionCalendar = getCalendarInstanceForSessionOrNew();
+
+        synchronized (sessionCalendar) {
+            java.util.Date oldTime = sessionCalendar.getTime();
+            try {
+                sessionCalendar.setTime(tm);
+                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.HOUR_OF_DAY));
+                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.MINUTE));
+                intoBuf.writeByte((byte) sessionCalendar.get(Calendar.SECOND));
+
+                // intoBuf.writeLongInt(0); // tm-second_part
+            } finally {
+                sessionCalendar.setTime(oldTime);
+            }
+        }
+    }
+
+    /**
      * JDBC 2.0 Add a set of parameters to the batch.
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
-     * 
+     *
+     * @throws SQLException if a database-access error occurs.
      * @see StatementImpl#addBatch
      */
     @Override
@@ -498,7 +336,7 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see com.mysql.jdbc.Statement#checkClosed()
      */
     @Override
@@ -539,14 +377,6 @@ public class ServerPreparedStatement extends PreparedStatement {
             this.detectedLongParameterSwitch = false;
         }
     }
-
-    protected boolean isCached = false;
-
-    private boolean useAutoSlowLog;
-
-    private Calendar serverTzCalendar;
-
-    private Calendar defaultTzCalendar;
 
     protected void setClosed(boolean flag) {
         this.isClosed = flag;
@@ -773,7 +603,7 @@ public class ServerPreparedStatement extends PreparedStatement {
      */
     @Override
     protected com.mysql.jdbc.ResultSetInternalMethods executeInternal(int maxRowsToRetrieve, Buffer sendPacket, boolean createStreamingResultSet,
-            boolean queryIsSelectOnly, Field[] metadataFromCache, boolean isBatch) throws SQLException {
+                                                                      boolean queryIsSelectOnly, Field[] metadataFromCache, boolean isBatch) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             this.numberOfExecutions++;
 
@@ -834,18 +664,16 @@ public class ServerPreparedStatement extends PreparedStatement {
      */
     @Override
     protected Buffer fillSendPacket(byte[][] batchedParameterStrings, InputStream[] batchedParameterStreams, boolean[] batchedIsStream,
-            int[] batchedStreamLengths) throws SQLException {
+                                    int[] batchedStreamLengths) throws SQLException {
         return null; // we don't use this type of packet
     }
 
     /**
      * Returns the structure representing the value that (can be)/(is)
      * bound at the given parameter index.
-     * 
-     * @param parameterIndex
-     *            1-based
-     * @param forLongData
-     *            is this for a stream?
+     *
+     * @param parameterIndex 1-based
+     * @param forLongData    is this for a stream?
      * @throws SQLException
      */
     protected BindValue getBinding(int parameterIndex, boolean forLongData) throws SQLException {
@@ -860,7 +688,7 @@ public class ServerPreparedStatement extends PreparedStatement {
 
             if ((parameterIndex < 0) || (parameterIndex >= this.parameterBindings.length)) {
                 throw SQLError.createSQLException(Messages.getString("ServerPreparedStatement.9") + (parameterIndex + 1)
-                        + Messages.getString("ServerPreparedStatement.10") + this.parameterBindings.length, SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
+                                + Messages.getString("ServerPreparedStatement.10") + this.parameterBindings.length, SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
                         getExceptionInterceptor());
             }
 
@@ -878,7 +706,7 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /**
      * Return current bind values for use by Statement Interceptors.
-     * 
+     *
      * @return the bind values as set by setXXX and stored by addBatch
      * @see #executeBatch()
      * @see #addBatch()
@@ -963,12 +791,9 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /**
      * Closes this connection and frees all resources.
-     * 
-     * @param calledExplicitly
-     *            was this called from close()?
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @param calledExplicitly was this called from close()?
+     * @throws SQLException if an error occurs
      */
     @Override
     protected void realClose(boolean calledExplicitly, boolean closeOpenResults) throws SQLException {
@@ -987,7 +812,7 @@ public class ServerPreparedStatement extends PreparedStatement {
 
                 //
                 // Don't communicate with the server if we're being called from the finalizer...
-                // 
+                //
                 // This will leak server resources, but if we don't do this, we'll deadlock (potentially, because there's no guarantee when, what order, and
                 // what concurrency finalizers will be called with). Well-behaved programs won't rely on finalizers to clean up their statements.
                 //
@@ -1033,9 +858,8 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Used by Connection when auto-reconnecting to retrieve 'lost' prepared
      * statements.
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     *
+     * @throws SQLException if an error occurs.
      */
     protected void rePrepare() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1101,30 +925,29 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Tells the server to execute this prepared statement with the current
      * parameter bindings.
-     * 
+     * <p>
      * <pre>
-     * 
-     * 
+     *
+     *
      *    -   Server gets the command 'COM_EXECUTE' to execute the
      *        previously         prepared query. If there is any param markers;
      *  then client will send the data in the following format:
-     * 
+     *
      *  [COM_EXECUTE:1]
      *  [STMT_ID:4]
      *  [NULL_BITS:(param_count+7)/8)]
      *  [TYPES_SUPPLIED_BY_CLIENT(0/1):1]
      *  [[length]data]
      *  [[length]data] .. [[length]data].
-     * 
+     *
      *  (Note: Except for string/binary types; all other types will not be
      *  supplied with length field)
-     * 
-     * 
+     *
+     *
      * </pre>
-     * 
+     *
      * @param maxRowsToRetrieve
      * @param createStreamingResultSet
-     * 
      * @throws SQLException
      */
     private com.mysql.jdbc.ResultSetInternalMethods serverExecute(int maxRowsToRetrieve, boolean createStreamingResultSet, Field[] metadataFromCache)
@@ -1421,11 +1244,11 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /**
      * Sends stream-type data parameters to the server.
-     * 
+     * <p>
      * <pre>
-     * 
+     *
      *  Long data handling:
-     * 
+     *
      *  - Server gets the long data in pieces with command type 'COM_LONG_DATA'.
      *  - The packet recieved will have the format as:
      *    [COM_LONG_DATA:     1][STMT_ID:4][parameter_number:2][type:2][data]
@@ -1435,14 +1258,12 @@ public class ServerPreparedStatement extends PreparedStatement {
      *    care;  and also server doesn't notify to the client that it got the
      *    data  or not; if there is any error; then during execute; the error
      *    will  be returned
-     * 
+     *
      * </pre>
-     * 
+     *
      * @param parameterIndex
      * @param longData
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     * @throws SQLException if an error occurs.
      */
     private void serverLongData(int parameterIndex, BindValue longData) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1815,14 +1636,10 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Set a parameter to a java.sql.Date value. The driver converts this to a
      * SQL DATE value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @throws SQLException if a database-access error occurs.
      */
     @Override
     public void setDate(int parameterIndex, Date x) throws SQLException {
@@ -1832,16 +1649,11 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Set a parameter to a java.sql.Date value. The driver converts this to a
      * SQL DATE value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the calendar to interpret the date with
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param cal            the calendar to interpret the date with
+     * @throws SQLException if a database-access error occurs.
      */
     @Override
     public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
@@ -1980,14 +1792,10 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /**
      * Set a parameter to a java.sql.Time value.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...));
-     * @param x
-     *            the parameter value
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...));
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     @Override
     public void setTime(int parameterIndex, java.sql.Time x) throws SQLException {
@@ -2000,16 +1808,11 @@ public class ServerPreparedStatement extends PreparedStatement {
      * Set a parameter to a java.sql.Time value. The driver converts this to a
      * SQL TIME value when it sends it to the database, using the given
      * timezone.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...));
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the timezone to use
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...));
+     * @param x              the parameter value
+     * @param cal            the timezone to use
+     * @throws SQLException if a database access error occurs
      */
     @Override
     public void setTime(int parameterIndex, java.sql.Time x, Calendar cal) throws SQLException {
@@ -2022,16 +1825,11 @@ public class ServerPreparedStatement extends PreparedStatement {
      * Set a parameter to a java.sql.Time value. The driver converts this to a
      * SQL TIME value when it sends it to the database, using the given
      * timezone.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...));
-     * @param x
-     *            the parameter value
-     * @param tz
-     *            the timezone to use
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...));
+     * @param x              the parameter value
+     * @param tz             the timezone to use
+     * @throws SQLException if a database access error occurs
      */
     private void setTimeInternal(int parameterIndex, java.sql.Time x, Calendar targetCalendar, TimeZone tz, boolean rollForward) throws SQLException {
         if (x == null) {
@@ -2054,14 +1852,10 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Set a parameter to a java.sql.Timestamp value. The driver converts this
      * to a SQL TIMESTAMP value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @throws SQLException if a database-access error occurs.
      */
     @Override
     public void setTimestamp(int parameterIndex, java.sql.Timestamp x) throws SQLException {
@@ -2073,16 +1867,11 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Set a parameter to a java.sql.Timestamp value. The driver converts this
      * to a SQL TIMESTAMP value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the timezone to use
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param cal            the timezone to use
+     * @throws SQLException if a database-access error occurs.
      */
     @Override
     public void setTimestamp(int parameterIndex, java.sql.Timestamp x, Calendar cal) throws SQLException {
@@ -2139,10 +1928,8 @@ public class ServerPreparedStatement extends PreparedStatement {
      * @param parameterIndex
      * @param x
      * @param length
-     * 
      * @throws SQLException
      * @throws NotImplemented
-     * 
      * @see java.sql.PreparedStatement#setUnicodeStream(int, java.io.InputStream, int)
      * @deprecated
      */
@@ -2166,11 +1953,10 @@ public class ServerPreparedStatement extends PreparedStatement {
 
     /**
      * Method storeBinding.
-     * 
+     *
      * @param packet
      * @param bindValue
      * @param mysql
-     * 
      * @throws SQLException
      */
     private void storeBinding(Buffer packet, BindValue bindValue, MysqlIO mysql) throws SQLException {
@@ -2569,9 +2355,6 @@ public class ServerPreparedStatement extends PreparedStatement {
         return this.serverStatementId;
     }
 
-    private boolean hasCheckedRewrite = false;
-    private boolean canRewrite = false;
-
     @Override
     public boolean canRewriteAsMultiValueInsertAtSqlLevel() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -2622,8 +2405,6 @@ public class ServerPreparedStatement extends PreparedStatement {
         }
     }
 
-    private int locationOfOnDuplicateKeyUpdate = -2;
-
     @Override
     protected int getLocationOfOnDuplicateKeyUpdate() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -2645,7 +2426,7 @@ public class ServerPreparedStatement extends PreparedStatement {
     /**
      * Computes the maximum parameter set size, and entire batch size given
      * the number of arguments in the batch.
-     * 
+     *
      * @throws SQLException
      */
     @Override
@@ -2685,7 +2466,7 @@ public class ServerPreparedStatement extends PreparedStatement {
                 }
             }
 
-            return new long[] { maxSizeOfParameterSet, sizeOfEntireBatch };
+            return new long[]{maxSizeOfParameterSet, sizeOfEntireBatch};
         }
     }
 
@@ -2801,5 +2582,160 @@ public class ServerPreparedStatement extends PreparedStatement {
             this.connection.decachePreparedStatement(this);
         }
         super.setPoolable(poolable);
+    }
+
+    public static class BatchedBindValues {
+        public BindValue[] batchedParameterValues;
+
+        BatchedBindValues(BindValue[] paramVals) {
+            int numParams = paramVals.length;
+
+            this.batchedParameterValues = new BindValue[numParams];
+
+            for (int i = 0; i < numParams; i++) {
+                this.batchedParameterValues[i] = new BindValue(paramVals[i]);
+            }
+        }
+    }
+
+    public static class BindValue {
+
+        public long boundBeforeExecutionNum = 0;
+
+        public long bindLength; /* Default length of data */
+
+        public int bufferType; /* buffer type */
+
+        public double doubleBinding;
+
+        public float floatBinding;
+
+        public boolean isLongData; /* long data indicator */
+
+        public boolean isNull; /* NULL indicator */
+
+        public boolean isSet = false; /* has this parameter been set? */
+
+        public long longBinding; /* all integral values are stored here */
+
+        public Object value; /* The value to store */
+
+        BindValue() {
+        }
+
+        BindValue(BindValue copyMe) {
+            this.value = copyMe.value;
+            this.isSet = copyMe.isSet;
+            this.isLongData = copyMe.isLongData;
+            this.isNull = copyMe.isNull;
+            this.bufferType = copyMe.bufferType;
+            this.bindLength = copyMe.bindLength;
+            this.longBinding = copyMe.longBinding;
+            this.floatBinding = copyMe.floatBinding;
+            this.doubleBinding = copyMe.doubleBinding;
+        }
+
+        void reset() {
+            this.isNull = false;
+            this.isSet = false;
+            this.value = null;
+            this.isLongData = false;
+
+            this.longBinding = 0L;
+            this.floatBinding = 0;
+            this.doubleBinding = 0D;
+        }
+
+        @Override
+        public String toString() {
+            return toString(false);
+        }
+
+        public String toString(boolean quoteIfNeeded) {
+            if (this.isLongData) {
+                return "' STREAM DATA '";
+            }
+
+            if (this.isNull) {
+                return "NULL";
+            }
+
+            switch (this.bufferType) {
+                case MysqlDefs.FIELD_TYPE_TINY:
+                case MysqlDefs.FIELD_TYPE_SHORT:
+                case MysqlDefs.FIELD_TYPE_LONG:
+                case MysqlDefs.FIELD_TYPE_LONGLONG:
+                    return String.valueOf(this.longBinding);
+                case MysqlDefs.FIELD_TYPE_FLOAT:
+                    return String.valueOf(this.floatBinding);
+                case MysqlDefs.FIELD_TYPE_DOUBLE:
+                    return String.valueOf(this.doubleBinding);
+                case MysqlDefs.FIELD_TYPE_TIME:
+                case MysqlDefs.FIELD_TYPE_DATE:
+                case MysqlDefs.FIELD_TYPE_DATETIME:
+                case MysqlDefs.FIELD_TYPE_TIMESTAMP:
+                case MysqlDefs.FIELD_TYPE_VAR_STRING:
+                case MysqlDefs.FIELD_TYPE_STRING:
+                case MysqlDefs.FIELD_TYPE_VARCHAR:
+                    if (quoteIfNeeded) {
+                        return "'" + String.valueOf(this.value) + "'";
+                    }
+                    return String.valueOf(this.value);
+
+                default:
+                    if (this.value instanceof byte[]) {
+                        return "byte data";
+                    }
+                    if (quoteIfNeeded) {
+                        return "'" + String.valueOf(this.value) + "'";
+                    }
+                    return String.valueOf(this.value);
+            }
+        }
+
+        long getBoundLength() {
+            if (this.isNull) {
+                return 0;
+            }
+
+            if (this.isLongData) {
+                return this.bindLength;
+            }
+
+            switch (this.bufferType) {
+
+                case MysqlDefs.FIELD_TYPE_TINY:
+                    return 1;
+                case MysqlDefs.FIELD_TYPE_SHORT:
+                    return 2;
+                case MysqlDefs.FIELD_TYPE_LONG:
+                    return 4;
+                case MysqlDefs.FIELD_TYPE_LONGLONG:
+                    return 8;
+                case MysqlDefs.FIELD_TYPE_FLOAT:
+                    return 4;
+                case MysqlDefs.FIELD_TYPE_DOUBLE:
+                    return 8;
+                case MysqlDefs.FIELD_TYPE_TIME:
+                    return 9;
+                case MysqlDefs.FIELD_TYPE_DATE:
+                    return 7;
+                case MysqlDefs.FIELD_TYPE_DATETIME:
+                case MysqlDefs.FIELD_TYPE_TIMESTAMP:
+                    return 11;
+                case MysqlDefs.FIELD_TYPE_VAR_STRING:
+                case MysqlDefs.FIELD_TYPE_STRING:
+                case MysqlDefs.FIELD_TYPE_VARCHAR:
+                case MysqlDefs.FIELD_TYPE_DECIMAL:
+                case MysqlDefs.FIELD_TYPE_NEW_DECIMAL:
+                    if (this.value instanceof byte[]) {
+                        return ((byte[]) this.value).length;
+                    }
+                    return ((String) this.value).length();
+
+                default:
+                    return 0;
+            }
+        }
     }
 }

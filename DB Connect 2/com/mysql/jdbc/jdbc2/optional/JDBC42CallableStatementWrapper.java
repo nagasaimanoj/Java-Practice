@@ -23,13 +23,13 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.sql.CallableStatement;
-import java.sql.SQLException;
-import java.sql.SQLType;
-
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.jdbc2.optional.ConnectionWrapper;
 import com.mysql.jdbc.jdbc2.optional.MysqlPooledConnection;
+
+import java.sql.CallableStatement;
+import java.sql.SQLException;
+import java.sql.SQLType;
 
 public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrapper {
     public JDBC42CallableStatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, CallableStatement toWrap) {
@@ -38,7 +38,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param sqlType
      * @throws SQLException
@@ -57,7 +57,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param sqlType
      * @param scale
@@ -77,7 +77,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param sqlType
      * @param typeName
@@ -97,7 +97,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterName
      * @param sqlType
      * @throws SQLException
@@ -116,7 +116,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterName
      * @param sqlType
      * @param scale
@@ -136,7 +136,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterName
      * @param sqlType
      * @param typeName
@@ -156,7 +156,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param x
      * @param targetSqlType
@@ -176,7 +176,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param x
      * @param targetSqlType
@@ -197,7 +197,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterName
      * @param x
      * @param targetSqlType
@@ -217,7 +217,7 @@ public class JDBC42CallableStatementWrapper extends JDBC4CallableStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterName
      * @param x
      * @param targetSqlType

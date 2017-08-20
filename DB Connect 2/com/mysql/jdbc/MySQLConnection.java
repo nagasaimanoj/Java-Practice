@@ -23,15 +23,11 @@
 
 package com.mysql.jdbc;
 
-import java.sql.SQLException;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Properties;
-import java.util.TimeZone;
-import java.util.Timer;
-
 import com.mysql.jdbc.log.Log;
 import com.mysql.jdbc.profiler.ProfilerEventHandler;
+
+import java.sql.SQLException;
+import java.util.*;
 
 public interface MySQLConnection extends Connection, ConnectionProperties {
 
@@ -44,10 +40,10 @@ public interface MySQLConnection extends Connection, ConnectionProperties {
     Connection duplicate() throws SQLException;
 
     ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException;
+                                     boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException;
 
     ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException;
+                                     boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException;
 
     String extractSqlFromPacket(String possibleSqlQuery, Buffer queryPacket, int endOfQueryPacketPosition) throws SQLException;
 
@@ -149,6 +145,8 @@ public interface MySQLConnection extends Connection, ConnectionProperties {
 
     boolean isReadInfoMsgEnabled();
 
+    void setReadInfoMsgEnabled(boolean flag);
+
     public boolean isReadOnly() throws SQLException;
 
     public boolean isReadOnly(boolean useSessionStatus) throws SQLException;
@@ -176,8 +174,6 @@ public interface MySQLConnection extends Connection, ConnectionProperties {
     boolean serverSupportsConvertFn() throws SQLException;
 
     void setProxy(MySQLConnection proxy);
-
-    void setReadInfoMsgEnabled(boolean flag);
 
     void setReadOnlyInternal(boolean readOnlyFlag) throws SQLException;
 

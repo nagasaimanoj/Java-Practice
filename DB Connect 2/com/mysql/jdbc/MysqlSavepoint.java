@@ -31,6 +31,35 @@ import java.sql.Savepoint;
  * Represents SQL SAVEPOINTS in MySQL.
  */
 public class MysqlSavepoint implements Savepoint {
+    private String savepointName;
+    private ExceptionInterceptor exceptionInterceptor;
+
+    /**
+     * Creates an unnamed savepoint.
+     *
+     * @param conn
+     * @throws SQLException if an error occurs
+     */
+    MysqlSavepoint(ExceptionInterceptor exceptionInterceptor) throws SQLException {
+        this(getUniqueId(), exceptionInterceptor);
+    }
+
+    /**
+     * Creates a named savepoint
+     *
+     * @param name the name of the savepoint.
+     * @throws SQLException if name == null or is empty.
+     */
+    MysqlSavepoint(String name, ExceptionInterceptor exceptionInterceptor) throws SQLException {
+        if (name == null || name.length() == 0) {
+            throw SQLError.createSQLException("Savepoint name can not be NULL or empty", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, exceptionInterceptor);
+        }
+
+        this.savepointName = name;
+
+        this.exceptionInterceptor = exceptionInterceptor;
+    }
+
     private static String getUniqueId() {
         // no need to re-invent the wheel here...
         String uidStr = new UID().toString();
@@ -51,41 +80,6 @@ public class MysqlSavepoint implements Savepoint {
         }
 
         return safeString.toString();
-    }
-
-    private String savepointName;
-
-    private ExceptionInterceptor exceptionInterceptor;
-
-    /**
-     * Creates an unnamed savepoint.
-     * 
-     * @param conn
-     * 
-     * @throws SQLException
-     *             if an error occurs
-     */
-    MysqlSavepoint(ExceptionInterceptor exceptionInterceptor) throws SQLException {
-        this(getUniqueId(), exceptionInterceptor);
-    }
-
-    /**
-     * Creates a named savepoint
-     * 
-     * @param name
-     *            the name of the savepoint.
-     * 
-     * @throws SQLException
-     *             if name == null or is empty.
-     */
-    MysqlSavepoint(String name, ExceptionInterceptor exceptionInterceptor) throws SQLException {
-        if (name == null || name.length() == 0) {
-            throw SQLError.createSQLException("Savepoint name can not be NULL or empty", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, exceptionInterceptor);
-        }
-
-        this.savepointName = name;
-
-        this.exceptionInterceptor = exceptionInterceptor;
     }
 
     /**

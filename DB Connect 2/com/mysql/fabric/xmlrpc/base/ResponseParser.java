@@ -23,23 +23,22 @@
 
 package com.mysql.fabric.xmlrpc.base;
 
-import java.util.Stack;
-
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
 
+import java.util.Stack;
+
 public class ResponseParser extends DefaultHandler {
 
+    Stack<Object> elNames = new Stack<Object>();
+    Stack<Object> objects = new Stack<Object>();
     private MethodResponse resp = null;
 
     public MethodResponse getMethodResponse() {
         return this.resp;
     }
-
-    Stack<Object> elNames = new Stack<Object>();
-    Stack<Object> objects = new Stack<Object>();
 
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {

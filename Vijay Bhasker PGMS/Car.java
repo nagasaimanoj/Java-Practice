@@ -1,4 +1,4 @@
-class Car{  
+class Car {
     String mod;
     String color;
 } 

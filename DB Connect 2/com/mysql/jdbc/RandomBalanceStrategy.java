@@ -24,11 +24,7 @@
 package com.mysql.jdbc;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 public class RandomBalanceStrategy implements BalanceStrategy {
 
@@ -44,7 +40,7 @@ public class RandomBalanceStrategy implements BalanceStrategy {
     }
 
     public ConnectionImpl pickConnection(LoadBalancedConnectionProxy proxy, List<String> configuredHosts, Map<String, ConnectionImpl> liveConnections,
-            long[] responseTimes, int numRetries) throws SQLException {
+                                         long[] responseTimes, int numRetries) throws SQLException {
         int numHosts = configuredHosts.size();
 
         SQLException ex = null;
@@ -58,7 +54,7 @@ public class RandomBalanceStrategy implements BalanceStrategy {
 
         Map<String, Integer> whiteListMap = this.getArrayIndexMap(whiteList);
 
-        for (int attempts = 0; attempts < numRetries;) {
+        for (int attempts = 0; attempts < numRetries; ) {
             int random = (int) Math.floor((Math.random() * whiteList.size()));
             if (whiteList.size() == 0) {
                 throw SQLError.createSQLException("No hosts configured", null);

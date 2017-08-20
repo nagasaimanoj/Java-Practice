@@ -30,6 +30,22 @@ import java.sql.Types;
  * A ResultSetMetaData object can be used to find out about the types and properties of the columns in a ResultSet
  */
 public class ResultSetMetaData implements java.sql.ResultSetMetaData {
+    Field[] fields;
+    boolean useOldAliasBehavior = false;
+    boolean treatYearAsDate = true;
+    private ExceptionInterceptor exceptionInterceptor;
+    /**
+     * Initialize for a result with a tuple set and a field descriptor set
+     *
+     * @param fields the array of field descriptors
+     */
+    public ResultSetMetaData(Field[] fields, boolean useOldAliasBehavior, boolean treatYearAsDate, ExceptionInterceptor exceptionInterceptor) {
+        this.fields = fields;
+        this.useOldAliasBehavior = useOldAliasBehavior;
+        this.treatYearAsDate = treatYearAsDate;
+        this.exceptionInterceptor = exceptionInterceptor;
+    }
+
     private static int clampedGetLength(Field f) {
         long fieldLength = f.getLength();
 
@@ -42,9 +58,8 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Checks if the SQL Type is a Decimal/Number Type
-     * 
-     * @param type
-     *            SQL Type
+     *
+     * @param type SQL Type
      */
     private static final boolean isDecimalType(int type) {
         switch (type) {
@@ -64,35 +79,97 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
         return false;
     }
 
-    Field[] fields;
-    boolean useOldAliasBehavior = false;
-    boolean treatYearAsDate = true;
+    static String getClassNameForJavaType(int javaType, boolean isUnsigned, int mysqlTypeIfKnown, boolean isBinaryOrBlob, boolean isOpaqueBinary,
+                                          boolean treatYearAsDate) {
+        switch (javaType) {
+            case Types.BIT:
+            case Types.BOOLEAN:
+                return "java.lang.Boolean";
 
-    private ExceptionInterceptor exceptionInterceptor;
+            case Types.TINYINT:
 
-    /**
-     * Initialize for a result with a tuple set and a field descriptor set
-     * 
-     * @param fields
-     *            the array of field descriptors
-     */
-    public ResultSetMetaData(Field[] fields, boolean useOldAliasBehavior, boolean treatYearAsDate, ExceptionInterceptor exceptionInterceptor) {
-        this.fields = fields;
-        this.useOldAliasBehavior = useOldAliasBehavior;
-        this.treatYearAsDate = treatYearAsDate;
-        this.exceptionInterceptor = exceptionInterceptor;
+                if (isUnsigned) {
+                    return "java.lang.Integer";
+                }
+
+                return "java.lang.Integer";
+
+            case Types.SMALLINT:
+
+                if (isUnsigned) {
+                    return "java.lang.Integer";
+                }
+
+                return "java.lang.Integer";
+
+            case Types.INTEGER:
+
+                if (!isUnsigned || mysqlTypeIfKnown == MysqlDefs.FIELD_TYPE_INT24) {
+                    return "java.lang.Integer";
+                }
+
+                return "java.lang.Long";
+
+            case Types.BIGINT:
+
+                if (!isUnsigned) {
+                    return "java.lang.Long";
+                }
+
+                return "java.math.BigInteger";
+
+            case Types.DECIMAL:
+            case Types.NUMERIC:
+                return "java.math.BigDecimal";
+
+            case Types.REAL:
+                return "java.lang.Float";
+
+            case Types.FLOAT:
+            case Types.DOUBLE:
+                return "java.lang.Double";
+
+            case Types.CHAR:
+            case Types.VARCHAR:
+            case Types.LONGVARCHAR:
+                if (!isOpaqueBinary) {
+                    return "java.lang.String";
+                }
+
+                return "[B";
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+
+                if (mysqlTypeIfKnown == MysqlDefs.FIELD_TYPE_GEOMETRY) {
+                    return "[B";
+                } else if (isBinaryOrBlob) {
+                    return "[B";
+                } else {
+                    return "java.lang.String";
+                }
+
+            case Types.DATE:
+                return (treatYearAsDate || mysqlTypeIfKnown != MysqlDefs.FIELD_TYPE_YEAR) ? "java.sql.Date" : "java.lang.Short";
+
+            case Types.TIME:
+                return "java.sql.Time";
+
+            case Types.TIMESTAMP:
+                return "java.sql.Timestamp";
+
+            default:
+                return "java.lang.Object";
+        }
     }
 
     /**
      * What's a column's table's catalog name?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return catalog name, or "" if not applicable
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getCatalogName(int column) throws SQLException {
         Field f = getField(column);
@@ -104,16 +181,12 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What's the Java character encoding name for the given column?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the Java character encoding name for the given column, or null if
-     *         no Java character encoding maps to the MySQL character set for
-     *         the given column.
-     * 
-     * @throws SQLException
-     *             if an invalid column index is given.
+     * no Java character encoding maps to the MySQL character set for
+     * the given column.
+     * @throws SQLException if an invalid column index is given.
      */
     public String getColumnCharacterEncoding(int column) throws SQLException {
         String mysqlName = getColumnCharacterSet(column);
@@ -133,40 +206,32 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
         return javaName;
     }
 
+    // --------------------------JDBC 2.0-----------------------------------
+
     /**
      * What's the MySQL character set name for the given column?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the MySQL character set name for the given column
-     * 
-     * @throws SQLException
-     *             if an invalid column index is given.
+     * @throws SQLException if an invalid column index is given.
      */
     public String getColumnCharacterSet(int column) throws SQLException {
         return getField(column).getEncoding();
     }
 
-    // --------------------------JDBC 2.0-----------------------------------
-
     /**
      * JDBC 2.0
-     * 
+     * <p>
      * <p>
      * Return the fully qualified name of the Java class whose instances are manufactured if ResultSet.getObject() is called to retrieve a value from the
      * column. ResultSet.getObject() may return a subClass of the class returned by this method.
      * </p>
-     * 
-     * @param column
-     *            the column number to retrieve information for
-     * 
+     *
+     * @param column the column number to retrieve information for
      * @return the fully qualified name of the Java class whose instances are
-     *         manufactured if ResultSet.getObject() is called to retrieve a
-     *         value from the column.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * manufactured if ResultSet.getObject() is called to retrieve a
+     * value from the column.
+     * @throws SQLException if an error occurs
      */
     public String getColumnClassName(int column) throws SQLException {
         Field f = getField(column);
@@ -176,11 +241,9 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Whats the number of columns in the ResultSet?
-     * 
+     *
      * @return the number
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int getColumnCount() throws SQLException {
         return this.fields.length;
@@ -188,14 +251,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What is the column's normal maximum width in characters?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the maximum width
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int getColumnDisplaySize(int column) throws SQLException {
         Field f = getField(column);
@@ -207,14 +266,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What is the suggested column title for use in printouts and displays?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the column label
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getColumnLabel(int column) throws SQLException {
         if (this.useOldAliasBehavior) {
@@ -226,14 +281,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What's a column's name?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the column name
-     * 
-     * @throws SQLException
-     *             if a databvase access error occurs
+     * @throws SQLException if a databvase access error occurs
      */
     public String getColumnName(int column) throws SQLException {
         if (this.useOldAliasBehavior) {
@@ -251,15 +302,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What is a column's SQL Type? (java.sql.Type int)
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the java.sql.Type value
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
-     * 
+     * @throws SQLException if a database access error occurs
      * @see java.sql.Types
      */
     public int getColumnType(int column) throws SQLException {
@@ -268,14 +314,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Whats is the column's data source specific type name?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return the type name
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getColumnTypeName(int column) throws java.sql.SQLException {
         Field field = getField(column);
@@ -381,14 +423,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Returns the field instance for the given column index
-     * 
-     * @param columnIndex
-     *            the column number to retrieve a field instance for
-     * 
+     *
+     * @param columnIndex the column number to retrieve a field instance for
      * @return the field instance for the given column index
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected Field getField(int columnIndex) throws SQLException {
         if ((columnIndex < 1) || (columnIndex > this.fields.length)) {
@@ -400,14 +438,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What is a column's number of decimal digits.
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return the precision
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int getPrecision(int column) throws SQLException {
         Field f = getField(column);
@@ -430,7 +464,7 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
             case MysqlDefs.FIELD_TYPE_MEDIUM_BLOB:
             case MysqlDefs.FIELD_TYPE_LONG_BLOB:
                 return clampedGetLength(f); // this may change in the future for now, the server only returns FIELD_TYPE_BLOB for _all_ BLOB types, but varying
-                                           // lengths indicating the _maximum_ size for each BLOB type.
+            // lengths indicating the _maximum_ size for each BLOB type.
             default:
                 return clampedGetLength(f) / f.getMaxBytesPerCharacter();
 
@@ -439,14 +473,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * What is a column's number of digits to the right of the decimal point?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return the scale
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int getScale(int column) throws SQLException {
         Field f = getField(column);
@@ -462,14 +492,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
      * What is a column's table's schema? This relies on us knowing the table
      * name. The JDBC specification allows us to return "" if this is not
      * applicable.
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return the Schema
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getSchemaName(int column) throws SQLException {
         return "";
@@ -477,14 +503,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Whats a column's table's name?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return column name, or "" if not applicable
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getTableName(int column) throws SQLException {
         if (this.useOldAliasBehavior) {
@@ -496,14 +518,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Is the column automatically numbered (and thus read-only)
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return true if so
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isAutoIncrement(int column) throws SQLException {
         Field f = getField(column);
@@ -513,14 +531,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Does a column's case matter?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return true if so
-     * 
-     * @throws java.sql.SQLException
-     *             if a database access error occurs
+     * @throws java.sql.SQLException if a database access error occurs
      */
     public boolean isCaseSensitive(int column) throws java.sql.SQLException {
         Field field = getField(column);
@@ -560,14 +574,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Is the column a cash value?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return true if its a cash column
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isCurrency(int column) throws SQLException {
         return false;
@@ -575,14 +585,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Will a write on this column definately succeed?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc..
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc..
      * @return true if so
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isDefinitelyWritable(int column) throws SQLException {
         return isWritable(column);
@@ -590,14 +596,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Can you put a NULL in this column?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return one of the columnNullable values
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public int isNullable(int column) throws SQLException {
         if (!getField(column).isNotNull()) {
@@ -609,14 +611,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Is the column definitely not writable?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return true if so
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isReadOnly(int column) throws SQLException {
         return getField(column).isReadOnly();
@@ -628,14 +626,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
      * and OTHER types (which may or may not be useable). The OTHER types, for
      * now, I will assume they are useable. We should really query the catalog
      * to see if they are useable.
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return true if they can be used in a WHERE clause
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isSearchable(int column) throws SQLException {
         return true;
@@ -643,14 +637,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Is the column a signed number?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param column the first column is 1, the second is 2...
      * @return true if so
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isSigned(int column) throws SQLException {
         Field f = getField(column);
@@ -680,14 +670,10 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Is it possible for a write on the column to succeed?
-     * 
-     * @param column
-     *            the first column is 1, the second is 2, etc.
-     * 
+     *
+     * @param column the first column is 1, the second is 2, etc.
      * @return true if so
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public boolean isWritable(int column) throws SQLException {
         return !isReadOnly(column);
@@ -695,7 +681,7 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
 
     /**
      * Returns a string representation of this object
-     * 
+     *
      * @return ...
      */
     @Override
@@ -710,91 +696,6 @@ public class ResultSetMetaData implements java.sql.ResultSetMetaData {
         }
 
         return toStringBuf.toString();
-    }
-
-    static String getClassNameForJavaType(int javaType, boolean isUnsigned, int mysqlTypeIfKnown, boolean isBinaryOrBlob, boolean isOpaqueBinary,
-            boolean treatYearAsDate) {
-        switch (javaType) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return "java.lang.Boolean";
-
-            case Types.TINYINT:
-
-                if (isUnsigned) {
-                    return "java.lang.Integer";
-                }
-
-                return "java.lang.Integer";
-
-            case Types.SMALLINT:
-
-                if (isUnsigned) {
-                    return "java.lang.Integer";
-                }
-
-                return "java.lang.Integer";
-
-            case Types.INTEGER:
-
-                if (!isUnsigned || mysqlTypeIfKnown == MysqlDefs.FIELD_TYPE_INT24) {
-                    return "java.lang.Integer";
-                }
-
-                return "java.lang.Long";
-
-            case Types.BIGINT:
-
-                if (!isUnsigned) {
-                    return "java.lang.Long";
-                }
-
-                return "java.math.BigInteger";
-
-            case Types.DECIMAL:
-            case Types.NUMERIC:
-                return "java.math.BigDecimal";
-
-            case Types.REAL:
-                return "java.lang.Float";
-
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return "java.lang.Double";
-
-            case Types.CHAR:
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
-                if (!isOpaqueBinary) {
-                    return "java.lang.String";
-                }
-
-                return "[B";
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-
-                if (mysqlTypeIfKnown == MysqlDefs.FIELD_TYPE_GEOMETRY) {
-                    return "[B";
-                } else if (isBinaryOrBlob) {
-                    return "[B";
-                } else {
-                    return "java.lang.String";
-                }
-
-            case Types.DATE:
-                return (treatYearAsDate || mysqlTypeIfKnown != MysqlDefs.FIELD_TYPE_YEAR) ? "java.sql.Date" : "java.lang.Short";
-
-            case Types.TIME:
-                return "java.sql.Time";
-
-            case Types.TIMESTAMP:
-                return "java.sql.Timestamp";
-
-            default:
-                return "java.lang.Object";
-        }
     }
 
     /**

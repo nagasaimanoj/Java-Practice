@@ -23,23 +23,12 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.*;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
-import java.sql.NClob;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.Struct;
-import java.sql.SQLFeatureNotSupportedException;
-
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.Field;
-import com.mysql.jdbc.NotUpdatable;
-import com.mysql.jdbc.ResultSetImpl;
-import com.mysql.jdbc.RowData;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Statement;
+import java.sql.*;
 
 public class JDBC4ResultSet extends ResultSetImpl {
 
@@ -53,18 +42,14 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * <p>
      * Get the value of a column in the current row as a java.io.Reader.
      * </p>
-     * 
-     * @param columnIndex
-     *            the column to get the value from
-     * 
+     *
+     * @param columnIndex the column to get the value from
      * @return the value in the column as a java.io.Reader.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public Reader getNCharacterStream(int columnIndex) throws SQLException {
         checkColumnBounds(columnIndex);
@@ -78,18 +63,14 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * <p>
      * Get the value of a column in the current row as a java.io.Reader.
      * </p>
-     * 
-     * @param columnName
-     *            the column name to retrieve the value from
-     * 
+     *
+     * @param columnName the column name to retrieve the value from
      * @return the value as a java.io.Reader
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public Reader getNCharacterStream(String columnName) throws SQLException {
         return getNCharacterStream(findColumn(columnName));
@@ -97,14 +78,10 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param i
-     *            the first column is 1, the second is 2, ...
-     * 
+     *
+     * @param i the first column is 1, the second is 2, ...
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public NClob getNClob(int columnIndex) throws SQLException {
         checkColumnBounds(columnIndex);
@@ -128,14 +105,10 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param colName
-     *            the column name
-     * 
+     *
+     * @param colName the column name
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public NClob getNClob(String columnName) throws SQLException {
         return getNClob(findColumn(columnName));
@@ -143,14 +116,10 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0 Get a NCLOB column.
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2, ...
-     * 
+     *
+     * @param columnIndex the first column is 1, the second is 2, ...
      * @return an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected java.sql.NClob getNativeNClob(int columnIndex) throws SQLException {
         String stringVal = getStringForNClob(columnIndex);
@@ -193,16 +162,12 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * Get the value of a column in the current row as a Java String
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2...
-     * 
+     *
+     * @param columnIndex the first column is 1, the second is 2...
      * @return the column value, null for SQL NULL
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getNString(int columnIndex) throws SQLException {
         checkColumnBounds(columnIndex);
@@ -216,17 +181,13 @@ public class JDBC4ResultSet extends ResultSetImpl {
 
     /**
      * JDBC 4.0
-     * 
+     * <p>
      * The following routines simply convert the columnName into a columnIndex
      * and then call the appropriate routine above.
-     * 
-     * @param columnName
-     *            is the SQL name of the column
-     * 
+     *
+     * @param columnName is the SQL name of the column
      * @return the column value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     public String getNString(String columnName) throws SQLException {
         return getNString(findColumn(columnName));
@@ -238,16 +199,11 @@ public class JDBC4ResultSet extends ResultSetImpl {
      * insert row. The updateXXX() methods do not update the underlying
      * database, instead the updateRow() or insertRow() methods are called to
      * update the database.
-     * 
-     * @param columnIndex
-     *            the first column is 1, the second is 2, ...
-     * @param x
-     *            the new column value
-     * @param length
-     *            the length of the stream
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs
+     *
+     * @param columnIndex the first column is 1, the second is 2, ...
+     * @param x           the new column value
+     * @param length      the length of the stream
+     * @throws SQLException if a database-access error occurs
      * @throws NotUpdatable
      */
     public void updateNCharacterStream(int columnIndex, Reader x, int length) throws SQLException {
@@ -260,16 +216,11 @@ public class JDBC4ResultSet extends ResultSetImpl {
      * insert row. The updateXXX() methods do not update the underlying
      * database, instead the updateRow() or insertRow() methods are called to
      * update the database.
-     * 
-     * @param columnName
-     *            the name of the column
-     * @param reader
-     *            the stream to update the column with
-     * @param length
-     *            of the stream
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs
+     *
+     * @param columnName the name of the column
+     * @param reader     the stream to update the column with
+     * @param length     of the stream
+     * @throws SQLException if a database-access error occurs
      */
     public void updateNCharacterStream(String columnName, Reader reader, int length) throws SQLException {
         updateNCharacterStream(findColumn(columnName), reader, length);
@@ -471,13 +422,11 @@ public class JDBC4ResultSet extends ResultSetImpl {
      * This method should be implemented as a low-cost operation compared to <code>unwrap</code> so that
      * callers can use this method to avoid expensive <code>unwrap</code> calls that may fail. If this method
      * returns true then calling <code>unwrap</code> with the same argument should succeed.
-     * 
-     * @param interfaces
-     *            a Class defining an interface.
+     *
+     * @param interfaces a Class defining an interface.
      * @return true if this implements the interface or directly or indirectly wraps an object that does.
-     * @throws java.sql.SQLException
-     *             if an error occurs while determining whether this is a wrapper
-     *             for an object with the given interface.
+     * @throws java.sql.SQLException if an error occurs while determining whether this is a wrapper
+     *                               for an object with the given interface.
      * @since 1.6
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
@@ -495,12 +444,10 @@ public class JDBC4ResultSet extends ResultSetImpl {
      * and the wrapped object implements the interface then that is the object. Otherwise the object is
      * the result of calling <code>unwrap</code> recursively on the wrapped object. If the receiver is not a
      * wrapper and does not implement the interface, then an <code>SQLException</code> is thrown.
-     * 
-     * @param iface
-     *            A Class defining an interface that the result must implement.
+     *
+     * @param iface A Class defining an interface that the result must implement.
      * @return an object that implements the interface. May be a proxy for the actual implementing object.
-     * @throws java.sql.SQLException
-     *             If no object found that implements the interface
+     * @throws java.sql.SQLException If no object found that implements the interface
      * @since 1.6
      */
     public <T> T unwrap(java.lang.Class<T> iface) throws java.sql.SQLException {

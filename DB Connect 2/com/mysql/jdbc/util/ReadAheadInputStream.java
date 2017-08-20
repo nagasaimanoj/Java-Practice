@@ -23,11 +23,11 @@
 
 package com.mysql.jdbc.util;
 
+import com.mysql.jdbc.log.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-
-import com.mysql.jdbc.log.Log;
 
 /**
  * A non-blocking buffered input stream. Reads more if it can, won't block to fill the buffer, only blocks to satisfy a request of read(byte[])
@@ -35,18 +35,23 @@ import com.mysql.jdbc.log.Log;
 public class ReadAheadInputStream extends InputStream {
 
     private final static int DEFAULT_BUFFER_SIZE = 4096;
-
+    protected int endOfCurrentData;
+    protected int currentPosition;
+    protected boolean doDebug = false;
+    protected Log log;
     private InputStream underlyingStream;
-
     private byte buf[];
 
-    protected int endOfCurrentData;
+    public ReadAheadInputStream(InputStream toBuffer, boolean debug, Log logTo) {
+        this(toBuffer, DEFAULT_BUFFER_SIZE, debug, logTo);
+    }
 
-    protected int currentPosition;
-
-    protected boolean doDebug = false;
-
-    protected Log log;
+    public ReadAheadInputStream(InputStream toBuffer, int bufferSize, boolean debug, Log logTo) {
+        this.underlyingStream = toBuffer;
+        this.buf = new byte[bufferSize];
+        this.doDebug = debug;
+        this.log = logTo;
+    }
 
     private void fill(int readAtLeastTheseManyBytes) throws IOException {
         checkClosed();
@@ -224,17 +229,6 @@ public class ReadAheadInputStream extends InputStream {
         if (this.buf == null) {
             throw new IOException("Stream closed");
         }
-    }
-
-    public ReadAheadInputStream(InputStream toBuffer, boolean debug, Log logTo) {
-        this(toBuffer, DEFAULT_BUFFER_SIZE, debug, logTo);
-    }
-
-    public ReadAheadInputStream(InputStream toBuffer, int bufferSize, boolean debug, Log logTo) {
-        this.underlyingStream = toBuffer;
-        this.buf = new byte[bufferSize];
-        this.doDebug = debug;
-        this.log = logTo;
     }
 
     /*

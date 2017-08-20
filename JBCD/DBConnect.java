@@ -8,18 +8,6 @@ public class DBConnect {
     String password = "";
     String url = "jdbc:mysql://localhost:3306/jdbcpractice";
 
-    public Connection createConnection() {
-        try {
-            Class.forName(driver);
-            con = DriverManager.getConnection(url, user, password);
-        } catch (ClassNotFoundException cnfe) {
-            cnfe.printStackTrace();
-        } catch (SQLException sqle) {
-            sqle.printStackTrace();
-        }
-        return con;
-    }
-
     public static void main(String args[]) {
         PreparedStatement ps = null;
         String sql = "INSERT INTO `studentdetials`(`serial`, `name`, `age`, `phone`, `height`) VALUES (1,'manoj',22,999,7)";
@@ -53,5 +41,17 @@ public class DBConnect {
                 }
             }
         }
+    }
+
+    public Connection createConnection() {
+        try {
+            Class.forName(driver);
+            con = DriverManager.getConnection(url, user, password);
+        } catch (ClassNotFoundException cnfe) {
+            cnfe.printStackTrace();
+        } catch (SQLException sqle) {
+            sqle.printStackTrace();
+        }
+        return con;
     }
 }

@@ -23,13 +23,13 @@
 
 package com.mysql.jdbc.log;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.sql.SQLException;
-
 import com.mysql.jdbc.ExceptionInterceptor;
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.Util;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.sql.SQLException;
 
 /**
  * Creates instances of loggers for the driver to use.
@@ -39,14 +39,11 @@ public class LogFactory {
     /**
      * Returns a logger instance of the given class, with the given instance
      * name.
-     * 
-     * @param className
-     *            the class to instantiate
-     * @param instanceName
-     *            the instance name
+     *
+     * @param className    the class to instantiate
+     * @param instanceName the instance name
      * @return a logger instance
-     * @throws SQLException
-     *             if unable to create a logger instance
+     * @throws SQLException if unable to create a logger instance
      */
     public static Log getLogger(String className, String instanceName, ExceptionInterceptor exceptionInterceptor) throws SQLException {
 
@@ -67,9 +64,9 @@ public class LogFactory {
                 loggerClass = Class.forName(Util.getPackageName(Log.class) + "." + className);
             }
 
-            Constructor<?> constructor = loggerClass.getConstructor(new Class[] { String.class });
+            Constructor<?> constructor = loggerClass.getConstructor(new Class[]{String.class});
 
-            return (Log) constructor.newInstance(new Object[] { instanceName });
+            return (Log) constructor.newInstance(new Object[]{instanceName});
         } catch (ClassNotFoundException cnfe) {
             SQLException sqlEx = SQLError.createSQLException("Unable to load class for logger '" + className + "'", SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
                     exceptionInterceptor);

@@ -27,13 +27,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.StringTokenizer;
-import java.util.TimeZone;
+import java.util.*;
 
 /**
  * EscapeProcessor performs all escape code processing as outlined in the JDBC spec by JavaSoft.
@@ -83,12 +77,9 @@ class EscapeProcessor {
 
     /**
      * Escape process one string
-     * 
-     * @param sql
-     *            the SQL to escape process.
-     * 
+     *
+     * @param sql the SQL to escape process.
      * @return the SQL after it has been escape processed.
-     * 
      * @throws java.sql.SQLException
      * @throws SQLException
      */
@@ -479,7 +470,7 @@ class EscapeProcessor {
 
     /**
      * Re-writes {fn convert (expr, type)} as cast(expr AS type)
-     * 
+     *
      * @param functionToken
      * @throws SQLException
      */
@@ -593,10 +584,8 @@ class EscapeProcessor {
     /**
      * Removes all whitespace from the given String. We use this to make escape
      * token comparison white-space ignorant.
-     * 
-     * @param toCollapse
-     *            the string to remove the whitespace from
-     * 
+     *
+     * @param toCollapse the string to remove the whitespace from
      * @return a string with _no_ whitespace.
      */
     private static String removeWhitespace(String toCollapse) {

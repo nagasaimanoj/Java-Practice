@@ -23,10 +23,10 @@
 
 package com.mysql.jdbc.util;
 
+import com.mysql.jdbc.TimeUtil;
+
 import java.sql.DriverManager;
 import java.sql.ResultSet;
-
-import com.mysql.jdbc.TimeUtil;
 
 /**
  * Dumps the timezone of the MySQL server represented by the JDBC url given on the commandline (or localhost/test if none provided).
@@ -43,11 +43,9 @@ public class TimezoneDump {
 
     /**
      * Entry point for program when called from the command line.
-     * 
-     * @param args
-     *            command-line args. Arg 1 is JDBC URL.
-     * @throws Exception
-     *             if any errors occur
+     *
+     * @param args command-line args. Arg 1 is JDBC URL.
+     * @throws Exception if any errors occur
      */
     public static void main(String[] args) throws Exception {
         String jdbcUrl = DEFAULT_URL;

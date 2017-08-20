@@ -23,19 +23,8 @@
 
 package com.mysql.jdbc;
 
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLXML;
-import java.sql.NClob;
-import java.sql.Struct;
+import java.sql.*;
 import java.util.Properties;
-import java.util.TimerTask;
-
-import com.mysql.jdbc.ConnectionImpl;
-import com.mysql.jdbc.Messages;
-import com.mysql.jdbc.SQLError;
 
 public interface JDBC4MySQLConnection extends MySQLConnection {
 
@@ -47,11 +36,11 @@ public interface JDBC4MySQLConnection extends MySQLConnection {
 
     public Properties getClientInfo() throws SQLException;
 
+    public void setClientInfo(Properties properties) throws SQLClientInfoException;
+
     public String getClientInfo(String name) throws SQLException;
 
     public boolean isValid(int timeout) throws SQLException;
-
-    public void setClientInfo(Properties properties) throws SQLClientInfoException;
 
     public void setClientInfo(String name, String value) throws SQLClientInfoException;
 

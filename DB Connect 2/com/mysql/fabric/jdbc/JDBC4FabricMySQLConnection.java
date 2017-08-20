@@ -23,11 +23,10 @@
 
 package com.mysql.fabric.jdbc;
 
+import com.mysql.fabric.ServerGroup;
+
 import java.sql.SQLException;
 import java.util.Set;
-
-import com.mysql.fabric.Server;
-import com.mysql.fabric.ServerGroup;
 
 public interface JDBC4FabricMySQLConnection extends com.mysql.jdbc.JDBC4MySQLConnection {
     /**
@@ -37,14 +36,19 @@ public interface JDBC4FabricMySQLConnection extends com.mysql.jdbc.JDBC4MySQLCon
     void clearServerSelectionCriteria() throws SQLException;
 
     /**
+     * Get the shard key for the data being accessed.
+     */
+    String getShardKey();
+
+    /**
      * Set the shard key for the data being accessed.
      */
     void setShardKey(String shardKey) throws SQLException;
 
     /**
-     * Get the shard key for the data being accessed.
+     * Get the table being accessed.
      */
-    String getShardKey();
+    String getShardTable();
 
     /**
      * Set the table being accessed. Can be a table name or a
@@ -54,9 +58,9 @@ public interface JDBC4FabricMySQLConnection extends com.mysql.jdbc.JDBC4MySQLCon
     void setShardTable(String shardTable) throws SQLException;
 
     /**
-     * Get the table being accessed.
+     * Get the server group name when using direct server group selection.
      */
-    String getShardTable();
+    String getServerGroupName();
 
     /**
      * Set the server group name to connect to. Direct server group selection
@@ -65,15 +69,10 @@ public interface JDBC4FabricMySQLConnection extends com.mysql.jdbc.JDBC4MySQLCon
     void setServerGroupName(String serverGroupName) throws SQLException;
 
     /**
-     * Get the server group name when using direct server group selection.
-     */
-    String getServerGroupName();
-
-    /**
      * Get the current server group.
-     * 
+     *
      * @returns The currently chosen group if sufficient server group selection
-     *          criteria has been provided. Otherwise null.
+     * criteria has been provided. Otherwise null.
      */
     ServerGroup getCurrentServerGroup();
 

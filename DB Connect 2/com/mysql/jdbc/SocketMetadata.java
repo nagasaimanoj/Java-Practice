@@ -120,7 +120,7 @@ public interface SocketMetadata {
 
                         return isLocal;
                     } catch (UnknownHostException e) {
-                        conn.getLog().logWarn(Messages.getString("Connection.CantDetectLocalConnect", new Object[] { processHost }), e);
+                        conn.getLog().logWarn(Messages.getString("Connection.CantDetectLocalConnect", new Object[]{processHost}), e);
                         return false;
                     }
                 }

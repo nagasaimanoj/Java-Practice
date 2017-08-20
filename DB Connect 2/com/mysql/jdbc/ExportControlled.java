@@ -23,6 +23,10 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.util.Base64Decoder;
+
+import javax.crypto.Cipher;
+import javax.net.ssl.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -31,23 +35,8 @@ import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.URL;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyFactory;
-import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertPath;
-import java.security.cert.CertPathValidator;
-import java.security.cert.CertPathValidatorException;
-import java.security.cert.CertPathValidatorResult;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.PKIXCertPathValidatorResult;
-import java.security.cert.PKIXParameters;
-import java.security.cert.X509CertSelector;
-import java.security.cert.X509Certificate;
+import java.security.*;
+import java.security.cert.*;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.sql.SQLException;
@@ -56,23 +45,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
-import javax.crypto.Cipher;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-
-import com.mysql.jdbc.util.Base64Decoder;
-
 /**
  * Holds functionality that falls under export-control regulations.
  */
 public class ExportControlled {
     private static final String SQL_STATE_BAD_SSL_PARAMS = "08000";
+
+    private ExportControlled() { /* prevent instantiation */
+    }
 
     protected static boolean enabled() {
         // we may wish to un-static-ify this class this static method call may be removed entirely by the compiler
@@ -82,15 +62,12 @@ public class ExportControlled {
     /**
      * Converts the socket being used in the given MysqlIO to an SSLSocket by
      * performing the SSL/TLS handshake.
-     * 
-     * @param mysqlIO
-     *            the MysqlIO instance containing the socket to convert to an
-     *            SSLSocket.
-     * 
-     * @throws CommunicationsException
-     *             if the handshake fails, or if this distribution of
-     *             Connector/J doesn't contain the SSL crypto hooks needed to
-     *             perform the handshake.
+     *
+     * @param mysqlIO the MysqlIO instance containing the socket to convert to an
+     *                SSLSocket.
+     * @throws CommunicationsException if the handshake fails, or if this distribution of
+     *                                 Connector/J doesn't contain the SSL crypto hooks needed to
+     *                                 perform the handshake.
      */
     protected static void transformSocketToSSLSocket(MysqlIO mysqlIO) throws SQLException {
         SocketFactory sslFact = new StandardSSLSocketFactory(getSSLSocketFactoryDefaultOrConfigured(mysqlIO), mysqlIO.socketFactory, mysqlIO.mysqlConnection);
@@ -101,7 +78,7 @@ public class ExportControlled {
             List<String> allowedProtocols = new ArrayList<String>();
             List<String> supportedProtocols = Arrays.asList(((SSLSocket) mysqlIO.mysqlConnection).getSupportedProtocols());
             for (String protocol : (mysqlIO.versionMeetsMinimum(5, 6, 0) && Util.isEnterpriseEdition(mysqlIO.getServerVersion())
-                    ? new String[] { "TLSv1.2", "TLSv1.1", "TLSv1" } : new String[] { "TLSv1.1", "TLSv1" })) {
+                    ? new String[]{"TLSv1.2", "TLSv1.1", "TLSv1"} : new String[]{"TLSv1.1", "TLSv1"})) {
                 if (supportedProtocols.contains(protocol)) {
                     allowedProtocols.add(protocol);
                 }
@@ -152,7 +129,7 @@ public class ExportControlled {
                 }
             }
 
-            // if some ciphers were filtered into allowedCiphers 
+            // if some ciphers were filtered into allowedCiphers
             if (allowedCiphers != null) {
                 ((SSLSocket) mysqlIO.mysqlConnection).setEnabledCipherSuites(allowedCiphers.toArray(new String[0]));
             }
@@ -176,113 +153,6 @@ public class ExportControlled {
                     mysqlIO.getExceptionInterceptor());
         }
     }
-
-    /**
-     * Implementation of internal socket factory to wrap the SSL socket.
-     */
-    public static class StandardSSLSocketFactory implements SocketFactory, SocketMetadata {
-        private SSLSocket rawSocket = null;
-        private final SSLSocketFactory sslFact;
-        private final SocketFactory existingSocketFactory;
-        private final Socket existingSocket;
-
-        public StandardSSLSocketFactory(SSLSocketFactory sslFact, SocketFactory existingSocketFactory, Socket existingSocket) {
-            this.sslFact = sslFact;
-            this.existingSocketFactory = existingSocketFactory;
-            this.existingSocket = existingSocket;
-        }
-
-        public Socket afterHandshake() throws SocketException, IOException {
-            this.existingSocketFactory.afterHandshake();
-            return this.rawSocket;
-        }
-
-        public Socket beforeHandshake() throws SocketException, IOException {
-            return this.rawSocket;
-        }
-
-        public Socket connect(String host, int portNumber, Properties props) throws SocketException, IOException {
-            this.rawSocket = (SSLSocket) this.sslFact.createSocket(this.existingSocket, host, portNumber, true);
-            return this.rawSocket;
-        }
-
-        public boolean isLocallyConnected(ConnectionImpl conn) throws SQLException {
-            return SocketMetadata.Helper.isLocallyConnected(conn);
-        }
-
-    }
-
-    private ExportControlled() { /* prevent instantiation */
-    }
-
-    /**
-     * Implementation of X509TrustManager wrapping JVM X509TrustManagers to add expiration check
-     */
-    public static class X509TrustManagerWrapper implements X509TrustManager {
-
-        private X509TrustManager origTm = null;
-        private boolean verifyServerCert = false;
-        private CertificateFactory certFactory = null;
-        private PKIXParameters validatorParams = null;
-        private CertPathValidator validator = null;
-
-        public X509TrustManagerWrapper(X509TrustManager tm, boolean verifyServerCertificate, KeyStore trustKeyStore) throws CertificateException {
-            this.origTm = tm;
-            this.verifyServerCert = verifyServerCertificate;
-
-            if (verifyServerCertificate) {
-                try {
-                    this.validatorParams = new PKIXParameters(trustKeyStore);
-                    this.validatorParams.setRevocationEnabled(false);
-                    this.validator = CertPathValidator.getInstance("PKIX");
-                    this.certFactory = CertificateFactory.getInstance("X.509");
-                } catch (Exception e) {
-                    throw new CertificateException(e);
-                }
-            }
-
-        }
-
-        public X509TrustManagerWrapper() {
-        }
-
-        public X509Certificate[] getAcceptedIssuers() {
-            return this.origTm != null ? this.origTm.getAcceptedIssuers() : new X509Certificate[0];
-        }
-
-        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            for (int i = 0; i < chain.length; i++) {
-                chain[i].checkValidity();
-            }
-
-            if (this.validatorParams != null) {
-
-                X509CertSelector certSelect = new X509CertSelector();
-                certSelect.setSerialNumber(chain[0].getSerialNumber());
-
-                try {
-                    CertPath certPath = this.certFactory.generateCertPath(Arrays.asList(chain));
-                    // Validate against truststore
-                    CertPathValidatorResult result = this.validator.validate(certPath, this.validatorParams);
-                    // Check expiration for the CA used to validate this path
-                    ((PKIXCertPathValidatorResult) result).getTrustAnchor().getTrustedCert().checkValidity();
-
-                } catch (InvalidAlgorithmParameterException e) {
-                    throw new CertificateException(e);
-                } catch (CertPathValidatorException e) {
-                    throw new CertificateException(e);
-                }
-            }
-
-            if (this.verifyServerCert) {
-                this.origTm.checkServerTrusted(chain, authType);
-            }
-        }
-
-        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            this.origTm.checkClientTrusted(chain, authType);
-        }
-    };
 
     private static SSLSocketFactory getSSLSocketFactoryDefaultOrConfigured(MysqlIO mysqlIO) throws SQLException {
         String clientCertificateKeyStoreUrl = mysqlIO.connection.getClientCertificateKeyStoreUrl();
@@ -439,7 +309,7 @@ public class ExportControlled {
             }
         }
 
-        // if original TrustManagers are not available then putting one X509TrustManagerWrapper which take care only about expiration check 
+        // if original TrustManagers are not available then putting one X509TrustManagerWrapper which take care only about expiration check
         if (tms.size() == 0) {
             tms.add(new X509TrustManagerWrapper());
         }
@@ -460,6 +330,8 @@ public class ExportControlled {
     public static boolean isSSLEstablished(MysqlIO mysqlIO) {
         return SSLSocket.class.isAssignableFrom(mysqlIO.mysqlConnection.getClass());
     }
+
+    ;
 
     public static RSAPublicKey decodeRSAPublicKey(String key, ExceptionInterceptor interceptor) throws SQLException {
 
@@ -489,6 +361,110 @@ public class ExportControlled {
             return cipher.doFinal(source);
         } catch (Exception ex) {
             throw SQLError.createSQLException(ex.getMessage(), SQLError.SQL_STATE_ILLEGAL_ARGUMENT, ex, interceptor);
+        }
+    }
+
+    /**
+     * Implementation of internal socket factory to wrap the SSL socket.
+     */
+    public static class StandardSSLSocketFactory implements SocketFactory, SocketMetadata {
+        private final SSLSocketFactory sslFact;
+        private final SocketFactory existingSocketFactory;
+        private final Socket existingSocket;
+        private SSLSocket rawSocket = null;
+
+        public StandardSSLSocketFactory(SSLSocketFactory sslFact, SocketFactory existingSocketFactory, Socket existingSocket) {
+            this.sslFact = sslFact;
+            this.existingSocketFactory = existingSocketFactory;
+            this.existingSocket = existingSocket;
+        }
+
+        public Socket afterHandshake() throws SocketException, IOException {
+            this.existingSocketFactory.afterHandshake();
+            return this.rawSocket;
+        }
+
+        public Socket beforeHandshake() throws SocketException, IOException {
+            return this.rawSocket;
+        }
+
+        public Socket connect(String host, int portNumber, Properties props) throws SocketException, IOException {
+            this.rawSocket = (SSLSocket) this.sslFact.createSocket(this.existingSocket, host, portNumber, true);
+            return this.rawSocket;
+        }
+
+        public boolean isLocallyConnected(ConnectionImpl conn) throws SQLException {
+            return SocketMetadata.Helper.isLocallyConnected(conn);
+        }
+
+    }
+
+    /**
+     * Implementation of X509TrustManager wrapping JVM X509TrustManagers to add expiration check
+     */
+    public static class X509TrustManagerWrapper implements X509TrustManager {
+
+        private X509TrustManager origTm = null;
+        private boolean verifyServerCert = false;
+        private CertificateFactory certFactory = null;
+        private PKIXParameters validatorParams = null;
+        private CertPathValidator validator = null;
+
+        public X509TrustManagerWrapper(X509TrustManager tm, boolean verifyServerCertificate, KeyStore trustKeyStore) throws CertificateException {
+            this.origTm = tm;
+            this.verifyServerCert = verifyServerCertificate;
+
+            if (verifyServerCertificate) {
+                try {
+                    this.validatorParams = new PKIXParameters(trustKeyStore);
+                    this.validatorParams.setRevocationEnabled(false);
+                    this.validator = CertPathValidator.getInstance("PKIX");
+                    this.certFactory = CertificateFactory.getInstance("X.509");
+                } catch (Exception e) {
+                    throw new CertificateException(e);
+                }
+            }
+
+        }
+
+        public X509TrustManagerWrapper() {
+        }
+
+        public X509Certificate[] getAcceptedIssuers() {
+            return this.origTm != null ? this.origTm.getAcceptedIssuers() : new X509Certificate[0];
+        }
+
+        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            for (int i = 0; i < chain.length; i++) {
+                chain[i].checkValidity();
+            }
+
+            if (this.validatorParams != null) {
+
+                X509CertSelector certSelect = new X509CertSelector();
+                certSelect.setSerialNumber(chain[0].getSerialNumber());
+
+                try {
+                    CertPath certPath = this.certFactory.generateCertPath(Arrays.asList(chain));
+                    // Validate against truststore
+                    CertPathValidatorResult result = this.validator.validate(certPath, this.validatorParams);
+                    // Check expiration for the CA used to validate this path
+                    ((PKIXCertPathValidatorResult) result).getTrustAnchor().getTrustedCert().checkValidity();
+
+                } catch (InvalidAlgorithmParameterException e) {
+                    throw new CertificateException(e);
+                } catch (CertPathValidatorException e) {
+                    throw new CertificateException(e);
+                }
+            }
+
+            if (this.verifyServerCert) {
+                this.origTm.checkServerTrusted(chain, authType);
+            }
+        }
+
+        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            this.origTm.checkClientTrusted(chain, authType);
         }
     }
 

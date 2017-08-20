@@ -23,10 +23,10 @@
 
 package com.mysql.jdbc.log;
 
-import java.util.Date;
-
 import com.mysql.jdbc.Util;
 import com.mysql.jdbc.profiler.ProfilerEvent;
+
+import java.util.Date;
 
 /**
  * Provides logging facilities for those platforms that don't have built-in facilities. Simply logs messages to STDERR.
@@ -50,9 +50,8 @@ public class StandardLogger implements Log {
 
     /**
      * Creates a new StandardLogger object.
-     * 
-     * @param name
-     *            the name of the configuration to use -- ignored
+     *
+     * @param name the name of the configuration to use -- ignored
      */
     public StandardLogger(String name) {
         this(name, false);
@@ -122,9 +121,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'debug' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logDebug(Object message) {
         logInternal(DEBUG, message, null);
@@ -132,11 +130,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'debug' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logDebug(Object message, Throwable exception) {
         logInternal(DEBUG, message, exception);
@@ -144,9 +140,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'error' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logError(Object message) {
         logInternal(ERROR, message, null);
@@ -154,11 +149,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'error' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logError(Object message, Throwable exception) {
         logInternal(ERROR, message, exception);
@@ -166,9 +159,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'fatal' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logFatal(Object message) {
         logInternal(FATAL, message, null);
@@ -176,11 +168,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'fatal' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logFatal(Object message, Throwable exception) {
         logInternal(FATAL, message, exception);
@@ -188,9 +178,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'info' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logInfo(Object message) {
         logInternal(INFO, message, null);
@@ -198,11 +187,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'info' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logInfo(Object message, Throwable exception) {
         logInternal(INFO, message, exception);
@@ -210,9 +197,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'trace' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logTrace(Object message) {
         logInternal(TRACE, message, null);
@@ -220,11 +206,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'trace' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logTrace(Object message, Throwable exception) {
         logInternal(TRACE, message, exception);
@@ -232,9 +216,8 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message instance using the 'warn' level
-     * 
-     * @param message
-     *            the message to log
+     *
+     * @param message the message to log
      */
     public void logWarn(Object message) {
         logInternal(WARN, message, null);
@@ -242,11 +225,9 @@ public class StandardLogger implements Log {
 
     /**
      * Logs the given message and Throwable at the 'warn' level.
-     * 
-     * @param message
-     *            the message to log
-     * @param exception
-     *            the throwable to log (may be null)
+     *
+     * @param message   the message to log
+     * @param exception the throwable to log (may be null)
      */
     public void logWarn(Object message, Throwable exception) {
         logInternal(WARN, message, exception);

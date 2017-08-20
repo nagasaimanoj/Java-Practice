@@ -23,15 +23,11 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.Field;
+
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
-import java.sql.Types;
-import java.util.ArrayList;
-
-import java.util.List;
-
-import com.mysql.jdbc.Field;
 
 public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingInfoSchema {
     public JDBC4DatabaseMetaDataUsingInfoSchema(MySQLConnection connToSet, String databaseToSet) throws SQLException {
@@ -50,13 +46,11 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
      * This method should be implemented as a low-cost operation compared to <code>unwrap</code> so that
      * callers can use this method to avoid expensive <code>unwrap</code> calls that may fail. If this method
      * returns true then calling <code>unwrap</code> with the same argument should succeed.
-     * 
-     * @param interfaces
-     *            a Class defining an interface.
+     *
+     * @param interfaces a Class defining an interface.
      * @return true if this implements the interface or directly or indirectly wraps an object that does.
-     * @throws java.sql.SQLException
-     *             if an error occurs while determining whether this is a wrapper
-     *             for an object with the given interface.
+     * @throws java.sql.SQLException if an error occurs while determining whether this is a wrapper
+     *                               for an object with the given interface.
      * @since 1.6
      */
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
@@ -72,12 +66,10 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
      * and the wrapped object implements the interface then that is the object. Otherwise the object is
      * the result of calling <code>unwrap</code> recursively on the wrapped object. If the receiver is not a
      * wrapper and does not implement the interface, then an <code>SQLException</code> is thrown.
-     * 
-     * @param iface
-     *            A Class defining an interface that the result must implement.
+     *
+     * @param iface A Class defining an interface that the result must implement.
      * @return an object that implements the interface. May be a proxy for the actual implementing object.
-     * @throws java.sql.SQLException
-     *             If no object found that implements the interface
+     * @throws java.sql.SQLException If no object found that implements the interface
      * @since 1.6
      */
     public <T> T unwrap(java.lang.Class<T> iface) throws java.sql.SQLException {
@@ -93,7 +85,7 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
     /**
      * Redirects to another implementation of #getProcedureColumns. Overrides
      * DatabaseMetaDataUsingInfoSchema#getProcedureColumnsNoISParametersView.
-     * 
+     *
      * @see DatabaseMetaDataUsingInfoSchema#getProcedureColumns
      * @see DatabaseMetaDataUsingInfoSchema#getProcedureColumnsNoISParametersView
      */
@@ -108,7 +100,7 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
     /**
      * Returns a condition to be injected in the query that returns metadata for procedures only. Overrides
      * DatabaseMetaDataUsingInfoSchema#injectRoutineTypeConditionForGetProcedures. When not empty must end with "AND ".
-     * 
+     *
      * @return String with the condition to be injected.
      */
     protected String getRoutineTypeConditionForGetProcedures() {
@@ -119,7 +111,7 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
      * Returns a condition to be injected in the query that returns metadata for procedure columns only. Overrides
      * DatabaseMetaDataUsingInfoSchema#injectRoutineTypeConditionForGetProcedureColumns. When not empty must end with
      * "AND ".
-     * 
+     *
      * @return String with the condition to be injected.
      */
     protected String getRoutineTypeConditionForGetProcedureColumns() {
@@ -128,10 +120,8 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
 
     /**
      * Overrides DatabaseMetaDataUsingInfoSchema#getJDBC4FunctionConstant.
-     * 
-     * @param constant
-     *            the constant id from DatabaseMetaData fields to return.
-     * 
+     *
+     * @param constant the constant id from DatabaseMetaData fields to return.
      * @return one of the java.sql.DatabaseMetaData#function* fields.
      */
     protected int getJDBC4FunctionConstant(JDBC4FunctionConstant constant) {
@@ -161,7 +151,7 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
 
     /**
      * Overrides DatabaseMetaDataUsingInfoSchema#getJDBC4FunctionNoTableConstant.
-     * 
+     *
      * @return java.sql.DatabaseMetaData#functionNoTable.
      */
     protected int getJDBC4FunctionNoTableConstant() {
@@ -170,7 +160,7 @@ public class JDBC4DatabaseMetaDataUsingInfoSchema extends DatabaseMetaDataUsingI
 
     /**
      * Overrides DatabaseMetaData#getColumnType(boolean, boolean, boolean, boolean).
-     * 
+     *
      * @see JDBC4DatabaseMetaData#getProcedureOrFunctionColumnType(boolean, boolean, boolean, boolean)
      */
     protected int getColumnType(boolean isOutParam, boolean isInParam, boolean isReturnParam, boolean forGetFunctionColumns) {

@@ -23,26 +23,15 @@
 
 package testsuite.regression;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.lang.reflect.Method;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Hashtable;
-import java.util.concurrent.Callable;
+import com.mysql.jdbc.ConnectionProperties;
+import com.mysql.jdbc.MySQLConnection;
+import com.mysql.jdbc.NonRegisteringDriver;
+import com.mysql.jdbc.integration.jboss.MysqlValidConnectionChecker;
+import com.mysql.jdbc.jdbc2.optional.*;
+import testsuite.BaseTestCase;
+import testsuite.simple.DataSourceTest;
 
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.Name;
-import javax.naming.NameParser;
-import javax.naming.RefAddr;
-import javax.naming.Reference;
+import javax.naming.*;
 import javax.naming.spi.ObjectFactory;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.DataSource;
@@ -51,19 +40,11 @@ import javax.sql.XAConnection;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
-
-import com.mysql.jdbc.ConnectionProperties;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.integration.jboss.MysqlValidConnectionChecker;
-import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSourceFactory;
-import com.mysql.jdbc.jdbc2.optional.MysqlXADataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlXid;
-
-import testsuite.BaseTestCase;
-import testsuite.simple.DataSourceTest;
+import java.io.*;
+import java.lang.reflect.Method;
+import java.sql.*;
+import java.util.Hashtable;
+import java.util.concurrent.Callable;
 
 /**
  * Tests fixes for bugs related to datasources.
@@ -86,9 +67,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
 
     /**
      * Creates a new DataSourceRegressionTest suite for the given test name
-     * 
-     * @param name
-     *            the name of the testcase to run.
+     *
+     * @param name the name of the testcase to run.
      */
     public DataSourceRegressionTest(String name) {
         super(name);
@@ -96,7 +76,7 @@ public class DataSourceRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
@@ -106,9 +86,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
     /**
      * Sets up this test, calling registerDataSource() to bind a DataSource into
      * JNDI, using the FSContext JNDI provider from Sun
-     * 
-     * @throws Exception
-     *             if an error occurs.
+     *
+     * @throws Exception if an error occurs.
      */
     @Override
     public void setUp() throws Exception {
@@ -118,9 +97,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
 
     /**
      * Un-binds the DataSource, and cleans up the filesystem
-     * 
-     * @throws Exception
-     *             if an error occurs
+     *
+     * @throws Exception if an error occurs
      */
     @Override
     public void tearDown() throws Exception {
@@ -135,9 +113,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
     /**
      * Tests fix for BUG#4808- Calling .close() twice on a PooledConnection
      * causes NPE.
-     * 
-     * @throws Exception
-     *             if an error occurs.
+     *
+     * @throws Exception if an error occurs.
      */
     public void testBug4808() throws Exception {
         MysqlConnectionPoolDataSource ds = new MysqlConnectionPoolDataSource();
@@ -150,9 +127,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for Bug#3848, port # alone parsed incorrectly
-     * 
-     * @throws Exception
-     *             ...
+     *
+     * @throws Exception ...
      */
     public void testBug3848() throws Exception {
         String jndiName = "/testBug3848";
@@ -211,9 +187,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
     /**
      * Tests that we can get a connection from the DataSource bound in JNDI
      * during test setup
-     * 
-     * @throws Exception
-     *             if an error occurs
+     *
+     * @throws Exception if an error occurs
      */
     public void testBug3920() throws Exception {
         String jndiName = "/testBug3920";
@@ -289,9 +264,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
      * Tests fix for BUG#19169 - ConnectionProperties (and thus some
      * subclasses) are not serializable, even though some J2EE containers
      * expect them to be.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug19169() throws Exception {
         MysqlDataSource toSerialize = new MysqlDataSource();
@@ -320,9 +294,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
     /**
      * Tests fix for BUG#20242 - MysqlValidConnectionChecker for JBoss doesn't
      * work with MySQLXADataSources.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug20242() throws Exception {
         if (versionMeetsMinimum(5, 0)) {
@@ -350,9 +323,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
      * This method is separated from the rest of the example since you normally
      * would NOT register a JDBC driver in your code. It would likely be
      * configered into your naming and directory service using some GUI.
-     * 
-     * @throws Exception
-     *             if an error occurs
+     *
+     * @throws Exception if an error occurs
      */
     private void createJNDIContext() throws Exception {
         this.tempDir = File.createTempFile("jnditest", null);
@@ -438,9 +410,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
     /**
      * Tests fix for BUG#16791 - NullPointerException in MysqlDataSourceFactory
      * due to Reference containing RefAddrs with null content.
-     * 
-     * @throws Exception
-     *             if the test fails
+     *
+     * @throws Exception if the test fails
      */
     public void testBug16791() throws Exception {
         MysqlDataSource myDs = new MysqlDataSource();
@@ -474,7 +445,7 @@ public class DataSourceRegressionTest extends BaseTestCase {
      * Tests fix for BUG#32101 - When using a connection from our ConnectionPoolDataSource,
      * some Connection.prepareStatement() methods would return null instead of
      * a prepared statement.
-     * 
+     *
      * @throws Exception
      */
     public void testBug32101() throws Exception {
@@ -526,9 +497,8 @@ public class DataSourceRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#72890 - Java jdbc driver returns incorrect return code when it's part of XA transaction
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug72890() throws Exception {
         MysqlXADataSource myDs = new MysqlXADataSource();

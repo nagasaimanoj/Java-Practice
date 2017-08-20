@@ -29,23 +29,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.ParameterMetaData;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.sql.*;
+import java.util.*;
 
 /**
  * Representation of stored procedures for JDBC
@@ -54,15 +39,17 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     protected final static Constructor<?> JDBC_4_CSTMT_2_ARGS_CTOR;
 
     protected final static Constructor<?> JDBC_4_CSTMT_4_ARGS_CTOR;
+    private final static int NOT_OUTPUT_PARAMETER_INDICATOR = Integer.MIN_VALUE;
+    private final static String PARAMETER_NAMESPACE_PREFIX = "@com_mysql_jdbc_outparam_";
 
     static {
         if (Util.isJdbc4()) {
             try {
                 String jdbc4ClassName = Util.isJdbc42() ? "com.mysql.jdbc.JDBC42CallableStatement" : "com.mysql.jdbc.JDBC4CallableStatement";
                 JDBC_4_CSTMT_2_ARGS_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { MySQLConnection.class, CallableStatementParamInfo.class });
+                        .getConstructor(new Class[]{MySQLConnection.class, CallableStatementParamInfo.class});
                 JDBC_4_CSTMT_4_ARGS_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { MySQLConnection.class, String.class, String.class, Boolean.TYPE });
+                        .getConstructor(new Class[]{MySQLConnection.class, String.class, String.class, Boolean.TYPE});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -76,324 +63,69 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
         }
     }
 
-    protected static class CallableStatementParam {
-        int desiredJdbcType;
+    protected boolean outputParamWasNull = false;
+    protected CallableStatementParamInfo paramInfo;
+    private boolean callingStoredFunction = false;
+    private ResultSetInternalMethods functionReturnValueResults;
+    private boolean hasOutputParams = false;
+    // private List parameterList;
+    // private Map parameterMap;
+    private ResultSetInternalMethods outputParameterResults;
+    private int[] parameterIndexToRsIndex;
+    private CallableStatementParam returnValueParam;
+    private int[] placeholderToParameterIndexMap;
 
-        int index;
+    /**
+     * Creates a new CallableStatement
+     *
+     * @param conn      the connection creating this statement
+     * @param paramInfo the SQL to prepare
+     * @throws SQLException if an error occurs
+     */
+    public CallableStatement(MySQLConnection conn, CallableStatementParamInfo paramInfo) throws SQLException {
+        super(conn, paramInfo.nativeSql, paramInfo.catalogInUse);
 
-        int inOutModifier;
+        this.paramInfo = paramInfo;
+        this.callingStoredFunction = this.paramInfo.isFunctionCall;
 
-        boolean isIn;
-
-        boolean isOut;
-
-        int jdbcType;
-
-        short nullability;
-
-        String paramName;
-
-        int precision;
-
-        int scale;
-
-        String typeName;
-
-        CallableStatementParam(String name, int idx, boolean in, boolean out, int jdbcType, String typeName, int precision, int scale, short nullability,
-                int inOutModifier) {
-            this.paramName = name;
-            this.isIn = in;
-            this.isOut = out;
-            this.index = idx;
-
-            this.jdbcType = jdbcType;
-            this.typeName = typeName;
-            this.precision = precision;
-            this.scale = scale;
-            this.nullability = nullability;
-            this.inOutModifier = inOutModifier;
+        if (this.callingStoredFunction) {
+            this.parameterCount += 1;
         }
 
-        /*
-         * (non-Javadoc)
-         * 
-         * @see java.lang.Object#clone()
-         */
-        @Override
-        protected Object clone() throws CloneNotSupportedException {
-            return super.clone();
-        }
+        this.retrieveGeneratedKeys = true; // not provided for in the JDBC spec
     }
 
-    protected class CallableStatementParamInfo implements ParameterMetaData {
-        String catalogInUse;
+    /**
+     * Creates a new CallableStatement
+     *
+     * @param conn    the connection creating this statement
+     * @param sql     the SQL to prepare
+     * @param catalog the current catalog
+     * @throws SQLException if an error occurs
+     */
+    public CallableStatement(MySQLConnection conn, String sql, String catalog, boolean isFunctionCall) throws SQLException {
+        super(conn, sql, catalog);
 
-        boolean isFunctionCall;
+        this.callingStoredFunction = isFunctionCall;
 
-        String nativeSql;
-
-        int numParameters;
-
-        List<CallableStatementParam> parameterList;
-
-        Map<String, CallableStatementParam> parameterMap;
-
-        /**
-         * synchronized externally in checkReadOnlyProcedure()
-         */
-        boolean isReadOnlySafeProcedure = false;
-
-        /**
-         * synchronized externally in checkReadOnlyProcedure()
-         */
-        boolean isReadOnlySafeChecked = false;
-
-        /**
-         * Constructor that converts a full list of parameter metadata into one
-         * that only represents the placeholders present in the {CALL ()}.
-         * 
-         * @param fullParamInfo
-         *            the metadata for all parameters for this stored
-         *            procedure or function.
-         */
-        CallableStatementParamInfo(CallableStatementParamInfo fullParamInfo) {
-            this.nativeSql = CallableStatement.this.originalSql;
-            this.catalogInUse = CallableStatement.this.currentCatalog;
-            this.isFunctionCall = fullParamInfo.isFunctionCall;
-            @SuppressWarnings("synthetic-access")
-            int[] localParameterMap = CallableStatement.this.placeholderToParameterIndexMap;
-            int parameterMapLength = localParameterMap.length;
-
-            this.isReadOnlySafeProcedure = fullParamInfo.isReadOnlySafeProcedure;
-            this.isReadOnlySafeChecked = fullParamInfo.isReadOnlySafeChecked;
-            this.parameterList = new ArrayList<CallableStatementParam>(fullParamInfo.numParameters);
-            this.parameterMap = new HashMap<String, CallableStatementParam>(fullParamInfo.numParameters);
-
-            if (this.isFunctionCall) {
-                // Take the return value
-                this.parameterList.add(fullParamInfo.parameterList.get(0));
-            }
-
-            int offset = this.isFunctionCall ? 1 : 0;
-
-            for (int i = 0; i < parameterMapLength; i++) {
-                if (localParameterMap[i] != 0) {
-                    CallableStatementParam param = fullParamInfo.parameterList.get(localParameterMap[i] + offset);
-
-                    this.parameterList.add(param);
-                    this.parameterMap.put(param.paramName, param);
-                }
-            }
-
-            this.numParameters = this.parameterList.size();
-        }
-
-        @SuppressWarnings("synthetic-access")
-        CallableStatementParamInfo(java.sql.ResultSet paramTypesRs) throws SQLException {
-            boolean hadRows = paramTypesRs.last();
-
-            this.nativeSql = CallableStatement.this.originalSql;
-            this.catalogInUse = CallableStatement.this.currentCatalog;
-            this.isFunctionCall = CallableStatement.this.callingStoredFunction;
-
-            if (hadRows) {
-                this.numParameters = paramTypesRs.getRow();
-
-                this.parameterList = new ArrayList<CallableStatementParam>(this.numParameters);
-                this.parameterMap = new HashMap<String, CallableStatementParam>(this.numParameters);
-
-                paramTypesRs.beforeFirst();
-
-                addParametersFromDBMD(paramTypesRs);
+        if (!this.callingStoredFunction) {
+            if (!StringUtils.startsWithIgnoreCaseAndWs(sql, "CALL")) {
+                // not really a stored procedure call
+                fakeParameterTypes(false);
             } else {
-                this.numParameters = 0;
+                determineParameterTypes();
             }
 
-            if (this.isFunctionCall) {
-                this.numParameters += 1;
-            }
+            generateParameterMap();
+        } else {
+            determineParameterTypes();
+            generateParameterMap();
+
+            this.parameterCount += 1;
         }
 
-        private void addParametersFromDBMD(java.sql.ResultSet paramTypesRs) throws SQLException {
-            int i = 0;
-
-            while (paramTypesRs.next()) {
-                String paramName = paramTypesRs.getString(4);
-                int inOutModifier;
-                switch (paramTypesRs.getInt(5)) {
-                    case DatabaseMetaData.procedureColumnIn:
-                        inOutModifier = ParameterMetaData.parameterModeIn;
-                        break;
-                    case DatabaseMetaData.procedureColumnInOut:
-                        inOutModifier = ParameterMetaData.parameterModeInOut;
-                        break;
-                    case DatabaseMetaData.procedureColumnOut:
-                    case DatabaseMetaData.procedureColumnReturn:
-                        inOutModifier = ParameterMetaData.parameterModeOut;
-                        break;
-                    default:
-                        inOutModifier = ParameterMetaData.parameterModeUnknown;
-                }
-
-                boolean isOutParameter = false;
-                boolean isInParameter = false;
-
-                if (i == 0 && this.isFunctionCall) {
-                    isOutParameter = true;
-                    isInParameter = false;
-                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnInOut) {
-                    isOutParameter = true;
-                    isInParameter = true;
-                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnIn) {
-                    isOutParameter = false;
-                    isInParameter = true;
-                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnOut) {
-                    isOutParameter = true;
-                    isInParameter = false;
-                }
-
-                int jdbcType = paramTypesRs.getInt(6);
-                String typeName = paramTypesRs.getString(7);
-                int precision = paramTypesRs.getInt(8);
-                int scale = paramTypesRs.getInt(10);
-                short nullability = paramTypesRs.getShort(12);
-
-                CallableStatementParam paramInfoToAdd = new CallableStatementParam(paramName, i++, isInParameter, isOutParameter, jdbcType, typeName, precision,
-                        scale, nullability, inOutModifier);
-
-                this.parameterList.add(paramInfoToAdd);
-                this.parameterMap.put(paramName, paramInfoToAdd);
-            }
-        }
-
-        protected void checkBounds(int paramIndex) throws SQLException {
-            int localParamIndex = paramIndex - 1;
-
-            if ((paramIndex < 0) || (localParamIndex >= this.numParameters)) {
-                throw SQLError.createSQLException(Messages.getString("CallableStatement.11") + paramIndex + Messages.getString("CallableStatement.12")
-                        + this.numParameters + Messages.getString("CallableStatement.13"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
-            }
-        }
-
-        /*
-         * (non-Javadoc)
-         * 
-         * @see java.lang.Object#clone()
-         */
-        @Override
-        protected Object clone() throws CloneNotSupportedException {
-            return super.clone();
-        }
-
-        CallableStatementParam getParameter(int index) {
-            return this.parameterList.get(index);
-        }
-
-        CallableStatementParam getParameter(String name) {
-            return this.parameterMap.get(name);
-        }
-
-        public String getParameterClassName(int arg0) throws SQLException {
-            String mysqlTypeName = getParameterTypeName(arg0);
-
-            boolean isBinaryOrBlob = StringUtils.indexOfIgnoreCase(mysqlTypeName, "BLOB") != -1 || StringUtils.indexOfIgnoreCase(mysqlTypeName, "BINARY") != -1;
-
-            boolean isUnsigned = StringUtils.indexOfIgnoreCase(mysqlTypeName, "UNSIGNED") != -1;
-
-            int mysqlTypeIfKnown = 0;
-
-            if (StringUtils.startsWithIgnoreCase(mysqlTypeName, "MEDIUMINT")) {
-                mysqlTypeIfKnown = MysqlDefs.FIELD_TYPE_INT24;
-            }
-
-            return ResultSetMetaData.getClassNameForJavaType(getParameterType(arg0), isUnsigned, mysqlTypeIfKnown, isBinaryOrBlob, false,
-                    CallableStatement.this.connection.getYearIsDateType());
-        }
-
-        public int getParameterCount() throws SQLException {
-            if (this.parameterList == null) {
-                return 0;
-            }
-
-            return this.parameterList.size();
-        }
-
-        public int getParameterMode(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).inOutModifier;
-        }
-
-        public int getParameterType(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).jdbcType;
-        }
-
-        public String getParameterTypeName(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).typeName;
-        }
-
-        public int getPrecision(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).precision;
-        }
-
-        public int getScale(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).scale;
-        }
-
-        public int isNullable(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return getParameter(arg0 - 1).nullability;
-        }
-
-        public boolean isSigned(int arg0) throws SQLException {
-            checkBounds(arg0);
-
-            return false;
-        }
-
-        Iterator<CallableStatementParam> iterator() {
-            return this.parameterList.iterator();
-        }
-
-        int numberOfParameters() {
-            return this.numParameters;
-        }
-
-        /**
-         * @see java.sql.Wrapper#isWrapperFor(Class)
-         */
-        public boolean isWrapperFor(Class<?> iface) throws SQLException {
-            checkClosed();
-
-            // This works for classes that aren't actually wrapping anything
-            return iface.isInstance(this);
-        }
-
-        /**
-         * @see java.sql.Wrapper#unwrap(Class)
-         */
-        public <T> T unwrap(Class<T> iface) throws java.sql.SQLException {
-            try {
-                // This works for classes that aren't actually wrapping anything
-                return iface.cast(this);
-            } catch (ClassCastException cce) {
-                throw SQLError.createSQLException("Unable to unwrap to " + iface.toString(), SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
-            }
-        }
+        this.retrieveGeneratedKeys = true; // not provided for in the JDBC spec
     }
-
-    private final static int NOT_OUTPUT_PARAMETER_INDICATOR = Integer.MIN_VALUE;
-
-    private final static String PARAMETER_NAMESPACE_PREFIX = "@com_mysql_jdbc_outparam_";
 
     private static String mangleParameterName(String origParameterName) {
         //Fixed for 5.5+ in callers
@@ -414,48 +146,6 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
         return paramNameBuf.toString();
     }
 
-    private boolean callingStoredFunction = false;
-
-    private ResultSetInternalMethods functionReturnValueResults;
-
-    private boolean hasOutputParams = false;
-
-    // private List parameterList;
-    // private Map parameterMap;
-    private ResultSetInternalMethods outputParameterResults;
-
-    protected boolean outputParamWasNull = false;
-
-    private int[] parameterIndexToRsIndex;
-
-    protected CallableStatementParamInfo paramInfo;
-
-    private CallableStatementParam returnValueParam;
-
-    /**
-     * Creates a new CallableStatement
-     * 
-     * @param conn
-     *            the connection creating this statement
-     * @param paramInfo
-     *            the SQL to prepare
-     * 
-     * @throws SQLException
-     *             if an error occurs
-     */
-    public CallableStatement(MySQLConnection conn, CallableStatementParamInfo paramInfo) throws SQLException {
-        super(conn, paramInfo.nativeSql, paramInfo.catalogInUse);
-
-        this.paramInfo = paramInfo;
-        this.callingStoredFunction = this.paramInfo.isFunctionCall;
-
-        if (this.callingStoredFunction) {
-            this.parameterCount += 1;
-        }
-
-        this.retrieveGeneratedKeys = true; // not provided for in the JDBC spec
-    }
-
     /**
      * Creates a callable statement instance -- We need to provide factory-style methods
      * so we can support both JDBC3 (and older) and JDBC4 runtimes, otherwise
@@ -468,7 +158,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
             return new CallableStatement(conn, sql, catalog, isFunctionCall);
         }
 
-        return (CallableStatement) Util.handleNewInstance(JDBC_4_CSTMT_4_ARGS_CTOR, new Object[] { conn, sql, catalog, Boolean.valueOf(isFunctionCall) },
+        return (CallableStatement) Util.handleNewInstance(JDBC_4_CSTMT_4_ARGS_CTOR, new Object[]{conn, sql, catalog, Boolean.valueOf(isFunctionCall)},
                 conn.getExceptionInterceptor());
     }
 
@@ -484,11 +174,9 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
             return new CallableStatement(conn, paramInfo);
         }
 
-        return (CallableStatement) Util.handleNewInstance(JDBC_4_CSTMT_2_ARGS_CTOR, new Object[] { conn, paramInfo }, conn.getExceptionInterceptor());
+        return (CallableStatement) Util.handleNewInstance(JDBC_4_CSTMT_2_ARGS_CTOR, new Object[]{conn, paramInfo}, conn.getExceptionInterceptor());
 
     }
-
-    private int[] placeholderToParameterIndexMap;
 
     private void generateParameterMap() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -543,46 +231,9 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
         }
     }
 
-    /**
-     * Creates a new CallableStatement
-     * 
-     * @param conn
-     *            the connection creating this statement
-     * @param sql
-     *            the SQL to prepare
-     * @param catalog
-     *            the current catalog
-     * 
-     * @throws SQLException
-     *             if an error occurs
-     */
-    public CallableStatement(MySQLConnection conn, String sql, String catalog, boolean isFunctionCall) throws SQLException {
-        super(conn, sql, catalog);
-
-        this.callingStoredFunction = isFunctionCall;
-
-        if (!this.callingStoredFunction) {
-            if (!StringUtils.startsWithIgnoreCaseAndWs(sql, "CALL")) {
-                // not really a stored procedure call
-                fakeParameterTypes(false);
-            } else {
-                determineParameterTypes();
-            }
-
-            generateParameterMap();
-        } else {
-            determineParameterTypes();
-            generateParameterMap();
-
-            this.parameterCount += 1;
-        }
-
-        this.retrieveGeneratedKeys = true; // not provided for in the JDBC spec
-    }
-
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.sql.PreparedStatement#addBatch()
      */
     @Override
@@ -639,7 +290,6 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /**
      * @param paramIndex
-     * 
      * @throws SQLException
      */
     private void checkParameterIndexBounds(int paramIndex) throws SQLException {
@@ -652,7 +302,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
      * Checks whether or not this statement is supposed to be providing
      * streamable result sets...If output parameters are registered, the driver
      * can not stream the results.
-     * 
+     *
      * @throws SQLException
      */
     private void checkStreamability() throws SQLException {
@@ -679,9 +329,8 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     /**
      * Used to fake up some metadata when we don't have access to
      * SHOW CREATE PROCEDURE or mysql.proc.
-     * 
-     * @throws SQLException
-     *             if we can't build the metadata.
+     *
+     * @throws SQLException if we can't build the metadata.
      */
     private void fakeParameterTypes(boolean isReallyProcedure) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -786,7 +435,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
                         hasResults = true;
                     }
                 } catch (Exception e) {
-                    // paramTypesRs is empty, proceed with fake params. swallow, was expected 
+                    // paramTypesRs is empty, proceed with fake params. swallow, was expected
                 }
                 if (hasResults) {
                     convertGetProcedureColumnsToInternalDescriptors(paramTypesRs);
@@ -821,7 +470,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.sql.PreparedStatement#execute()
      */
     @Override
@@ -855,7 +504,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.sql.PreparedStatement#executeQuery()
      */
     @Override
@@ -879,7 +528,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.sql.PreparedStatement#executeUpdate()
      */
     @Override
@@ -924,21 +573,17 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /**
      * Adds 'at' symbol to beginning of parameter names if needed.
-     * 
-     * @param paramNameIn
-     *            the parameter name to 'fix'
-     * 
+     *
+     * @param paramNameIn the parameter name to 'fix'
      * @return the parameter name with an 'a' prepended, if needed
-     * 
-     * @throws SQLException
-     *             if the parameter name is null or empty.
+     * @throws SQLException if the parameter name is null or empty.
      */
     protected String fixParameterName(String paramNameIn) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             //Fixed for 5.5+
             if (((paramNameIn == null) || (paramNameIn.length() == 0)) && (!hasParametersView())) {
                 throw SQLError.createSQLException(((Messages.getString("CallableStatement.0") + paramNameIn) == null)
-                        ? Messages.getString("CallableStatement.15") : Messages.getString("CallableStatement.16"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
+                                ? Messages.getString("CallableStatement.15") : Messages.getString("CallableStatement.16"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
                         getExceptionInterceptor());
             }
 
@@ -1003,9 +648,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     /**
      * @param parameterIndex
      * @param scale
-     * 
      * @throws SQLException
-     * 
      * @see java.sql.CallableStatement#getBigDecimal(int, int)
      * @deprecated
      */
@@ -1496,12 +1139,10 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     /**
      * Returns the ResultSet that holds the output parameters, or throws an
      * appropriate exception if none exist, or they weren't returned.
-     * 
+     *
      * @return the ResultSet that holds the output parameters
-     * 
-     * @throws SQLException
-     *             if no output parameters were defined, or if no output
-     *             parameters were returned.
+     * @throws SQLException if no output parameters were defined, or if no output
+     *                      parameters were returned.
      */
     protected ResultSetInternalMethods getOutputParameters(int paramIndex) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1847,9 +1488,8 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /**
      * Issues a second query to retrieve all output parameters.
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     *
+     * @throws SQLException if an error occurs.
      */
     private void retrieveOutParams() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1869,7 +1509,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
                 boolean firstParam = true;
                 boolean hadOutputParams = false;
 
-                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext();) {
+                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext(); ) {
                     CallableStatementParam retrParamInfo = paramIter.next();
 
                     if (retrParamInfo.isOut) {
@@ -2005,7 +1645,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     private void setInOutParamsOnServer() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             if (this.paramInfo.numParameters > 0) {
-                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext();) {
+                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext(); ) {
 
                     CallableStatementParam inParamInfo = paramIter.next();
 
@@ -2122,7 +1762,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
     private void setOutParams() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             if (this.paramInfo.numParameters > 0) {
-                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext();) {
+                for (Iterator<CallableStatementParam> paramIter = this.paramInfo.iterator(); paramIter.hasNext(); ) {
                     CallableStatementParam outParamInfo = paramIter.next();
 
                     if (!this.callingStoredFunction && outParamInfo.isOut) {
@@ -2309,7 +1949,7 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
 
     /**
      * Check whether the stored procedure alters any data or is safe for read-only usage.
-     * 
+     *
      * @return true if procedure does not alter data
      * @throws SQLException
      */
@@ -2431,5 +2071,319 @@ public class CallableStatement extends PreparedStatement implements java.sql.Cal
         }
 
         return super.executeLargeBatch();
+    }
+
+    protected static class CallableStatementParam {
+        int desiredJdbcType;
+
+        int index;
+
+        int inOutModifier;
+
+        boolean isIn;
+
+        boolean isOut;
+
+        int jdbcType;
+
+        short nullability;
+
+        String paramName;
+
+        int precision;
+
+        int scale;
+
+        String typeName;
+
+        CallableStatementParam(String name, int idx, boolean in, boolean out, int jdbcType, String typeName, int precision, int scale, short nullability,
+                               int inOutModifier) {
+            this.paramName = name;
+            this.isIn = in;
+            this.isOut = out;
+            this.index = idx;
+
+            this.jdbcType = jdbcType;
+            this.typeName = typeName;
+            this.precision = precision;
+            this.scale = scale;
+            this.nullability = nullability;
+            this.inOutModifier = inOutModifier;
+        }
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.lang.Object#clone()
+         */
+        @Override
+        protected Object clone() throws CloneNotSupportedException {
+            return super.clone();
+        }
+    }
+
+    protected class CallableStatementParamInfo implements ParameterMetaData {
+        String catalogInUse;
+
+        boolean isFunctionCall;
+
+        String nativeSql;
+
+        int numParameters;
+
+        List<CallableStatementParam> parameterList;
+
+        Map<String, CallableStatementParam> parameterMap;
+
+        /**
+         * synchronized externally in checkReadOnlyProcedure()
+         */
+        boolean isReadOnlySafeProcedure = false;
+
+        /**
+         * synchronized externally in checkReadOnlyProcedure()
+         */
+        boolean isReadOnlySafeChecked = false;
+
+        /**
+         * Constructor that converts a full list of parameter metadata into one
+         * that only represents the placeholders present in the {CALL ()}.
+         *
+         * @param fullParamInfo the metadata for all parameters for this stored
+         *                      procedure or function.
+         */
+        CallableStatementParamInfo(CallableStatementParamInfo fullParamInfo) {
+            this.nativeSql = CallableStatement.this.originalSql;
+            this.catalogInUse = CallableStatement.this.currentCatalog;
+            this.isFunctionCall = fullParamInfo.isFunctionCall;
+            @SuppressWarnings("synthetic-access")
+            int[] localParameterMap = CallableStatement.this.placeholderToParameterIndexMap;
+            int parameterMapLength = localParameterMap.length;
+
+            this.isReadOnlySafeProcedure = fullParamInfo.isReadOnlySafeProcedure;
+            this.isReadOnlySafeChecked = fullParamInfo.isReadOnlySafeChecked;
+            this.parameterList = new ArrayList<CallableStatementParam>(fullParamInfo.numParameters);
+            this.parameterMap = new HashMap<String, CallableStatementParam>(fullParamInfo.numParameters);
+
+            if (this.isFunctionCall) {
+                // Take the return value
+                this.parameterList.add(fullParamInfo.parameterList.get(0));
+            }
+
+            int offset = this.isFunctionCall ? 1 : 0;
+
+            for (int i = 0; i < parameterMapLength; i++) {
+                if (localParameterMap[i] != 0) {
+                    CallableStatementParam param = fullParamInfo.parameterList.get(localParameterMap[i] + offset);
+
+                    this.parameterList.add(param);
+                    this.parameterMap.put(param.paramName, param);
+                }
+            }
+
+            this.numParameters = this.parameterList.size();
+        }
+
+        @SuppressWarnings("synthetic-access")
+        CallableStatementParamInfo(java.sql.ResultSet paramTypesRs) throws SQLException {
+            boolean hadRows = paramTypesRs.last();
+
+            this.nativeSql = CallableStatement.this.originalSql;
+            this.catalogInUse = CallableStatement.this.currentCatalog;
+            this.isFunctionCall = CallableStatement.this.callingStoredFunction;
+
+            if (hadRows) {
+                this.numParameters = paramTypesRs.getRow();
+
+                this.parameterList = new ArrayList<CallableStatementParam>(this.numParameters);
+                this.parameterMap = new HashMap<String, CallableStatementParam>(this.numParameters);
+
+                paramTypesRs.beforeFirst();
+
+                addParametersFromDBMD(paramTypesRs);
+            } else {
+                this.numParameters = 0;
+            }
+
+            if (this.isFunctionCall) {
+                this.numParameters += 1;
+            }
+        }
+
+        private void addParametersFromDBMD(java.sql.ResultSet paramTypesRs) throws SQLException {
+            int i = 0;
+
+            while (paramTypesRs.next()) {
+                String paramName = paramTypesRs.getString(4);
+                int inOutModifier;
+                switch (paramTypesRs.getInt(5)) {
+                    case DatabaseMetaData.procedureColumnIn:
+                        inOutModifier = ParameterMetaData.parameterModeIn;
+                        break;
+                    case DatabaseMetaData.procedureColumnInOut:
+                        inOutModifier = ParameterMetaData.parameterModeInOut;
+                        break;
+                    case DatabaseMetaData.procedureColumnOut:
+                    case DatabaseMetaData.procedureColumnReturn:
+                        inOutModifier = ParameterMetaData.parameterModeOut;
+                        break;
+                    default:
+                        inOutModifier = ParameterMetaData.parameterModeUnknown;
+                }
+
+                boolean isOutParameter = false;
+                boolean isInParameter = false;
+
+                if (i == 0 && this.isFunctionCall) {
+                    isOutParameter = true;
+                    isInParameter = false;
+                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnInOut) {
+                    isOutParameter = true;
+                    isInParameter = true;
+                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnIn) {
+                    isOutParameter = false;
+                    isInParameter = true;
+                } else if (inOutModifier == java.sql.DatabaseMetaData.procedureColumnOut) {
+                    isOutParameter = true;
+                    isInParameter = false;
+                }
+
+                int jdbcType = paramTypesRs.getInt(6);
+                String typeName = paramTypesRs.getString(7);
+                int precision = paramTypesRs.getInt(8);
+                int scale = paramTypesRs.getInt(10);
+                short nullability = paramTypesRs.getShort(12);
+
+                CallableStatementParam paramInfoToAdd = new CallableStatementParam(paramName, i++, isInParameter, isOutParameter, jdbcType, typeName, precision,
+                        scale, nullability, inOutModifier);
+
+                this.parameterList.add(paramInfoToAdd);
+                this.parameterMap.put(paramName, paramInfoToAdd);
+            }
+        }
+
+        protected void checkBounds(int paramIndex) throws SQLException {
+            int localParamIndex = paramIndex - 1;
+
+            if ((paramIndex < 0) || (localParamIndex >= this.numParameters)) {
+                throw SQLError.createSQLException(Messages.getString("CallableStatement.11") + paramIndex + Messages.getString("CallableStatement.12")
+                        + this.numParameters + Messages.getString("CallableStatement.13"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
+            }
+        }
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.lang.Object#clone()
+         */
+        @Override
+        protected Object clone() throws CloneNotSupportedException {
+            return super.clone();
+        }
+
+        CallableStatementParam getParameter(int index) {
+            return this.parameterList.get(index);
+        }
+
+        CallableStatementParam getParameter(String name) {
+            return this.parameterMap.get(name);
+        }
+
+        public String getParameterClassName(int arg0) throws SQLException {
+            String mysqlTypeName = getParameterTypeName(arg0);
+
+            boolean isBinaryOrBlob = StringUtils.indexOfIgnoreCase(mysqlTypeName, "BLOB") != -1 || StringUtils.indexOfIgnoreCase(mysqlTypeName, "BINARY") != -1;
+
+            boolean isUnsigned = StringUtils.indexOfIgnoreCase(mysqlTypeName, "UNSIGNED") != -1;
+
+            int mysqlTypeIfKnown = 0;
+
+            if (StringUtils.startsWithIgnoreCase(mysqlTypeName, "MEDIUMINT")) {
+                mysqlTypeIfKnown = MysqlDefs.FIELD_TYPE_INT24;
+            }
+
+            return ResultSetMetaData.getClassNameForJavaType(getParameterType(arg0), isUnsigned, mysqlTypeIfKnown, isBinaryOrBlob, false,
+                    CallableStatement.this.connection.getYearIsDateType());
+        }
+
+        public int getParameterCount() throws SQLException {
+            if (this.parameterList == null) {
+                return 0;
+            }
+
+            return this.parameterList.size();
+        }
+
+        public int getParameterMode(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).inOutModifier;
+        }
+
+        public int getParameterType(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).jdbcType;
+        }
+
+        public String getParameterTypeName(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).typeName;
+        }
+
+        public int getPrecision(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).precision;
+        }
+
+        public int getScale(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).scale;
+        }
+
+        public int isNullable(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return getParameter(arg0 - 1).nullability;
+        }
+
+        public boolean isSigned(int arg0) throws SQLException {
+            checkBounds(arg0);
+
+            return false;
+        }
+
+        Iterator<CallableStatementParam> iterator() {
+            return this.parameterList.iterator();
+        }
+
+        int numberOfParameters() {
+            return this.numParameters;
+        }
+
+        /**
+         * @see java.sql.Wrapper#isWrapperFor(Class)
+         */
+        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+            checkClosed();
+
+            // This works for classes that aren't actually wrapping anything
+            return iface.isInstance(this);
+        }
+
+        /**
+         * @see java.sql.Wrapper#unwrap(Class)
+         */
+        public <T> T unwrap(Class<T> iface) throws java.sql.SQLException {
+            try {
+                // This works for classes that aren't actually wrapping anything
+                return iface.cast(this);
+            } catch (ClassCastException cce) {
+                throw SQLError.createSQLException("Unable to unwrap to " + iface.toString(), SQLError.SQL_STATE_ILLEGAL_ARGUMENT, getExceptionInterceptor());
+            }
+        }
     }
 }

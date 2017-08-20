@@ -23,14 +23,13 @@
 
 package testsuite.fabric.jdbc;
 
+import com.mysql.fabric.jdbc.FabricMySQLConnection;
+import com.mysql.fabric.jdbc.FabricMySQLDataSource;
+import testsuite.fabric.BaseFabricTestCase;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-import com.mysql.fabric.jdbc.FabricMySQLConnection;
-import com.mysql.fabric.jdbc.FabricMySQLDataSource;
-
-import testsuite.fabric.BaseFabricTestCase;
 
 public class TestFabricMySQLConnectionSharding extends BaseFabricTestCase {
     private FabricMySQLDataSource ds;
@@ -83,7 +82,7 @@ public class TestFabricMySQLConnectionSharding extends BaseFabricTestCase {
 
         // check other groups for table
         ResultSet rs;
-        String groupsToTest[] = new String[] { "fabric_test1_shard1", "fabric_test1_shard2", "fabric_test1_global" };
+        String groupsToTest[] = new String[]{"fabric_test1_shard1", "fabric_test1_shard2", "fabric_test1_global"};
         for (String groupName : groupsToTest) {
             System.out.println("Testing data present in group `" + groupName + "'");
             this.conn.setServerGroupName(groupName);

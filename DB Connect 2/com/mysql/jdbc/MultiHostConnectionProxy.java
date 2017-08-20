@@ -23,11 +23,7 @@
 
 package com.mysql.jdbc;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
+import java.lang.reflect.*;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
@@ -49,32 +45,13 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
     private static final String METHOD_GET_CATALOG = "getCatalog";
     private static final String METHOD_GET_TRANSACTION_ISOLATION = "getTransactionIsolation";
     private static final String METHOD_GET_SESSION_MAX_ROWS = "getSessionMaxRows";
-
-    List<String> hostList;
-    Properties localProps;
-
-    boolean autoReconnect = false;
-
-    MySQLConnection thisAsConnection = null;
-    MySQLConnection proxyConnection = null;
-
-    MySQLConnection currentConnection = null;
-
-    boolean isClosed = false;
-    boolean closedExplicitly = false;
-    String closedReason = null;
-
-    // Keep track of the last exception processed in 'dealWithInvocationException()' in order to avoid creating connections repeatedly from each time the same
-    // exception is caught in every proxy instance belonging to the same call stack.
-    protected Throwable lastExceptionDealtWith = null;
-
     private static Constructor<?> JDBC_4_MS_CONNECTION_CTOR;
 
     static {
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_MS_CONNECTION_CTOR = Class.forName("com.mysql.jdbc.JDBC4MultiHostMySQLConnection")
-                        .getConstructor(new Class[] { MultiHostConnectionProxy.class });
+                        .getConstructor(new Class[]{MultiHostConnectionProxy.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -85,37 +62,23 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
         }
     }
 
-    /**
-     * Proxy class to intercept and deal with errors that may occur in any object bound to the current connection.
-     */
-    class JdbcInterfaceProxy implements InvocationHandler {
-        Object invokeOn = null;
-
-        JdbcInterfaceProxy(Object toInvokeOn) {
-            this.invokeOn = toInvokeOn;
-        }
-
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            synchronized (MultiHostConnectionProxy.this) {
-                Object result = null;
-
-                try {
-                    result = method.invoke(this.invokeOn, args);
-                    result = proxyIfReturnTypeIsJdbcInterface(method.getReturnType(), result);
-                } catch (InvocationTargetException e) {
-                    dealWithInvocationException(e);
-                }
-
-                return result;
-            }
-        }
-    }
+    // Keep track of the last exception processed in 'dealWithInvocationException()' in order to avoid creating connections repeatedly from each time the same
+    // exception is caught in every proxy instance belonging to the same call stack.
+    protected Throwable lastExceptionDealtWith = null;
+    List<String> hostList;
+    Properties localProps;
+    boolean autoReconnect = false;
+    MySQLConnection thisAsConnection = null;
+    MySQLConnection proxyConnection = null;
+    MySQLConnection currentConnection = null;
+    boolean isClosed = false;
+    boolean closedExplicitly = false;
+    String closedReason = null;
 
     /**
      * Initializes a connection wrapper for this MultiHostConnectionProxy instance.
-     * 
-     * @param props
-     *            The properties to be used in new internal connections.
+     *
+     * @param props The properties to be used in new internal connections.
      */
     MultiHostConnectionProxy() throws SQLException {
         this.thisAsConnection = getNewWrapperForThisAsConnection();
@@ -123,11 +86,9 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Constructs a MultiHostConnectionProxy instance for the given list of hosts and connection properties.
-     * 
-     * @param hosts
-     *            The lists of hosts available to switch on.
-     * @param props
-     *            The properties to be used in new internal connections.
+     *
+     * @param hosts The lists of hosts available to switch on.
+     * @param props The properties to be used in new internal connections.
      */
     MultiHostConnectionProxy(List<String> hosts, Properties props) throws SQLException {
         this();
@@ -135,15 +96,46 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
     }
 
     /**
+     * Synchronizes session state between two connections.
+     *
+     * @param source The connection where to get state from.
+     * @param target The connection where to set state.
+     */
+    static void syncSessionState(Connection source, Connection target) throws SQLException {
+        if (source == null || target == null) {
+            return;
+        }
+        syncSessionState(source, target, source.isReadOnly());
+    }
+
+    /**
+     * Synchronizes session state between two connections, allowing to override the read-only status.
+     *
+     * @param source   The connection where to get state from.
+     * @param target   The connection where to set state.
+     * @param readOnly The new read-only status.
+     */
+    static void syncSessionState(Connection source, Connection target, boolean readOnly) throws SQLException {
+        if (target != null) {
+            target.setReadOnly(readOnly);
+        }
+
+        if (source == null || target == null) {
+            return;
+        }
+        target.setAutoCommit(source.getAutoCommit());
+        target.setCatalog(source.getCatalog());
+        target.setTransactionIsolation(source.getTransactionIsolation());
+        target.setSessionMaxRows(source.getSessionMaxRows());
+    }
+
+    /**
      * Initializes the hosts lists and makes a "clean" local copy of the given connection properties so that it can be later used to create standard
      * connections.
-     * 
-     * @param hosts
-     *            The list of hosts for this multi-host connection.
-     * @param props
-     *            Connection properties from where to get initial settings and to be used in new connections.
-     * @return
-     *         The number of hosts found in the hosts list.
+     *
+     * @param hosts The list of hosts for this multi-host connection.
+     * @param props Connection properties from where to get initial settings and to be used in new connections.
+     * @return The number of hosts found in the hosts list.
      */
     int initializeHostsSpecs(List<String> hosts, Properties props) {
         this.autoReconnect = "true".equalsIgnoreCase(props.getProperty("autoReconnect")) || "true".equalsIgnoreCase(props.getProperty("autoReconnectForPools"));
@@ -168,13 +160,12 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Wraps this object with a new multi-host Connection instance.
-     * 
-     * @return
-     *         The connection object instance that wraps 'this'.
+     *
+     * @return The connection object instance that wraps 'this'.
      */
     MySQLConnection getNewWrapperForThisAsConnection() throws SQLException {
         if (Util.isJdbc4() || JDBC_4_MS_CONNECTION_CTOR != null) {
-            return (MySQLConnection) Util.handleNewInstance(JDBC_4_MS_CONNECTION_CTOR, new Object[] { this }, null);
+            return (MySQLConnection) Util.handleNewInstance(JDBC_4_MS_CONNECTION_CTOR, new Object[]{this}, null);
         }
 
         return new MultiHostMySQLConnection(this);
@@ -184,9 +175,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
      * Get this connection's proxy.
      * A multi-host connection may not be at top level in the multi-host connections chain. In such case the first connection in the chain is available as a
      * proxy.
-     * 
-     * @return
-     *         Returns this connection's proxy if there is one or itself if this is the first one.
+     *
+     * @return Returns this connection's proxy if there is one or itself if this is the first one.
      */
     protected MySQLConnection getProxy() {
         return this.proxyConnection != null ? this.proxyConnection : this.thisAsConnection;
@@ -195,9 +185,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
     /**
      * Sets this connection's proxy. This proxy should be the first connection in the multi-host connections chain.
      * After setting the connection proxy locally, propagates it through the dependant connections.
-     * 
-     * @param proxyConn
-     *            The top level connection in the multi-host connections chain.
+     *
+     * @param proxyConn The top level connection in the multi-host connections chain.
      */
     protected final void setProxy(MySQLConnection proxyConn) {
         this.proxyConnection = proxyConn;
@@ -207,9 +196,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
     /**
      * Propagates the connection proxy down through the multi-host connections chain.
      * This method is intended to be overridden in subclasses that manage more than one active connection at same time.
-     * 
-     * @param proxyConn
-     *            The top level connection in the multi-host connections chain.
+     *
+     * @param proxyConn The top level connection in the multi-host connections chain.
      */
     protected void propagateProxyDown(MySQLConnection proxyConn) {
         this.currentConnection.setProxy(proxyConn);
@@ -217,13 +205,10 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * If the given return type is or implements a JDBC interface, proxies the given object so that we can catch SQL errors and fire a connection switch.
-     * 
-     * @param returnType
-     *            The type the object instance to proxy is supposed to be.
-     * @param toProxy
-     *            The object instance to proxy.
-     * @return
-     *         The proxied object or the original one if it does not implement a JDBC interface.
+     *
+     * @param returnType The type the object instance to proxy is supposed to be.
+     * @param toProxy    The object instance to proxy.
+     * @return The proxied object or the original one if it does not implement a JDBC interface.
      */
     Object proxyIfReturnTypeIsJdbcInterface(Class<?> returnType, Object toProxy) {
         if (toProxy != null) {
@@ -237,11 +222,9 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Instantiates a new JdbcInterfaceProxy for the given object. Subclasses can override this to return instances of JdbcInterfaceProxy subclasses.
-     * 
-     * @param toProxy
-     *            The object instance to be proxied.
-     * @return
-     *         The new InvocationHandler instance.
+     *
+     * @param toProxy The object instance to be proxied.
+     * @return The new InvocationHandler instance.
      */
     InvocationHandler getNewJdbcInterfaceProxy(Object toProxy) {
         return new JdbcInterfaceProxy(toProxy);
@@ -249,9 +232,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Deals with InvocationException from proxied objects.
-     * 
-     * @param e
-     *            The Exception instance to check.
+     *
+     * @param e The Exception instance to check.
      */
     void dealWithInvocationException(InvocationTargetException e) throws SQLException, Throwable, InvocationTargetException {
         Throwable t = e.getTargetException();
@@ -269,9 +251,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Checks if the given throwable should trigger a connection switch.
-     * 
-     * @param t
-     *            The Throwable instance to analyze.
+     *
+     * @param t The Throwable instance to analyze.
      */
     abstract boolean shouldExceptionTriggerConnectionSwitch(Throwable t);
 
@@ -289,9 +270,8 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Invalidates the specified connection by closing it.
-     * 
-     * @param conn
-     *            The connection instance to invalidate.
+     *
+     * @param conn The connection instance to invalidate.
      */
     synchronized void invalidateConnection(MySQLConnection conn) throws SQLException {
         try {
@@ -310,11 +290,9 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
     /**
      * Creates a new physical connection for the given host:port.
-     * 
-     * @param hostPortSpec
-     *            The host:port specification.
-     * @return
-     *         The new Connection instance.
+     *
+     * @param hostPortSpec The host:port specification.
+     * @return The new Connection instance.
      */
     synchronized ConnectionImpl createConnectionForHost(String hostPortSpec) throws SQLException {
         Properties connProps = (Properties) this.localProps.clone();
@@ -344,45 +322,6 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
         conn.setProxy(getProxy());
 
         return conn;
-    }
-
-    /**
-     * Synchronizes session state between two connections.
-     * 
-     * @param source
-     *            The connection where to get state from.
-     * @param target
-     *            The connection where to set state.
-     */
-    static void syncSessionState(Connection source, Connection target) throws SQLException {
-        if (source == null || target == null) {
-            return;
-        }
-        syncSessionState(source, target, source.isReadOnly());
-    }
-
-    /**
-     * Synchronizes session state between two connections, allowing to override the read-only status.
-     * 
-     * @param source
-     *            The connection where to get state from.
-     * @param target
-     *            The connection where to set state.
-     * @param readOnly
-     *            The new read-only status.
-     */
-    static void syncSessionState(Connection source, Connection target, boolean readOnly) throws SQLException {
-        if (target != null) {
-            target.setReadOnly(readOnly);
-        }
-
-        if (source == null || target == null) {
-            return;
-        }
-        target.setAutoCommit(source.getAutoCommit());
-        target.setCatalog(source.getCatalog());
-        target.setTransactionIsolation(source.getTransactionIsolation());
-        target.setSessionMaxRows(source.getSessionMaxRows());
     }
 
     /**
@@ -477,5 +416,31 @@ public abstract class MultiHostConnectionProxy implements InvocationHandler {
 
         return methodName.equals(METHOD_GET_AUTO_COMMIT) || methodName.equals(METHOD_GET_CATALOG) || methodName.equals(METHOD_GET_TRANSACTION_ISOLATION)
                 || methodName.equals(METHOD_GET_SESSION_MAX_ROWS);
+    }
+
+    /**
+     * Proxy class to intercept and deal with errors that may occur in any object bound to the current connection.
+     */
+    class JdbcInterfaceProxy implements InvocationHandler {
+        Object invokeOn = null;
+
+        JdbcInterfaceProxy(Object toInvokeOn) {
+            this.invokeOn = toInvokeOn;
+        }
+
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            synchronized (MultiHostConnectionProxy.this) {
+                Object result = null;
+
+                try {
+                    result = method.invoke(this.invokeOn, args);
+                    result = proxyIfReturnTypeIsJdbcInterface(method.getReturnType(), result);
+                } catch (InvocationTargetException e) {
+                    dealWithInvocationException(e);
+                }
+
+                return result;
+            }
+        }
     }
 }

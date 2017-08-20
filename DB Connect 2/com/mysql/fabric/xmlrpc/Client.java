@@ -23,6 +23,15 @@
 
 package com.mysql.fabric.xmlrpc;
 
+import com.mysql.fabric.xmlrpc.base.MethodCall;
+import com.mysql.fabric.xmlrpc.base.MethodResponse;
+import com.mysql.fabric.xmlrpc.base.ResponseParser;
+import com.mysql.fabric.xmlrpc.exceptions.MySQLFabricException;
+import org.xml.sax.SAXException;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,17 +40,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
-import org.xml.sax.SAXException;
-
-import com.mysql.fabric.xmlrpc.base.MethodCall;
-import com.mysql.fabric.xmlrpc.base.MethodResponse;
-import com.mysql.fabric.xmlrpc.base.ResponseParser;
-import com.mysql.fabric.xmlrpc.exceptions.MySQLFabricException;
 
 /**
  * XML-RPC client.

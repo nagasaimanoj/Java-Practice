@@ -23,25 +23,17 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
+import com.mysql.jdbc.SQLError;
+import com.mysql.jdbc.Util;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.CallableStatement;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.Ref;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Util;
 
 /**
  * Wraps callable statements created by pooled connections.
@@ -56,7 +48,7 @@ public class CallableStatementWrapper extends PreparedStatementWrapper implement
                 String jdbc4ClassName = Util.isJdbc42() ? "com.mysql.jdbc.jdbc2.optional.JDBC42CallableStatementWrapper"
                         : "com.mysql.jdbc.jdbc2.optional.JDBC4CallableStatementWrapper";
                 JDBC_4_CALLABLE_STATEMENT_WRAPPER_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { ConnectionWrapper.class, MysqlPooledConnection.class, CallableStatement.class });
+                        .getConstructor(new Class[]{ConnectionWrapper.class, MysqlPooledConnection.class, CallableStatement.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -69,15 +61,6 @@ public class CallableStatementWrapper extends PreparedStatementWrapper implement
         }
     }
 
-    protected static CallableStatementWrapper getInstance(ConnectionWrapper c, MysqlPooledConnection conn, CallableStatement toWrap) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new CallableStatementWrapper(c, conn, toWrap);
-        }
-
-        return (CallableStatementWrapper) Util.handleNewInstance(JDBC_4_CALLABLE_STATEMENT_WRAPPER_CTOR, new Object[] { c, conn, toWrap },
-                conn.getExceptionInterceptor());
-    }
-
     /**
      * @param c
      * @param conn
@@ -85,6 +68,15 @@ public class CallableStatementWrapper extends PreparedStatementWrapper implement
      */
     public CallableStatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, CallableStatement toWrap) {
         super(c, conn, toWrap);
+    }
+
+    protected static CallableStatementWrapper getInstance(ConnectionWrapper c, MysqlPooledConnection conn, CallableStatement toWrap) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new CallableStatementWrapper(c, conn, toWrap);
+        }
+
+        return (CallableStatementWrapper) Util.handleNewInstance(JDBC_4_CALLABLE_STATEMENT_WRAPPER_CTOR, new Object[]{c, conn, toWrap},
+                conn.getExceptionInterceptor());
     }
 
     /*

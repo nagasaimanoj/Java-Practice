@@ -1,10 +1,9 @@
 public class MySingleTon {
+    public static MySingleTon myObj = new MySingleTon();
     int a = 0;
 
     private MySingleTon() {
     }
-
-    public static MySingleTon myObj = new MySingleTon();
 
     public static MySingleTon getInstance() {
         return myObj;

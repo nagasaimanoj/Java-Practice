@@ -23,62 +23,20 @@
 
 package com.mysql.fabric.jdbc;
 
-import java.sql.CallableStatement;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.Timer;
-import java.util.concurrent.Executor;
-
-import com.mysql.fabric.FabricCommunicationException;
-import com.mysql.fabric.FabricConnection;
-import com.mysql.fabric.Server;
-import com.mysql.fabric.ServerGroup;
-import com.mysql.fabric.ShardMapping;
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.CachedResultSetMetaData;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.ConnectionProperties;
-import com.mysql.jdbc.ConnectionPropertiesImpl;
-import com.mysql.jdbc.ExceptionInterceptor;
-import com.mysql.jdbc.Extension;
-import com.mysql.jdbc.Field;
-import com.mysql.jdbc.LoadBalancedConnectionProxy;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.MysqlIO;
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.ReplicationConnection;
-import com.mysql.jdbc.ReplicationConnectionGroup;
-import com.mysql.jdbc.ReplicationConnectionGroupManager;
-import com.mysql.jdbc.ReplicationConnectionProxy;
-import com.mysql.jdbc.ResultSetInternalMethods;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.ServerPreparedStatement;
-import com.mysql.jdbc.SingleByteCharsetConverter;
-import com.mysql.jdbc.StatementImpl;
-import com.mysql.jdbc.StatementInterceptorV2;
-import com.mysql.jdbc.Util;
+import com.mysql.fabric.*;
+import com.mysql.jdbc.*;
 import com.mysql.jdbc.exceptions.MySQLNonTransientConnectionException;
 import com.mysql.jdbc.log.Log;
 import com.mysql.jdbc.log.LogFactory;
 import com.mysql.jdbc.profiler.ProfilerEventHandler;
 
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.Executor;
+
 /**
  * A proxy to a set of MySQL servers managed by MySQL Fabric.
- * 
+ * <p>
  * Limitations:
  * <ul>
  * <li>One shard key can be specified</li>
@@ -87,56 +45,9 @@ import com.mysql.jdbc.profiler.ProfilerEventHandler;
 public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl implements FabricMySQLConnection, FabricMySQLConnectionProperties {
 
     private static final long serialVersionUID = 5845485979107347258L;
-
-    private Log log;
-
-    protected FabricConnection fabricConnection;
-
-    protected boolean closed = false;
-
-    protected boolean transactionInProgress = false;
-
-    // Set of connections created for this proxy (initialized lazily)
-    protected Map<ServerGroup, ReplicationConnection> serverConnections = new HashMap<ServerGroup, ReplicationConnection>();
-
-    // Connection currently in use for this proxy
-    protected ReplicationConnection currentConnection;
-
-    // Server selection criteria
-    //      one for group selection (i.e. sharding),
-    //      one for server selection (i.e. RO, global, load balancing, etc)
-    protected String shardKey;
-    protected String shardTable;
-    protected String serverGroupName;
-
-    protected Set<String> queryTables = new HashSet<String>();
-
-    protected ServerGroup serverGroup;
-
-    protected String host;
-    protected String port;
-    protected String username;
-    protected String password;
-    protected String database;
-
-    protected ShardMapping shardMapping;
-
-    protected boolean readOnly = false;
-    protected boolean autoCommit = true;
-    protected int transactionIsolation = Connection.TRANSACTION_REPEATABLE_READ;
-
-    private String fabricShardKey;
-    private String fabricShardTable;
-    private String fabricServerGroup;
-    private String fabricProtocol;
-    private String fabricUsername;
-    private String fabricPassword;
-    private boolean reportErrors = false;
-
     // Synchronized Set that holds temporary "locks" on ReplicationConnectionGroups being synced.
     // These locks are used to prevent simultaneous syncing of the state of the current group's servers.
     private static final Set<String> replConnGroupLocks = Collections.synchronizedSet(new HashSet<String>());
-
     private static final Class<?> JDBC4_NON_TRANSIENT_CONN_EXCEPTION;
 
     static {
@@ -150,6 +61,39 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         }
         JDBC4_NON_TRANSIENT_CONN_EXCEPTION = clazz;
     }
+
+    protected FabricConnection fabricConnection;
+    protected boolean closed = false;
+    protected boolean transactionInProgress = false;
+    // Set of connections created for this proxy (initialized lazily)
+    protected Map<ServerGroup, ReplicationConnection> serverConnections = new HashMap<ServerGroup, ReplicationConnection>();
+    // Connection currently in use for this proxy
+    protected ReplicationConnection currentConnection;
+    // Server selection criteria
+    //      one for group selection (i.e. sharding),
+    //      one for server selection (i.e. RO, global, load balancing, etc)
+    protected String shardKey;
+    protected String shardTable;
+    protected String serverGroupName;
+    protected Set<String> queryTables = new HashSet<String>();
+    protected ServerGroup serverGroup;
+    protected String host;
+    protected String port;
+    protected String username;
+    protected String password;
+    protected String database;
+    protected ShardMapping shardMapping;
+    protected boolean readOnly = false;
+    protected boolean autoCommit = true;
+    protected int transactionIsolation = Connection.TRANSACTION_REPEATABLE_READ;
+    private Log log;
+    private String fabricShardKey;
+    private String fabricShardTable;
+    private String fabricServerGroup;
+    private String fabricProtocol;
+    private String fabricUsername;
+    private String fabricPassword;
+    private boolean reportErrors = false;
 
     public FabricMySQLConnectionProxy(Properties props) throws SQLException {
         // first, handle and remove Fabric-specific properties.  once fabricShardKey et al are ConnectionProperty instances this will be unnecessary
@@ -288,6 +232,10 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         }
     }
 
+    public String getShardKey() {
+        return this.shardKey;
+    }
+
     /////////////////////////////////////////
     // Server selection criteria and logic //
     /////////////////////////////////////////
@@ -313,8 +261,8 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         this.shardKey = shardKey;
     }
 
-    public String getShardKey() {
-        return this.shardKey;
+    public String getShardTable() {
+        return this.shardTable;
     }
 
     public void setShardTable(String shardTable) throws SQLException {
@@ -351,8 +299,8 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         }
     }
 
-    public String getShardTable() {
-        return this.shardTable;
+    public String getServerGroupName() {
+        return this.serverGroupName;
     }
 
     public void setServerGroupName(String serverGroupName) throws SQLException {
@@ -368,10 +316,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         this.serverGroupName = serverGroupName;
     }
 
-    public String getServerGroupName() {
-        return this.serverGroupName;
-    }
-
     public void clearServerSelectionCriteria() throws SQLException {
         ensureNoTransactionInProgress();
         this.shardTable = null;
@@ -384,6 +328,30 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
 
     public ServerGroup getCurrentServerGroup() {
         return this.serverGroup;
+    }
+
+    /**
+     * Change the server group to the given named group.
+     */
+    protected void setCurrentServerGroup(String serverGroupName) throws SQLException {
+        this.serverGroup = this.fabricConnection.getServerGroup(serverGroupName);
+
+        if (this.serverGroup == null) {
+            throw SQLError.createSQLException("Cannot find server group: `" + serverGroupName + "'", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null,
+                    getExceptionInterceptor(), this);
+        }
+
+        // check for any changes that need to be propagated to the entire group
+        ReplicationConnectionGroup replConnGroup = ReplicationConnectionGroupManager.getConnectionGroup(serverGroupName);
+        if (replConnGroup != null) {
+            if (replConnGroupLocks.add(this.serverGroup.getName())) {
+                try {
+                    syncGroupServersToReplicationConnectionGroup(replConnGroup);
+                } finally {
+                    replConnGroupLocks.remove(this.serverGroup.getName());
+                }
+            }
+        }
     }
 
     public void clearQueryTables() throws SQLException {
@@ -429,38 +397,15 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return this.queryTables;
     }
 
-    /**
-     * Change the server group to the given named group.
-     */
-    protected void setCurrentServerGroup(String serverGroupName) throws SQLException {
-        this.serverGroup = this.fabricConnection.getServerGroup(serverGroupName);
-
-        if (this.serverGroup == null) {
-            throw SQLError.createSQLException("Cannot find server group: `" + serverGroupName + "'", SQLError.SQL_STATE_ILLEGAL_ARGUMENT, null,
-                    getExceptionInterceptor(), this);
-        }
-
-        // check for any changes that need to be propagated to the entire group
-        ReplicationConnectionGroup replConnGroup = ReplicationConnectionGroupManager.getConnectionGroup(serverGroupName);
-        if (replConnGroup != null) {
-            if (replConnGroupLocks.add(this.serverGroup.getName())) {
-                try {
-                    syncGroupServersToReplicationConnectionGroup(replConnGroup);
-                } finally {
-                    replConnGroupLocks.remove(this.serverGroup.getName());
-                }
-            }
-        }
-    }
-
     //////////////////////////////////////////////////////
     // Methods dealing with state internal to the proxy //
     //////////////////////////////////////////////////////
+
     /**
      * Get the active connection as an object implementing the
      * internal MySQLConnection interface. This should not be used
      * unless a MySQLConnection is required.
-     * 
+     * <p>
      * {@link getActiveConnection()} is provided for the general case.
      * The returned object is not a {@link ReplicationConnection}, but
      * instead the {@link LoadBalancedConnectionProxy} for either the
@@ -652,6 +597,10 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return !this.closed;
     }
 
+    public boolean isReadOnly() throws SQLException {
+        return this.readOnly;
+    }
+
     public void setReadOnly(boolean readOnly) throws SQLException {
         this.readOnly = readOnly;
         for (ReplicationConnection conn : this.serverConnections.values()) {
@@ -659,12 +608,12 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         }
     }
 
-    public boolean isReadOnly() throws SQLException {
+    public boolean isReadOnly(boolean useSessionStatus) throws SQLException {
         return this.readOnly;
     }
 
-    public boolean isReadOnly(boolean useSessionStatus) throws SQLException {
-        return this.readOnly;
+    public String getCatalog() {
+        return this.database;
     }
 
     public void setCatalog(String catalog) throws SQLException {
@@ -672,10 +621,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         for (Connection c : this.serverConnections.values()) {
             c.setCatalog(catalog);
         }
-    }
-
-    public String getCatalog() {
-        return this.database;
     }
 
     public void rollback() throws SQLException {
@@ -693,13 +638,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         transactionCompleted();
     }
 
-    public void setAutoCommit(boolean autoCommit) throws SQLException {
-        this.autoCommit = autoCommit;
-        for (Connection c : this.serverConnections.values()) {
-            c.setAutoCommit(this.autoCommit);
-        }
-    }
-
     public void transactionBegun() throws SQLException {
         if (!this.autoCommit) {
             this.transactionInProgress = true;
@@ -715,6 +653,13 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return this.autoCommit;
     }
 
+    public void setAutoCommit(boolean autoCommit) throws SQLException {
+        this.autoCommit = autoCommit;
+        for (Connection c : this.serverConnections.values()) {
+            c.setAutoCommit(this.autoCommit);
+        }
+    }
+
     /**
      * @deprecated replaced by <code>getMultiHostSafeProxy()</code>
      */
@@ -725,28 +670,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
 
     public MySQLConnection getMultiHostSafeProxy() {
         return getActiveMySQLConnection();
-    }
-
-    ////////////////////////////////////////////////////////
-    // Methods applying changes to all active connections //
-    ////////////////////////////////////////////////////////
-    public void setTransactionIsolation(int level) throws SQLException {
-        this.transactionIsolation = level;
-        for (Connection c : this.serverConnections.values()) {
-            c.setTransactionIsolation(level);
-        }
-    }
-
-    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-        for (Connection c : this.serverConnections.values()) {
-            c.setTypeMap(map);
-        }
-    }
-
-    public void setHoldability(int holdability) throws SQLException {
-        for (Connection c : this.serverConnections.values()) {
-            c.setHoldability(holdability);
-        }
     }
 
     public void setProxy(MySQLConnection proxy) {
@@ -890,13 +813,13 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     }
 
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
         return getActiveMySQLConnectionChecked().execSQL(callingStatement, sql, maxRows, packet, resultSetType, resultSetConcurrency, streamResults, catalog,
                 cachedMetadata);
     }
 
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
         return getActiveMySQLConnectionChecked().execSQL(callingStatement, sql, maxRows, packet, resultSetType, resultSetConcurrency, streamResults, catalog,
                 cachedMetadata, isBatch);
     }
@@ -969,7 +892,7 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
 
     /**
      * Methods doing essentially nothing
-     * 
+     *
      * @param iface
      */
     public boolean isWrapperFor(Class<?> iface) {
@@ -1040,6 +963,10 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         throw SQLError.createSQLException("User change not allowed.", getExceptionInterceptor());
     }
 
+    public String getFabricShardKey() {
+        return this.fabricShardKey;
+    }
+
     /////////////////////////////////////
     // FabricMySQLConnectionProperties //
     /////////////////////////////////////
@@ -1047,56 +974,52 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         this.fabricShardKey = value;
     }
 
-    public String getFabricShardKey() {
-        return this.fabricShardKey;
+    public String getFabricShardTable() {
+        return this.fabricShardTable;
     }
 
     public void setFabricShardTable(String value) {
         this.fabricShardTable = value;
     }
 
-    public String getFabricShardTable() {
-        return this.fabricShardTable;
+    public String getFabricServerGroup() {
+        return this.fabricServerGroup;
     }
 
     public void setFabricServerGroup(String value) {
         this.fabricServerGroup = value;
     }
 
-    public String getFabricServerGroup() {
-        return this.fabricServerGroup;
+    public String getFabricProtocol() {
+        return this.fabricProtocol;
     }
 
     public void setFabricProtocol(String value) {
         this.fabricProtocol = value;
     }
 
-    public String getFabricProtocol() {
-        return this.fabricProtocol;
+    public String getFabricUsername() {
+        return this.fabricUsername;
     }
 
     public void setFabricUsername(String value) {
         this.fabricUsername = value;
     }
 
-    public String getFabricUsername() {
-        return this.fabricUsername;
+    public String getFabricPassword() {
+        return this.fabricPassword;
     }
 
     public void setFabricPassword(String value) {
         this.fabricPassword = value;
     }
 
-    public String getFabricPassword() {
-        return this.fabricPassword;
+    public boolean getFabricReportErrors() {
+        return this.reportErrors;
     }
 
     public void setFabricReportErrors(boolean value) {
         this.reportErrors = value;
-    }
-
-    public boolean getFabricReportErrors() {
-        return this.reportErrors;
     }
 
     ///////////////////////////////////////////////////////
@@ -2699,8 +2622,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         super.setGetProceduresReturnsFunctions(getProcedureReturnsFunctions);
     }
 
-    // com.mysql.jdbc.Connection
-
     public int getActiveStatementCount() {
         return -1;
     }
@@ -2712,6 +2633,8 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     public Log getLog() {
         return this.log;
     }
+
+    // com.mysql.jdbc.Connection
 
     public boolean isMasterConnection() {
         return false;
@@ -2742,9 +2665,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     public void setPreferSlaveDuringFailover(boolean flag) {
     }
 
-    public void setStatementComment(String comment) {
-    }
-
     public void reportQueryTime(long millisOrNanos) {
     }
 
@@ -2767,11 +2687,11 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return null;
     }
 
-    public void setSchema(String schema) throws SQLException {
-    }
-
     public String getSchema() throws SQLException {
         return null;
+    }
+
+    public void setSchema(String schema) throws SQLException {
     }
 
     public void abort(Executor executor) throws SQLException {
@@ -2791,17 +2711,17 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return this;
     }
 
+    public int getSessionMaxRows() {
+        return getActiveConnectionPassive().getSessionMaxRows();
+    }
+
     public void setSessionMaxRows(int max) throws SQLException {
         for (Connection c : this.serverConnections.values()) {
             c.setSessionMaxRows(max);
         }
     }
 
-    public int getSessionMaxRows() {
-        return getActiveConnectionPassive().getSessionMaxRows();
-    }
-
-    // MySQLConnection	
+    // MySQLConnection
     public boolean isProxySet() {
         return false;
     }
@@ -2907,6 +2827,9 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return null;
     }
 
+    public void setStatementComment(String comment) {
+    }
+
     public List<StatementInterceptorV2> getStatementInterceptorsInstances() {
         return null;
     }
@@ -2950,6 +2873,9 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return false;
     }
 
+    public void setReadInfoMsgEnabled(boolean flag) {
+    }
+
     public boolean isServerTzUTC() {
         return false;
     }
@@ -2959,7 +2885,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     }
 
     /**
-     * 
      * @param stmt
      */
     public void maxRowsChanged(com.mysql.jdbc.Statement stmt) {
@@ -2987,9 +2912,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return getActiveMySQLConnectionChecked().serverSupportsConvertFn();
     }
 
-    public void setReadInfoMsgEnabled(boolean flag) {
-    }
-
     public void setReadOnlyInternal(boolean readOnlyFlag) throws SQLException {
     }
 
@@ -3004,7 +2926,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     }
 
     /**
-     * 
      * @param stmt
      * @throws SQLException
      */
@@ -3028,7 +2949,6 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
     }
 
     /**
-     * 
      * @param name
      * @return
      */
@@ -3040,12 +2960,34 @@ public class FabricMySQLConnectionProxy extends ConnectionPropertiesImpl impleme
         return -1;
     }
 
+    public void setHoldability(int holdability) throws SQLException {
+        for (Connection c : this.serverConnections.values()) {
+            c.setHoldability(holdability);
+        }
+    }
+
     public int getTransactionIsolation() {
         return -1;
     }
 
+    ////////////////////////////////////////////////////////
+    // Methods applying changes to all active connections //
+    ////////////////////////////////////////////////////////
+    public void setTransactionIsolation(int level) throws SQLException {
+        this.transactionIsolation = level;
+        for (Connection c : this.serverConnections.values()) {
+            c.setTransactionIsolation(level);
+        }
+    }
+
     public Map<String, Class<?>> getTypeMap() {
         return null;
+    }
+
+    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
+        for (Connection c : this.serverConnections.values()) {
+            c.setTypeMap(map);
+        }
     }
 
     public SQLWarning getWarnings() throws SQLException {

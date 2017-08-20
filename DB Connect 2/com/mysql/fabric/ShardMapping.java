@@ -30,11 +30,11 @@ import java.util.Set;
  * A shard mapping representing this set of sharded data.
  */
 public abstract class ShardMapping {
+    protected Set<ShardTable> shardTables;
+    protected Set<ShardIndex> shardIndices;
     private int mappingId;
     private ShardingType shardingType;
     private String globalGroupName;
-    protected Set<ShardTable> shardTables;
-    protected Set<ShardIndex> shardIndices;
 
     public ShardMapping(int mappingId, ShardingType shardingType, String globalGroupName, Set<ShardTable> shardTables, Set<ShardIndex> shardIndices) {
         this.mappingId = mappingId;

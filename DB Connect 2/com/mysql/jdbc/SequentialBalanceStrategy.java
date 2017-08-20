@@ -30,7 +30,7 @@ import java.util.Properties;
 
 /**
  * A balancing strategy that starts at a random point, and then advances in the list (wrapping around) for each new pickConnection() call.
- * 
+ * <p>
  * The initial point selection, and subsequent point selections are blacklist-aware.
  */
 public class SequentialBalanceStrategy implements BalanceStrategy {
@@ -48,14 +48,14 @@ public class SequentialBalanceStrategy implements BalanceStrategy {
     }
 
     public ConnectionImpl pickConnection(LoadBalancedConnectionProxy proxy, List<String> configuredHosts, Map<String, ConnectionImpl> liveConnections,
-            long[] responseTimes, int numRetries) throws SQLException {
+                                         long[] responseTimes, int numRetries) throws SQLException {
         int numHosts = configuredHosts.size();
 
         SQLException ex = null;
 
         Map<String, Long> blackList = proxy.getGlobalBlacklist();
 
-        for (int attempts = 0; attempts < numRetries;) {
+        for (int attempts = 0; attempts < numRetries; ) {
             if (numHosts == 1) {
                 this.currentHostIndex = 0; // pathological case
             } else if (this.currentHostIndex == -1) {

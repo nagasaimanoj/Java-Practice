@@ -29,31 +29,31 @@ import com.mysql.jdbc.ConnectionProperties;
  * Additional properties for {@link FabricMySQLConnection}s.
  */
 public interface FabricMySQLConnectionProperties extends ConnectionProperties {
-    void setFabricShardKey(String value);
-
     String getFabricShardKey();
 
-    void setFabricShardTable(String value);
+    void setFabricShardKey(String value);
 
     String getFabricShardTable();
 
-    void setFabricServerGroup(String value);
+    void setFabricShardTable(String value);
 
     String getFabricServerGroup();
 
-    void setFabricProtocol(String value);
+    void setFabricServerGroup(String value);
 
     String getFabricProtocol();
 
-    void setFabricUsername(String value);
+    void setFabricProtocol(String value);
 
     String getFabricUsername();
 
-    void setFabricPassword(String value);
+    void setFabricUsername(String value);
 
     String getFabricPassword();
 
-    void setFabricReportErrors(boolean value);
+    void setFabricPassword(String value);
 
     boolean getFabricReportErrors();
+
+    void setFabricReportErrors(boolean value);
 }

@@ -23,23 +23,14 @@
 
 package com.mysql.jdbc;
 
-import java.sql.Date;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.JDBCType;
-import java.sql.SQLException;
-import java.sql.SQLType;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.time.OffsetTime;
-import java.time.OffsetDateTime;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-
 import com.mysql.jdbc.ExceptionInterceptor;
 import com.mysql.jdbc.Messages;
 import com.mysql.jdbc.SQLError;
+
+import java.sql.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class JDBC42Helper {
     /**

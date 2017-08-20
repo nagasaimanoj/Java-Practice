@@ -1,12 +1,20 @@
 public class StudentDetails {
 
+<<<<<<< HEAD
     static java.util.Scanner scan = new java.util.Scanner(System.in);
     static java.util.ArrayList<Data> d = new java.util.ArrayList<Data>();
+=======
+public class StudentDetails {
+
+    static Scanner scan = new Scanner(System.in);
+    static ArrayList<Data> d = new ArrayList<Data>();
+>>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
 
     public static void main(String[] args) {
         while (true) {
             System.out.println("\nChoose an option\n1.Enter Details\n2.Show Details\n3.Exit");
             switch (scan.nextInt()) {
+<<<<<<< HEAD
             case 1:
                 setDetails();
                 break;
@@ -18,6 +26,19 @@ public class StudentDetails {
                 break;
             default:
                 System.out.println("Input Error, please try again");
+=======
+                case 1:
+                    setDetails();
+                    break;
+                case 2:
+                    getDetails();
+                    break;
+                case 3:
+                    System.exit(0);
+                    break;
+                default:
+                    System.out.println("Input Error, please try again");
+>>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
             }
         }
     }

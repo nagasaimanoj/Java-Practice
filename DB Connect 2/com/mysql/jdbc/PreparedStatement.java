@@ -23,14 +23,11 @@
 
 package com.mysql.jdbc;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectOutputStream;
-import java.io.Reader;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
+import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
+import com.mysql.jdbc.exceptions.MySQLTimeoutException;
+import com.mysql.jdbc.profiler.ProfilerEvent;
+
+import java.io.*;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -39,38 +36,19 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
-import java.sql.Array;
-import java.sql.Clob;
-import java.sql.DatabaseMetaData;
-import java.sql.Date;
-import java.sql.ParameterMetaData;
-import java.sql.Ref;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
-
-import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
-import com.mysql.jdbc.exceptions.MySQLTimeoutException;
-import com.mysql.jdbc.profiler.ProfilerEvent;
+import java.util.*;
 
 /**
  * A SQL Statement is pre-compiled and stored in a PreparedStatement object. This object can then be used to efficiently execute this statement multiple times.
- * 
+ * <p>
  * <p>
  * <B>Note:</B> The setXXX methods for setting IN parameter values must specify types that are compatible with the defined SQL type of the input parameter. For
  * instance, if the IN parameter has SQL type Integer, then setInt should be used.
  * </p>
- * 
+ * <p>
  * <p>
  * If arbitrary parameter type conversions are required, then the setObject method should be used with a target SQL type.
  * </p>
@@ -79,15 +57,17 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     private static final Constructor<?> JDBC_4_PSTMT_2_ARG_CTOR;
     private static final Constructor<?> JDBC_4_PSTMT_3_ARG_CTOR;
     private static final Constructor<?> JDBC_4_PSTMT_4_ARG_CTOR;
+    private final static byte[] HEX_DIGITS = new byte[]{(byte) '0', (byte) '1', (byte) '2', (byte) '3', (byte) '4', (byte) '5', (byte) '6', (byte) '7',
+            (byte) '8', (byte) '9', (byte) 'A', (byte) 'B', (byte) 'C', (byte) 'D', (byte) 'E', (byte) 'F'};
 
     static {
         if (Util.isJdbc4()) {
             try {
                 String jdbc4ClassName = Util.isJdbc42() ? "com.mysql.jdbc.JDBC42PreparedStatement" : "com.mysql.jdbc.JDBC4PreparedStatement";
-                JDBC_4_PSTMT_2_ARG_CTOR = Class.forName(jdbc4ClassName).getConstructor(new Class[] { MySQLConnection.class, String.class });
-                JDBC_4_PSTMT_3_ARG_CTOR = Class.forName(jdbc4ClassName).getConstructor(new Class[] { MySQLConnection.class, String.class, String.class });
+                JDBC_4_PSTMT_2_ARG_CTOR = Class.forName(jdbc4ClassName).getConstructor(new Class[]{MySQLConnection.class, String.class});
+                JDBC_4_PSTMT_3_ARG_CTOR = Class.forName(jdbc4ClassName).getConstructor(new Class[]{MySQLConnection.class, String.class, String.class});
                 JDBC_4_PSTMT_4_ARG_CTOR = Class.forName(jdbc4ClassName)
-                        .getConstructor(new Class[] { MySQLConnection.class, String.class, String.class, ParseInfo.class });
+                        .getConstructor(new Class[]{MySQLConnection.class, String.class, String.class, ParseInfo.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -102,600 +82,55 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
         }
     }
 
-    public class BatchParams {
-        public boolean[] isNull = null;
-
-        public boolean[] isStream = null;
-
-        public InputStream[] parameterStreams = null;
-
-        public byte[][] parameterStrings = null;
-
-        public int[] streamLengths = null;
-
-        BatchParams(byte[][] strings, InputStream[] streams, boolean[] isStreamFlags, int[] lengths, boolean[] isNullFlags) {
-            //
-            // Make copies
-            //
-            this.parameterStrings = new byte[strings.length][];
-            this.parameterStreams = new InputStream[streams.length];
-            this.isStream = new boolean[isStreamFlags.length];
-            this.streamLengths = new int[lengths.length];
-            this.isNull = new boolean[isNullFlags.length];
-            System.arraycopy(strings, 0, this.parameterStrings, 0, strings.length);
-            System.arraycopy(streams, 0, this.parameterStreams, 0, streams.length);
-            System.arraycopy(isStreamFlags, 0, this.isStream, 0, isStreamFlags.length);
-            System.arraycopy(lengths, 0, this.streamLengths, 0, lengths.length);
-            System.arraycopy(isNullFlags, 0, this.isNull, 0, isNullFlags.length);
-        }
-    }
-
-    class EndPoint {
-        int begin;
-
-        int end;
-
-        EndPoint(int b, int e) {
-            this.begin = b;
-            this.end = e;
-        }
-    }
-
-    public static final class ParseInfo {
-        char firstStmtChar = 0;
-
-        boolean foundLoadData = false;
-
-        long lastUsed = 0;
-
-        int statementLength = 0;
-
-        int statementStartPos = 0;
-
-        boolean canRewriteAsMultiValueInsert = false;
-
-        byte[][] staticSql = null;
-
-        boolean isOnDuplicateKeyUpdate = false;
-
-        int locationOfOnDuplicateKeyUpdate = -1;
-
-        String valuesClause;
-
-        boolean parametersInDuplicateKeyClause = false;
-
-        String charEncoding;
-
-        /**
-         * Represents the "parsed" state of a client-side prepared statement, with the statement broken up into it's static and dynamic (where parameters are
-         * bound) parts.
-         */
-        ParseInfo(String sql, MySQLConnection conn, java.sql.DatabaseMetaData dbmd, String encoding, SingleByteCharsetConverter converter) throws SQLException {
-            this(sql, conn, dbmd, encoding, converter, true);
-        }
-
-        public ParseInfo(String sql, MySQLConnection conn, java.sql.DatabaseMetaData dbmd, String encoding, SingleByteCharsetConverter converter,
-                boolean buildRewriteInfo) throws SQLException {
-            try {
-                if (sql == null) {
-                    throw SQLError.createSQLException(Messages.getString("PreparedStatement.61"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
-                            conn.getExceptionInterceptor());
-                }
-
-                this.charEncoding = encoding;
-                this.lastUsed = System.currentTimeMillis();
-
-                String quotedIdentifierString = dbmd.getIdentifierQuoteString();
-
-                char quotedIdentifierChar = 0;
-
-                if ((quotedIdentifierString != null) && !quotedIdentifierString.equals(" ") && (quotedIdentifierString.length() > 0)) {
-                    quotedIdentifierChar = quotedIdentifierString.charAt(0);
-                }
-
-                this.statementLength = sql.length();
-
-                ArrayList<int[]> endpointList = new ArrayList<int[]>();
-                boolean inQuotes = false;
-                char quoteChar = 0;
-                boolean inQuotedId = false;
-                int lastParmEnd = 0;
-                int i;
-
-                boolean noBackslashEscapes = conn.isNoBackslashEscapesSet();
-
-                // we're not trying to be real pedantic here, but we'd like to  skip comments at the beginning of statements, as frameworks such as Hibernate
-                // use them to aid in debugging
-
-                this.statementStartPos = findStartOfStatement(sql);
-
-                for (i = this.statementStartPos; i < this.statementLength; ++i) {
-                    char c = sql.charAt(i);
-
-                    if ((this.firstStmtChar == 0) && Character.isLetter(c)) {
-                        // Determine what kind of statement we're doing (_S_elect, _I_nsert, etc.)
-                        this.firstStmtChar = Character.toUpperCase(c);
-
-                        // no need to search for "ON DUPLICATE KEY UPDATE" if not an INSERT statement
-                        if (this.firstStmtChar == 'I') {
-                            this.locationOfOnDuplicateKeyUpdate = getOnDuplicateKeyLocation(sql, conn.getDontCheckOnDuplicateKeyUpdateInSQL(),
-                                    conn.getRewriteBatchedStatements(), conn.isNoBackslashEscapesSet());
-                            this.isOnDuplicateKeyUpdate = this.locationOfOnDuplicateKeyUpdate != -1;
-                        }
-                    }
-
-                    if (!noBackslashEscapes && c == '\\' && i < (this.statementLength - 1)) {
-                        i++;
-                        continue; // next character is escaped
-                    }
-
-                    // are we in a quoted identifier? (only valid when the id is not inside a 'string')
-                    if (!inQuotes && (quotedIdentifierChar != 0) && (c == quotedIdentifierChar)) {
-                        inQuotedId = !inQuotedId;
-                    } else if (!inQuotedId) {
-                        //	only respect quotes when not in a quoted identifier
-
-                        if (inQuotes) {
-                            if (((c == '\'') || (c == '"')) && c == quoteChar) {
-                                if (i < (this.statementLength - 1) && sql.charAt(i + 1) == quoteChar) {
-                                    i++;
-                                    continue; // inline quote escape
-                                }
-
-                                inQuotes = !inQuotes;
-                                quoteChar = 0;
-                            } else if (((c == '\'') || (c == '"')) && c == quoteChar) {
-                                inQuotes = !inQuotes;
-                                quoteChar = 0;
-                            }
-                        } else {
-                            if (c == '#' || (c == '-' && (i + 1) < this.statementLength && sql.charAt(i + 1) == '-')) {
-                                // run out to end of statement, or newline, whichever comes first
-                                int endOfStmt = this.statementLength - 1;
-
-                                for (; i < endOfStmt; i++) {
-                                    c = sql.charAt(i);
-
-                                    if (c == '\r' || c == '\n') {
-                                        break;
-                                    }
-                                }
-
-                                continue;
-                            } else if (c == '/' && (i + 1) < this.statementLength) {
-                                // Comment?
-                                char cNext = sql.charAt(i + 1);
-
-                                if (cNext == '*') {
-                                    i += 2;
-
-                                    for (int j = i; j < this.statementLength; j++) {
-                                        i++;
-                                        cNext = sql.charAt(j);
-
-                                        if (cNext == '*' && (j + 1) < this.statementLength) {
-                                            if (sql.charAt(j + 1) == '/') {
-                                                i++;
-
-                                                if (i < this.statementLength) {
-                                                    c = sql.charAt(i);
-                                                }
-
-                                                break; // comment done
-                                            }
-                                        }
-                                    }
-                                }
-                            } else if ((c == '\'') || (c == '"')) {
-                                inQuotes = true;
-                                quoteChar = c;
-                            }
-                        }
-                    }
-
-                    if ((c == '?') && !inQuotes && !inQuotedId) {
-                        endpointList.add(new int[] { lastParmEnd, i });
-                        lastParmEnd = i + 1;
-
-                        if (this.isOnDuplicateKeyUpdate && i > this.locationOfOnDuplicateKeyUpdate) {
-                            this.parametersInDuplicateKeyClause = true;
-                        }
-                    }
-                }
-
-                if (this.firstStmtChar == 'L') {
-                    if (StringUtils.startsWithIgnoreCaseAndWs(sql, "LOAD DATA")) {
-                        this.foundLoadData = true;
-                    } else {
-                        this.foundLoadData = false;
-                    }
-                } else {
-                    this.foundLoadData = false;
-                }
-
-                endpointList.add(new int[] { lastParmEnd, this.statementLength });
-                this.staticSql = new byte[endpointList.size()][];
-
-                for (i = 0; i < this.staticSql.length; i++) {
-                    int[] ep = endpointList.get(i);
-                    int end = ep[1];
-                    int begin = ep[0];
-                    int len = end - begin;
-
-                    if (this.foundLoadData) {
-                        this.staticSql[i] = StringUtils.getBytes(sql, begin, len);
-                    } else if (encoding == null) {
-                        byte[] buf = new byte[len];
-
-                        for (int j = 0; j < len; j++) {
-                            buf[j] = (byte) sql.charAt(begin + j);
-                        }
-
-                        this.staticSql[i] = buf;
-                    } else {
-                        if (converter != null) {
-                            this.staticSql[i] = StringUtils.getBytes(sql, converter, encoding, conn.getServerCharset(), begin, len, conn.parserKnowsUnicode(),
-                                    conn.getExceptionInterceptor());
-                        } else {
-                            this.staticSql[i] = StringUtils.getBytes(sql, encoding, conn.getServerCharset(), begin, len, conn.parserKnowsUnicode(), conn,
-                                    conn.getExceptionInterceptor());
-                        }
-                    }
-                }
-            } catch (StringIndexOutOfBoundsException oobEx) {
-                SQLException sqlEx = new SQLException("Parse error for " + sql);
-                sqlEx.initCause(oobEx);
-
-                throw sqlEx;
-            }
-
-            if (buildRewriteInfo) {
-                this.canRewriteAsMultiValueInsert = PreparedStatement.canRewrite(sql, this.isOnDuplicateKeyUpdate, this.locationOfOnDuplicateKeyUpdate,
-                        this.statementStartPos) && !this.parametersInDuplicateKeyClause;
-
-                if (this.canRewriteAsMultiValueInsert && conn.getRewriteBatchedStatements()) {
-                    buildRewriteBatchedParams(sql, conn, dbmd, encoding, converter);
-                }
-            }
-        }
-
-        private ParseInfo batchHead;
-
-        private ParseInfo batchValues;
-
-        private ParseInfo batchODKUClause;
-
-        private void buildRewriteBatchedParams(String sql, MySQLConnection conn, DatabaseMetaData metadata, String encoding,
-                SingleByteCharsetConverter converter) throws SQLException {
-            this.valuesClause = extractValuesClause(sql, conn.getMetaData().getIdentifierQuoteString());
-            String odkuClause = this.isOnDuplicateKeyUpdate ? sql.substring(this.locationOfOnDuplicateKeyUpdate) : null;
-
-            String headSql = null;
-
-            if (this.isOnDuplicateKeyUpdate) {
-                headSql = sql.substring(0, this.locationOfOnDuplicateKeyUpdate);
-            } else {
-                headSql = sql;
-            }
-
-            this.batchHead = new ParseInfo(headSql, conn, metadata, encoding, converter, false);
-            this.batchValues = new ParseInfo("," + this.valuesClause, conn, metadata, encoding, converter, false);
-            this.batchODKUClause = null;
-
-            if (odkuClause != null && odkuClause.length() > 0) {
-                this.batchODKUClause = new ParseInfo("," + this.valuesClause + " " + odkuClause, conn, metadata, encoding, converter, false);
-            }
-        }
-
-        private String extractValuesClause(String sql, String quoteCharStr) throws SQLException {
-            int indexOfValues = -1;
-            int valuesSearchStart = this.statementStartPos;
-
-            while (indexOfValues == -1) {
-                if (quoteCharStr.length() > 0) {
-                    indexOfValues = StringUtils.indexOfIgnoreCase(valuesSearchStart, sql, "VALUES", quoteCharStr, quoteCharStr,
-                            StringUtils.SEARCH_MODE__MRK_COM_WS);
-                } else {
-                    indexOfValues = StringUtils.indexOfIgnoreCase(valuesSearchStart, sql, "VALUES");
-                }
-
-                if (indexOfValues > 0) {
-                    /* check if the char immediately preceding VALUES may be part of the table name */
-                    char c = sql.charAt(indexOfValues - 1);
-                    if (!(Character.isWhitespace(c) || c == ')' || c == '`')) {
-                        valuesSearchStart = indexOfValues + 6;
-                        indexOfValues = -1;
-                    } else {
-                        /* check if the char immediately following VALUES may be whitespace or open parenthesis */
-                        c = sql.charAt(indexOfValues + 6);
-                        if (!(Character.isWhitespace(c) || c == '(')) {
-                            valuesSearchStart = indexOfValues + 6;
-                            indexOfValues = -1;
-                        }
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            if (indexOfValues == -1) {
-                return null;
-            }
-
-            int indexOfFirstParen = sql.indexOf('(', indexOfValues + 6);
-
-            if (indexOfFirstParen == -1) {
-                return null;
-            }
-
-            int endOfValuesClause = sql.lastIndexOf(')');
-
-            if (endOfValuesClause == -1) {
-                return null;
-            }
-
-            if (this.isOnDuplicateKeyUpdate) {
-                endOfValuesClause = this.locationOfOnDuplicateKeyUpdate - 1;
-            }
-
-            return sql.substring(indexOfFirstParen, endOfValuesClause + 1);
-        }
-
-        /**
-         * Returns a ParseInfo for a multi-value INSERT for a batch of size numBatch (without parsing!).
-         */
-        synchronized ParseInfo getParseInfoForBatch(int numBatch) {
-            AppendingBatchVisitor apv = new AppendingBatchVisitor();
-            buildInfoForBatch(numBatch, apv);
-
-            ParseInfo batchParseInfo = new ParseInfo(apv.getStaticSqlStrings(), this.firstStmtChar, this.foundLoadData, this.isOnDuplicateKeyUpdate,
-                    this.locationOfOnDuplicateKeyUpdate, this.statementLength, this.statementStartPos);
-
-            return batchParseInfo;
-        }
-
-        /**
-         * Returns a preparable SQL string for the number of batched parameters, used by server-side prepared statements
-         * when re-writing batch INSERTs.
-         */
-
-        String getSqlForBatch(int numBatch) throws UnsupportedEncodingException {
-            ParseInfo batchInfo = getParseInfoForBatch(numBatch);
-
-            return getSqlForBatch(batchInfo);
-        }
-
-        /**
-         * Used for filling in the SQL for getPreparedSql() - for debugging
-         */
-        String getSqlForBatch(ParseInfo batchInfo) throws UnsupportedEncodingException {
-            int size = 0;
-            final byte[][] sqlStrings = batchInfo.staticSql;
-            final int sqlStringsLength = sqlStrings.length;
-
-            for (int i = 0; i < sqlStringsLength; i++) {
-                size += sqlStrings[i].length;
-                size++; // for the '?'
-            }
-
-            StringBuilder buf = new StringBuilder(size);
-
-            for (int i = 0; i < sqlStringsLength - 1; i++) {
-                buf.append(StringUtils.toString(sqlStrings[i], this.charEncoding));
-                buf.append("?");
-            }
-
-            buf.append(StringUtils.toString(sqlStrings[sqlStringsLength - 1]));
-
-            return buf.toString();
-        }
-
-        /**
-         * Builds a ParseInfo for the given batch size, without parsing. We use
-         * a visitor pattern here, because the if {}s make computing a size for the
-         * resultant byte[][] make this too complex, and we don't necessarily want to
-         * use a List for this, because the size can be dynamic, and thus we'll not be
-         * able to guess a good initial size for an array-based list, and it's not
-         * efficient to convert a LinkedList to an array.
-         */
-        private void buildInfoForBatch(int numBatch, BatchVisitor visitor) {
-            final byte[][] headStaticSql = this.batchHead.staticSql;
-            final int headStaticSqlLength = headStaticSql.length;
-
-            if (headStaticSqlLength > 1) {
-                for (int i = 0; i < headStaticSqlLength - 1; i++) {
-                    visitor.append(headStaticSql[i]).increment();
-                }
-            }
-
-            // merge end of head, with beginning of a value clause
-            byte[] endOfHead = headStaticSql[headStaticSqlLength - 1];
-            final byte[][] valuesStaticSql = this.batchValues.staticSql;
-            byte[] beginOfValues = valuesStaticSql[0];
-
-            visitor.merge(endOfHead, beginOfValues).increment();
-
-            int numValueRepeats = numBatch - 1; // first one is in the "head"
-
-            if (this.batchODKUClause != null) {
-                numValueRepeats--; // Last one is in the ODKU clause
-            }
-
-            final int valuesStaticSqlLength = valuesStaticSql.length;
-            byte[] endOfValues = valuesStaticSql[valuesStaticSqlLength - 1];
-
-            for (int i = 0; i < numValueRepeats; i++) {
-                for (int j = 1; j < valuesStaticSqlLength - 1; j++) {
-                    visitor.append(valuesStaticSql[j]).increment();
-                }
-                visitor.merge(endOfValues, beginOfValues).increment();
-            }
-
-            if (this.batchODKUClause != null) {
-                final byte[][] batchOdkuStaticSql = this.batchODKUClause.staticSql;
-                byte[] beginOfOdku = batchOdkuStaticSql[0];
-                visitor.decrement().merge(endOfValues, beginOfOdku).increment();
-
-                final int batchOdkuStaticSqlLength = batchOdkuStaticSql.length;
-
-                if (numBatch > 1) {
-                    for (int i = 1; i < batchOdkuStaticSqlLength; i++) {
-                        visitor.append(batchOdkuStaticSql[i]).increment();
-                    }
-                } else {
-                    visitor.decrement().append(batchOdkuStaticSql[(batchOdkuStaticSqlLength - 1)]);
-                }
-            } else {
-                // Everything after the values clause, but not ODKU, which today is nothing but a syntax error, but we should still not mangle the SQL!
-                visitor.decrement().append(this.staticSql[this.staticSql.length - 1]);
-            }
-        }
-
-        private ParseInfo(byte[][] staticSql, char firstStmtChar, boolean foundLoadData, boolean isOnDuplicateKeyUpdate, int locationOfOnDuplicateKeyUpdate,
-                int statementLength, int statementStartPos) {
-            this.firstStmtChar = firstStmtChar;
-            this.foundLoadData = foundLoadData;
-            this.isOnDuplicateKeyUpdate = isOnDuplicateKeyUpdate;
-            this.locationOfOnDuplicateKeyUpdate = locationOfOnDuplicateKeyUpdate;
-            this.statementLength = statementLength;
-            this.statementStartPos = statementStartPos;
-            this.staticSql = staticSql;
-        }
-    }
-
-    interface BatchVisitor {
-        abstract BatchVisitor increment();
-
-        abstract BatchVisitor decrement();
-
-        abstract BatchVisitor append(byte[] values);
-
-        abstract BatchVisitor merge(byte[] begin, byte[] end);
-    }
-
-    static class AppendingBatchVisitor implements BatchVisitor {
-        LinkedList<byte[]> statementComponents = new LinkedList<byte[]>();
-
-        public BatchVisitor append(byte[] values) {
-            this.statementComponents.addLast(values);
-
-            return this;
-        }
-
-        public BatchVisitor increment() {
-            // no-op
-            return this;
-        }
-
-        public BatchVisitor decrement() {
-            this.statementComponents.removeLast();
-
-            return this;
-        }
-
-        public BatchVisitor merge(byte[] front, byte[] back) {
-            int mergedLength = front.length + back.length;
-            byte[] merged = new byte[mergedLength];
-            System.arraycopy(front, 0, merged, 0, front.length);
-            System.arraycopy(back, 0, merged, front.length, back.length);
-            this.statementComponents.addLast(merged);
-            return this;
-        }
-
-        public byte[][] getStaticSqlStrings() {
-            byte[][] asBytes = new byte[this.statementComponents.size()][];
-            this.statementComponents.toArray(asBytes);
-
-            return asBytes;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder buf = new StringBuilder();
-            Iterator<byte[]> iter = this.statementComponents.iterator();
-            while (iter.hasNext()) {
-                buf.append(StringUtils.toString(iter.next()));
-            }
-
-            return buf.toString();
-        }
-
-    }
-
-    private final static byte[] HEX_DIGITS = new byte[] { (byte) '0', (byte) '1', (byte) '2', (byte) '3', (byte) '4', (byte) '5', (byte) '6', (byte) '7',
-            (byte) '8', (byte) '9', (byte) 'A', (byte) 'B', (byte) 'C', (byte) 'D', (byte) 'E', (byte) 'F' };
-
-    /**
-     * Reads length bytes from reader into buf. Blocks until enough input is
-     * available
-     * 
-     * @param reader
-     * @param buf
-     * @param length
-     * 
-     * @throws IOException
-     */
-    protected static int readFully(Reader reader, char[] buf, int length) throws IOException {
-        int numCharsRead = 0;
-
-        while (numCharsRead < length) {
-            int count = reader.read(buf, numCharsRead, length - numCharsRead);
-
-            if (count < 0) {
-                break;
-            }
-
-            numCharsRead += count;
-        }
-
-        return numCharsRead;
-    }
-
     /**
      * Does the batch (if any) contain "plain" statements added by
      * Statement.addBatch(String)?
-     * 
+     * <p>
      * If so, we can't re-write it to use multi-value or multi-queries.
      */
     protected boolean batchHasPlainStatements = false;
-
-    private java.sql.DatabaseMetaData dbmd = null;
-
     /**
      * What is the first character of the prepared statement (used to check for
      * SELECT vs. INSERT/UPDATE/DELETE)
      */
     protected char firstCharOfStmt = 0;
-
-    /** Is this query a LOAD DATA query? */
+    /**
+     * Is this query a LOAD DATA query?
+     */
     protected boolean isLoadDataQuery = false;
-
     protected boolean[] isNull = null;
-
-    private boolean[] isStream = null;
-
     protected int numberOfExecutions = 0;
-
-    /** The SQL that was passed in to 'prepare' */
+    /**
+     * The SQL that was passed in to 'prepare'
+     */
     protected String originalSql = null;
-
-    /** The number of parameters in this PreparedStatement */
+    /**
+     * The number of parameters in this PreparedStatement
+     */
     protected int parameterCount;
-
     protected MysqlParameterMetadata parameterMetaData;
-
-    private InputStream[] parameterStreams = null;
-
-    private byte[][] parameterValues = null;
-
     /**
      * Only used by statement interceptors at the moment to
      * provide introspection of bound values
      */
     protected int[] parameterTypes = null;
-
     protected ParseInfo parseInfo;
-
+    /**
+     * Are we using a version of MySQL where we can use 'true' boolean values?
+     */
+    protected boolean useTrueBoolean = false;
+    protected boolean usingAnsiMode;
+    protected String batchedValuesClause;
+    /**
+     * Command index of currently executing batch command.
+     */
+    protected int batchCommandIndex = -1;
+    protected boolean serverSupportsFracSecs;
+    protected int rewrittenBatchSize = 0;
+    private java.sql.DatabaseMetaData dbmd = null;
+    private boolean[] isStream = null;
+    private InputStream[] parameterStreams = null;
+    private byte[][] parameterValues = null;
     private java.sql.ResultSetMetaData pstmtResultMetaData;
 
     private byte[][] staticSqlStrings = null;
@@ -709,84 +144,19 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     private SimpleDateFormat ddf;
 
     private SimpleDateFormat tdf;
-
-    /**
-     * Are we using a version of MySQL where we can use 'true' boolean values?
-     */
-    protected boolean useTrueBoolean = false;
-
-    protected boolean usingAnsiMode;
-
-    protected String batchedValuesClause;
-
     private boolean doPingInstead;
-
     private boolean compensateForOnDuplicateKeyUpdate = false;
-
-    /** Charset encoder used to escape if needed, such as Yen sign in SJIS */
+    /**
+     * Charset encoder used to escape if needed, such as Yen sign in SJIS
+     */
     private CharsetEncoder charsetEncoder;
-
-    /** Command index of currently executing batch command. */
-    protected int batchCommandIndex = -1;
-
-    protected boolean serverSupportsFracSecs;
-
-    /**
-     * Creates a prepared statement instance -- We need to provide factory-style
-     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
-     * otherwise the class verifier complains when it tries to load JDBC4-only
-     * interface classes that are present in JDBC4 method signatures.
-     */
-
-    protected static PreparedStatement getInstance(MySQLConnection conn, String catalog) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new PreparedStatement(conn, catalog);
-        }
-
-        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_2_ARG_CTOR, new Object[] { conn, catalog }, conn.getExceptionInterceptor());
-    }
-
-    /**
-     * Creates a prepared statement instance -- We need to provide factory-style
-     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
-     * otherwise the class verifier complains when it tries to load JDBC4-only
-     * interface classes that are present in JDBC4 method signatures.
-     */
-
-    protected static PreparedStatement getInstance(MySQLConnection conn, String sql, String catalog) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new PreparedStatement(conn, sql, catalog);
-        }
-
-        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_3_ARG_CTOR, new Object[] { conn, sql, catalog }, conn.getExceptionInterceptor());
-    }
-
-    /**
-     * Creates a prepared statement instance -- We need to provide factory-style
-     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
-     * otherwise the class verifier complains when it tries to load JDBC4-only
-     * interface classes that are present in JDBC4 method signatures.
-     */
-
-    protected static PreparedStatement getInstance(MySQLConnection conn, String sql, String catalog, ParseInfo cachedParseInfo) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new PreparedStatement(conn, sql, catalog, cachedParseInfo);
-        }
-
-        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_4_ARG_CTOR, new Object[] { conn, sql, catalog, cachedParseInfo },
-                conn.getExceptionInterceptor());
-    }
 
     /**
      * Constructor used by server-side prepared statements
-     * 
-     * @param conn
-     *            the connection that created us
-     * @param catalog
-     *            the catalog in use when we were created
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @param conn    the connection that created us
+     * @param catalog the catalog in use when we were created
+     * @throws SQLException if an error occurs
      */
     public PreparedStatement(MySQLConnection conn, String catalog) throws SQLException {
         super(conn, catalog);
@@ -795,22 +165,13 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
         this.compensateForOnDuplicateKeyUpdate = this.connection.getCompensateOnDuplicateKeyUpdateCounts();
     }
 
-    protected void detectFractionalSecondsSupport() throws SQLException {
-        this.serverSupportsFracSecs = this.connection != null && this.connection.versionMeetsMinimum(5, 6, 4);
-    }
-
     /**
      * Constructor for the PreparedStatement class.
-     * 
-     * @param conn
-     *            the connection creating this statement
-     * @param sql
-     *            the SQL for this statement
-     * @param catalog
-     *            the catalog/database this statement should be issued against
-     * 
-     * @throws SQLException
-     *             if a database error occurs.
+     *
+     * @param conn    the connection creating this statement
+     * @param sql     the SQL for this statement
+     * @param catalog the catalog/database this statement should be issued against
+     * @throws SQLException if a database error occurs.
      */
     public PreparedStatement(MySQLConnection conn, String sql, String catalog) throws SQLException {
         super(conn, catalog);
@@ -841,16 +202,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Creates a new PreparedStatement object.
-     * 
-     * @param conn
-     *            the connection creating this statement
-     * @param sql
-     *            the SQL for this statement
-     * @param catalog
-     *            the catalog/database this statement should be issued against
-     * @param cachedParseInfo
-     *            already created parseInfo.
-     * 
+     *
+     * @param conn            the connection creating this statement
+     * @param sql             the SQL for this statement
+     * @param catalog         the catalog/database this statement should be issued against
+     * @param cachedParseInfo already created parseInfo.
      * @throws SQLException
      */
     public PreparedStatement(MySQLConnection conn, String sql, String catalog, ParseInfo cachedParseInfo) throws SQLException {
@@ -881,11 +237,105 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     }
 
     /**
+     * Reads length bytes from reader into buf. Blocks until enough input is
+     * available
+     *
+     * @param reader
+     * @param buf
+     * @param length
+     * @throws IOException
+     */
+    protected static int readFully(Reader reader, char[] buf, int length) throws IOException {
+        int numCharsRead = 0;
+
+        while (numCharsRead < length) {
+            int count = reader.read(buf, numCharsRead, length - numCharsRead);
+
+            if (count < 0) {
+                break;
+            }
+
+            numCharsRead += count;
+        }
+
+        return numCharsRead;
+    }
+
+    /**
+     * Creates a prepared statement instance -- We need to provide factory-style
+     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
+     * otherwise the class verifier complains when it tries to load JDBC4-only
+     * interface classes that are present in JDBC4 method signatures.
+     */
+
+    protected static PreparedStatement getInstance(MySQLConnection conn, String catalog) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new PreparedStatement(conn, catalog);
+        }
+
+        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_2_ARG_CTOR, new Object[]{conn, catalog}, conn.getExceptionInterceptor());
+    }
+
+    /**
+     * Creates a prepared statement instance -- We need to provide factory-style
+     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
+     * otherwise the class verifier complains when it tries to load JDBC4-only
+     * interface classes that are present in JDBC4 method signatures.
+     */
+
+    protected static PreparedStatement getInstance(MySQLConnection conn, String sql, String catalog) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new PreparedStatement(conn, sql, catalog);
+        }
+
+        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_3_ARG_CTOR, new Object[]{conn, sql, catalog}, conn.getExceptionInterceptor());
+    }
+
+    /**
+     * Creates a prepared statement instance -- We need to provide factory-style
+     * methods so we can support both JDBC3 (and older) and JDBC4 runtimes,
+     * otherwise the class verifier complains when it tries to load JDBC4-only
+     * interface classes that are present in JDBC4 method signatures.
+     */
+
+    protected static PreparedStatement getInstance(MySQLConnection conn, String sql, String catalog, ParseInfo cachedParseInfo) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new PreparedStatement(conn, sql, catalog, cachedParseInfo);
+        }
+
+        return (PreparedStatement) Util.handleNewInstance(JDBC_4_PSTMT_4_ARG_CTOR, new Object[]{conn, sql, catalog, cachedParseInfo},
+                conn.getExceptionInterceptor());
+    }
+
+    protected static boolean canRewrite(String sql, boolean isOnDuplicateKeyUpdate, int locationOfOnDuplicateKeyUpdate, int statementStartPos) {
+        // Needs to be INSERT or REPLACE.
+        // Can't have INSERT ... SELECT or INSERT ... ON DUPLICATE KEY UPDATE with an id=LAST_INSERT_ID(...).
+
+        if (StringUtils.startsWithIgnoreCaseAndWs(sql, "INSERT", statementStartPos)) {
+            if (StringUtils.indexOfIgnoreCase(statementStartPos, sql, "SELECT", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) != -1) {
+                return false;
+            }
+            if (isOnDuplicateKeyUpdate) {
+                int updateClausePos = StringUtils.indexOfIgnoreCase(locationOfOnDuplicateKeyUpdate, sql, " UPDATE ");
+                if (updateClausePos != -1) {
+                    return StringUtils.indexOfIgnoreCase(updateClausePos, sql, "LAST_INSERT_ID", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) == -1;
+                }
+            }
+            return true;
+        }
+
+        return StringUtils.startsWithIgnoreCaseAndWs(sql, "REPLACE", statementStartPos)
+                && StringUtils.indexOfIgnoreCase(statementStartPos, sql, "SELECT", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) == -1;
+    }
+
+    protected void detectFractionalSecondsSupport() throws SQLException {
+        this.serverSupportsFracSecs = this.connection != null && this.connection.versionMeetsMinimum(5, 6, 4);
+    }
+
+    /**
      * JDBC 2.0 Add a set of parameters to the batch.
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
-     * 
+     *
+     * @throws SQLException if a database-access error occurs.
      * @see StatementImpl#addBatch
      */
     public void addBatch() throws SQLException {
@@ -1013,9 +463,8 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * value. However, in some cases, it is useful to immediately release the
      * resources used by the current parameter values; this can be done by
      * calling clearParameters
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @throws SQLException if a database access error occurs
      */
     public void clearParameters() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1104,7 +553,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Check to see if the statement is safe for read-only slaves after failover.
-     * 
+     *
      * @return true if safe for read-only.
      * @throws SQLException
      */
@@ -1118,12 +567,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Some prepared statements return multiple results; the execute method
      * handles these complex statements as well as the simpler form of
      * statements handled by executeQuery and executeUpdate
-     * 
+     *
      * @return true if the next result is a ResultSet; false if it is an update
-     *         count or there are no more results
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * count or there are no more results
+     * @throws SQLException if a database access error occurs
      */
     public boolean execute() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1280,9 +727,8 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Rewrites the already prepared statement into a multi-statement
      * query of 'statementsPerBatch' values and executes the entire batch
      * using this new statement.
-     * 
+     *
      * @return update counts in the same fashion as executeBatch()
-     * 
      * @throws SQLException
      */
 
@@ -1471,9 +917,8 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Rewrites the already prepared statement into a multi-value insert
      * statement of 'statementsPerBatch' values and executes the entire batch
      * using this new statement.
-     * 
+     *
      * @return update counts in the same fashion as executeBatch()
-     * 
      * @throws SQLException
      */
     protected long[] executeBatchedInserts(int batchTimeout) throws SQLException {
@@ -1619,7 +1064,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Computes the optimum number of batched parameter lists to send
      * without overflowing max_allowed_packet.
-     * 
+     *
      * @param numBatchedArgs
      * @throws SQLException
      */
@@ -1643,7 +1088,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Computes the maximum parameter set size, and entire batch size given
      * the number of arguments in the batch.
-     * 
+     *
      * @throws SQLException
      */
     protected long[] computeMaxParameterSetSizeAndBatchSize(int numBatchedArgs) throws SQLException {
@@ -1675,7 +1120,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
                             sizeOfParameterSet += paramArg.parameterStrings[j].length;
                         }
                     } else {
-                        sizeOfParameterSet += 4; // for NULL literal in SQL 
+                        sizeOfParameterSet += 4; // for NULL literal in SQL
                     }
                 }
 
@@ -1698,16 +1143,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
                 }
             }
 
-            return new long[] { maxSizeOfParameterSet, sizeOfEntireBatch };
+            return new long[]{maxSizeOfParameterSet, sizeOfEntireBatch};
         }
     }
 
     /**
      * Executes the current batch of statements by executing them one-by-one.
-     * 
+     *
      * @return a list of update counts
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected long[] executeBatchSerially(int batchTimeout) throws SQLException {
 
@@ -1816,24 +1260,17 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Actually execute the prepared statement. This is here so server-side
      * PreparedStatements can re-use most of the code from this class.
-     * 
-     * @param maxRowsToRetrieve
-     *            the max number of rows to return
-     * @param sendPacket
-     *            the packet to send
-     * @param createStreamingResultSet
-     *            should a 'streaming' result set be created?
-     * @param queryIsSelectOnly
-     *            is this query doing a SELECT?
+     *
+     * @param maxRowsToRetrieve        the max number of rows to return
+     * @param sendPacket               the packet to send
+     * @param createStreamingResultSet should a 'streaming' result set be created?
+     * @param queryIsSelectOnly        is this query doing a SELECT?
      * @param unpackFields
-     * 
      * @return the results as a ResultSet
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     * @throws SQLException if an error occurs.
      */
     protected ResultSetInternalMethods executeInternal(int maxRowsToRetrieve, Buffer sendPacket, boolean createStreamingResultSet, boolean queryIsSelectOnly,
-            Field[] metadataFromCache, boolean isBatch) throws SQLException {
+                                                       Field[] metadataFromCache, boolean isBatch) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             try {
 
@@ -1899,7 +1336,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
                 return rs;
             } catch (NullPointerException npe) {
                 checkClosed(); // we can't synchronize ourselves against async connection-close due to deadlock issues, so this is the next best thing for
-                              // this particular corner case.
+                // this particular corner case.
 
                 throw npe;
             }
@@ -1908,12 +1345,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * A Prepared SQL query is executed and its ResultSet is returned
-     * 
+     *
      * @return a ResultSet that contains the data produced by the query - never
-     *         null
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * null
+     * @throws SQLException if a database access error occurs
      */
     public java.sql.ResultSet executeQuery() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -1987,12 +1422,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Execute a SQL INSERT, UPDATE or DELETE statement. In addition, SQL
      * statements that return nothing such as SQL DDL statements can be
      * executed.
-     * 
+     *
      * @return either the row count for INSERT, UPDATE or DELETE; or 0 for SQL
-     *         statements that return nothing.
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     * statements that return nothing.
+     * @throws SQLException if a database access error occurs
      */
     public int executeUpdate() throws SQLException {
         return Util.truncateAndConvertToInt(executeLargeUpdate());
@@ -2016,25 +1449,17 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Added to allow batch-updates
-     * 
-     * @param batchedParameterStrings
-     *            string values used in single statement
-     * @param batchedParameterStreams
-     *            stream values used in single statement
-     * @param batchedIsStream
-     *            flags for streams used in single statement
-     * @param batchedStreamLengths
-     *            lengths of streams to be read.
-     * @param batchedIsNull
-     *            flags for parameters that are null
-     * 
+     *
+     * @param batchedParameterStrings string values used in single statement
+     * @param batchedParameterStreams stream values used in single statement
+     * @param batchedIsStream         flags for streams used in single statement
+     * @param batchedStreamLengths    lengths of streams to be read.
+     * @param batchedIsNull           flags for parameters that are null
      * @return the update count
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     * @throws SQLException if a database error occurs
      */
     protected long executeUpdateInternal(byte[][] batchedParameterStrings, InputStream[] batchedParameterStreams, boolean[] batchedIsStream,
-            int[] batchedStreamLengths, boolean[] batchedIsNull, boolean isReallyBatch) throws SQLException {
+                                         int[] batchedStreamLengths, boolean[] batchedIsNull, boolean isReallyBatch) throws SQLException {
 
         synchronized (checkClosed().getConnectionMutex()) {
 
@@ -2109,12 +1534,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Creates the packet that contains the query to be sent to the server.
-     * 
+     *
      * @return A Buffer filled with the query representing the
-     *         PreparedStatement.
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     * PreparedStatement.
+     * @throws SQLException if an error occurs.
      */
     protected Buffer fillSendPacket() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -2124,23 +1547,16 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Creates the packet that contains the query to be sent to the server.
-     * 
-     * @param batchedParameterStrings
-     *            the parameters as strings
-     * @param batchedParameterStreams
-     *            the parameters as streams
-     * @param batchedIsStream
-     *            is the given parameter a stream?
-     * @param batchedStreamLengths
-     *            the lengths of the streams (if appropriate)
-     * 
+     *
+     * @param batchedParameterStrings the parameters as strings
+     * @param batchedParameterStreams the parameters as streams
+     * @param batchedIsStream         is the given parameter a stream?
+     * @param batchedStreamLengths    the lengths of the streams (if appropriate)
      * @return a Buffer filled with the query that represents this statement
-     * 
-     * @throws SQLException
-     *             if an error occurs.
+     * @throws SQLException if an error occurs.
      */
     protected Buffer fillSendPacket(byte[][] batchedParameterStrings, InputStream[] batchedParameterStreams, boolean[] batchedIsStream,
-            int[] batchedStreamLengths) throws SQLException {
+                                    int[] batchedStreamLengths) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             Buffer sendPacket = this.connection.getIO().getSharedSendPacket();
 
@@ -2233,8 +1649,6 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
         }
     }
 
-    protected int rewrittenBatchSize = 0;
-
     public int getRewrittenBatchSize() {
         return this.rewrittenBatchSize;
     }
@@ -2253,7 +1667,6 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * @param parameterIndex
-     * 
      * @throws SQLException
      */
     public byte[] getBytesRepresentation(int parameterIndex) throws SQLException {
@@ -2282,7 +1695,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Get bytes representation for a parameter in a statement batch.
-     * 
+     *
      * @param parameterIndex
      * @param commandIndex
      * @throws SQLException
@@ -2319,8 +1732,6 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
             return parameterVal;
         }
     }
-
-    // --------------------------JDBC 2.0-----------------------------
 
     private final String getDateTimePattern(String dt, boolean toTime) throws Exception {
         //
@@ -2486,11 +1897,9 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * The number, types and properties of a ResultSet's columns are provided by
      * the getMetaData method.
-     * 
+     *
      * @return the description of a ResultSet's columns
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     * @throws SQLException if a database-access error occurs.
      */
     public java.sql.ResultSetMetaData getMetaData() throws SQLException {
 
@@ -2498,7 +1907,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
             //
             // We could just tack on a LIMIT 0 here no matter what the  statement, and check if a result set was returned or not, but I'm not comfortable with
             // that, myself, so we take the "safer" road, and only allow metadata for _actual_ SELECTS (but not SHOWs).
-            // 
+            //
             // CALL's are trapped further up and you end up with a  CallableStatement anyway.
             //
 
@@ -2587,6 +1996,8 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
         }
     }
 
+    // --------------------------JDBC 2.0-----------------------------
+
     ParseInfo getParseInfo() {
         return this.parseInfo;
     }
@@ -2594,14 +2005,14 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     private final char getSuccessor(char c, int n) {
         return ((c == 'y') && (n == 2)) ? 'X'
                 : (((c == 'y') && (n < 4)) ? 'y' : ((c == 'y') ? 'M' : (((c == 'M') && (n == 2)) ? 'Y'
-                        : (((c == 'M') && (n < 3)) ? 'M' : ((c == 'M') ? 'd' : (((c == 'd') && (n < 2)) ? 'd' : ((c == 'd') ? 'H' : (((c == 'H') && (n < 2))
-                                ? 'H' : ((c == 'H') ? 'm'
-                                        : (((c == 'm') && (n < 2)) ? 'm' : ((c == 'm') ? 's' : (((c == 's') && (n < 2)) ? 's' : 'W'))))))))))));
+                : (((c == 'M') && (n < 3)) ? 'M' : ((c == 'M') ? 'd' : (((c == 'd') && (n < 2)) ? 'd' : ((c == 'd') ? 'H' : (((c == 'H') && (n < 2))
+                ? 'H' : ((c == 'H') ? 'm'
+                : (((c == 'm') && (n < 2)) ? 'm' : ((c == 'm') ? 's' : (((c == 's') && (n < 2)) ? 's' : 'W'))))))))))));
     }
 
     /**
      * Used to escape binary data with hex for mb charsets
-     * 
+     *
      * @param buf
      * @param packet
      * @param size
@@ -2679,12 +2090,9 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Closes this statement, releasing all resources
-     * 
-     * @param calledExplicitly
-     *            was this called by close()?
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @param calledExplicitly was this called by close()?
+     * @throws SQLException if an error occurs
      */
     @Override
     protected void realClose(boolean calledExplicitly, boolean closeOpenResults) throws SQLException {
@@ -2728,14 +2136,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * JDBC 2.0 Set an Array parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing an SQL array
-     * 
-     * @throws SQLException
-     *             because this method is not implemented.
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing an SQL array
+     * @throws SQLException   because this method is not implemented.
      * @throws NotImplemented
      */
     public void setArray(int i, Array x) throws SQLException {
@@ -2748,20 +2152,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * the data from the stream as needed, until it reaches end-of-file. The
      * JDBC driver will do any necessary conversion from ASCII to the database
      * char format.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> This stream object can either be a standard Java stream object or your own subclass that implements the standard interface.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * @param length
-     *            the number of bytes in the stream
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @param length         the number of bytes in the stream
+     * @throws SQLException if a database access error occurs
      */
     public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
         if (x == null) {
@@ -2774,14 +2173,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.math.BigDecimal value. The driver converts this
      * to a SQL NUMERIC value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
         if (x == null) {
@@ -2797,20 +2192,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * When a very large binary value is input to a LONGVARBINARY parameter, it
      * may be more practical to send it via a java.io.InputStream. JDBC will
      * read the data from the stream as needed, until it reaches end-of-file.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> This stream object can either be a standard Java stream object or your own subclass that implements the standard interface.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * @param length
-     *            the number of bytes to read from the stream (ignored)
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @param length         the number of bytes to read from the stream (ignored)
+     * @throws SQLException if a database access error occurs
      */
     public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -2844,14 +2234,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * JDBC 2.0 Set a BLOB parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing a BLOB
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing a BLOB
+     * @throws SQLException if a database error occurs
      */
     public void setBlob(int i, java.sql.Blob x) throws SQLException {
         if (x == null) {
@@ -2872,14 +2258,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java boolean value. The driver converts this to a
      * SQL BIT value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
         if (this.useTrueBoolean) {
@@ -2894,14 +2276,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java byte value. The driver converts this to a SQL
      * TINYINT value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setByte(int parameterIndex, byte x) throws SQLException {
         setInternal(parameterIndex, String.valueOf(x));
@@ -2913,14 +2291,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Set a parameter to a Java array of bytes. The driver converts this to a
      * SQL VARBINARY or LONGVARBINARY (depending on the argument's size relative
      * to the driver's limits on VARBINARYs) when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setBytes(int parameterIndex, byte[] x) throws SQLException {
         setBytes(parameterIndex, x, true, true);
@@ -3054,14 +2428,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Used by updatable result sets for refreshRow() because the parameter has
      * already been escaped for updater or inserter prepared statements.
-     * 
-     * @param parameterIndex
-     *            the parameter to set.
-     * @param parameterAsBytes
-     *            the parameter as a string.
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     *
+     * @param parameterIndex   the parameter to set.
+     * @param parameterAsBytes the parameter as a string.
+     * @throws SQLException if an error occurs
      */
     protected void setBytesNoEscape(int parameterIndex, byte[] parameterAsBytes) throws SQLException {
         byte[] parameterWithQuotes = new byte[parameterAsBytes.length + 2];
@@ -3082,20 +2452,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * will read the data from the stream as needed, until it reaches
      * end-of-file. The JDBC driver will do any necessary conversion from
      * UNICODE to the database char format.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> This stream object can either be a standard Java stream object or your own subclass that implements the standard interface.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param reader
-     *            the java reader which contains the UNICODE data
-     * @param length
-     *            the number of characters in the stream
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param reader         the java reader which contains the UNICODE data
+     * @param length         the number of characters in the stream
+     * @throws SQLException if a database-access error occurs.
      */
     public void setCharacterStream(int parameterIndex, java.io.Reader reader, int length) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -3156,14 +2521,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * JDBC 2.0 Set a CLOB parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing a CLOB
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing a CLOB
+     * @throws SQLException if a database error occurs
      */
     public void setClob(int i, Clob x) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -3192,14 +2553,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Date value. The driver converts this to a
      * SQL DATE value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception java.sql.SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws java.sql.SQLException if a database access error occurs
      */
     public void setDate(int parameterIndex, java.sql.Date x) throws java.sql.SQLException {
         setDate(parameterIndex, x, null);
@@ -3208,16 +2565,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Date value. The driver converts this to a
      * SQL DATE value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the calendar to interpret the date with
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param cal            the calendar to interpret the date with
+     * @throws SQLException if a database-access error occurs.
      */
     public void setDate(int parameterIndex, java.sql.Date x, Calendar cal) throws SQLException {
         if (x == null) {
@@ -3245,14 +2597,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java double value. The driver converts this to a SQL
      * DOUBLE value when it sends it to the database
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setDouble(int parameterIndex, double x) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -3271,14 +2619,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java float value. The driver converts this to a SQL
      * FLOAT value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setFloat(int parameterIndex, float x) throws SQLException {
         setInternal(parameterIndex, StringUtils.fixDecimalExponent(String.valueOf(x)));
@@ -3289,14 +2633,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java int value. The driver converts this to a SQL
      * INTEGER value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setInt(int parameterIndex, int x) throws SQLException {
         setInternal(parameterIndex, String.valueOf(x));
@@ -3355,14 +2695,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java long value. The driver converts this to a SQL
      * BIGINT value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setLong(int parameterIndex, long x) throws SQLException {
         setInternal(parameterIndex, String.valueOf(x));
@@ -3372,18 +2708,14 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Set a parameter to SQL NULL
-     * 
+     * <p>
      * <p>
      * <B>Note:</B> You must specify the parameters SQL type (although MySQL ignores it)
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, etc...
-     * @param sqlType
-     *            the SQL type code defined in java.sql.Types
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1, etc...
+     * @param sqlType        the SQL type code defined in java.sql.Types
+     * @throws SQLException if a database access error occurs
      */
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -3396,20 +2728,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Set a parameter to SQL NULL.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> You must specify the parameter's SQL type.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param sqlType
-     *            SQL type code defined by java.sql.Types
-     * @param arg
-     *            argument parameters for null
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param sqlType        SQL type code defined by java.sql.Types
+     * @param arg            argument parameters for null
+     * @throws SQLException if a database-access error occurs.
      */
     public void setNull(int parameterIndex, int sqlType, String arg) throws SQLException {
         setNull(parameterIndex, sqlType);
@@ -3572,7 +2899,6 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * @param parameterIndex
      * @param parameterObj
      * @param targetSqlType
-     * 
      * @throws SQLException
      */
     public void setObject(int parameterIndex, Object parameterObj, int targetSqlType) throws SQLException {
@@ -3586,29 +2912,23 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set the value of a parameter using an object; use the java.lang
      * equivalent objects for integral values.
-     * 
+     * <p>
      * <P>
      * The given Java object will be converted to the targetSqlType before being sent to the database.
      * </p>
-     * 
+     * <p>
      * <P>
      * note that this method may be used to pass database-specific abstract data types. This is done by using a Driver-specific Java type and using a
      * targetSqlType of java.sql.Types.OTHER
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param parameterObj
-     *            the object containing the input parameter value
-     * @param targetSqlType
-     *            The SQL type to be send to the database
-     * @param scale
-     *            For java.sql.Types.DECIMAL or java.sql.Types.NUMERIC types
-     *            this is the number of digits after the decimal. For all other
-     *            types this value will be ignored.
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param parameterObj   the object containing the input parameter value
+     * @param targetSqlType  The SQL type to be send to the database
+     * @param scale          For java.sql.Types.DECIMAL or java.sql.Types.NUMERIC types
+     *                       this is the number of digits after the decimal. For all other
+     *                       types this value will be ignored.
+     * @throws SQLException if a database access error occurs
      */
     public void setObject(int parameterIndex, Object parameterObj, int targetSqlType, int scale) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -3794,14 +3114,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * JDBC 2.0 Set a REF(&lt;structured-type&gt;) parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing data of an SQL REF Type
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing data of an SQL REF Type
+     * @throws SQLException   if a database error occurs
      * @throws NotImplemented
      */
     public void setRef(int i, Ref x) throws SQLException {
@@ -3811,10 +3127,9 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Sets the value for the placeholder as a serialized Java object (used by
      * various forms of setObject()
-     * 
+     *
      * @param parameterIndex
      * @param parameterObj
-     * 
      * @throws SQLException
      */
     private final void setSerializableObject(int parameterIndex, Object parameterObj) throws SQLException {
@@ -3843,14 +3158,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a Java short value. The driver converts this to a SQL
      * SMALLINT value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setShort(int parameterIndex, short x) throws SQLException {
         setInternal(parameterIndex, String.valueOf(x));
@@ -3862,14 +3173,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Set a parameter to a Java String value. The driver converts this to a SQL
      * VARCHAR or LONGVARCHAR value (depending on the arguments size relative to
      * the driver's limits on VARCHARs) when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setString(int parameterIndex, String x) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4082,16 +3389,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Time value. The driver converts this to a
      * SQL TIME value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the cal specifying the timezone
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param cal            the cal specifying the timezone
+     * @throws SQLException if a database-access error occurs.
      */
     public void setTime(int parameterIndex, java.sql.Time x, Calendar cal) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4102,14 +3404,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Time value. The driver converts this to a
      * SQL TIME value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...));
-     * @param x
-     *            the parameter value
-     * 
-     * @throws java.sql.SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...));
+     * @param x              the parameter value
+     * @throws java.sql.SQLException if a database access error occurs
      */
     public void setTime(int parameterIndex, Time x) throws java.sql.SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4121,16 +3419,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * Set a parameter to a java.sql.Time value. The driver converts this to a
      * SQL TIME value when it sends it to the database, using the given
      * timezone.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...));
-     * @param x
-     *            the parameter value
-     * @param tz
-     *            the timezone to use
-     * 
-     * @throws java.sql.SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...));
+     * @param x              the parameter value
+     * @param tz             the timezone to use
+     * @throws java.sql.SQLException if a database access error occurs
      */
     private void setTimeInternal(int parameterIndex, Time x, Calendar targetCalendar, TimeZone tz, boolean rollForward) throws java.sql.SQLException {
         if (x == null) {
@@ -4155,16 +3448,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Timestamp value. The driver converts this
      * to a SQL TIMESTAMP value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param cal
-     *            the calendar specifying the timezone to use
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param cal            the calendar specifying the timezone to use
+     * @throws SQLException if a database-access error occurs.
      */
     public void setTimestamp(int parameterIndex, java.sql.Timestamp x, Calendar cal) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4175,14 +3463,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Timestamp value. The driver converts this
      * to a SQL TIMESTAMP value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @throws java.sql.SQLException
-     *             if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws java.sql.SQLException if a database access error occurs
      */
     public void setTimestamp(int parameterIndex, Timestamp x) throws java.sql.SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4193,16 +3477,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     /**
      * Set a parameter to a java.sql.Timestamp value. The driver converts this
      * to a SQL TIMESTAMP value when it sends it to the database.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            the parameter value
-     * @param tz
-     *            the timezone to use
-     * 
-     * @throws SQLException
-     *             if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param x              the parameter value
+     * @param tz             the timezone to use
+     * @throws SQLException if a database-access error occurs.
      */
     private void setTimestampInternal(int parameterIndex, Timestamp x, Calendar targetCalendar, TimeZone tz, boolean rollForward) throws SQLException {
         if (x == null) {
@@ -4245,7 +3524,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
                         buf.append('\'');
 
                         setInternal(parameterIndex, buf.toString()); // SimpleDateFormat is not
-                                                                    // thread-safe
+                        // thread-safe
                     }
                 }
             }
@@ -4393,21 +3672,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * read the data from the stream as needed, until it reaches end-of-file.
      * The JDBC driver will do any necessary conversion from UNICODE to the
      * database char format.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> This stream object can either be a standard Java stream object or your own subclass that implements the standard interface.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * @param length
-     *            the number of bytes to read from the stream
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
-     * 
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @param length         the number of bytes to read from the stream
+     * @throws SQLException if a database access error occurs
      * @deprecated
      */
     @Deprecated
@@ -4595,7 +3868,7 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * Returns this PreparedStatement represented as a string.
-     * 
+     *
      * @return this PreparedStatement represented as a string.
      */
     @Override
@@ -4671,14 +3944,10 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * VARCHAR or LONGVARCHAR value with introducer _utf8 (depending on the
      * arguments size relative to the driver's limits on VARCHARs) when it sends
      * it to the database. If charset is set as utf8, this method just call setString.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1...
-     * @param x
-     *            the parameter value
-     * 
-     * @exception SQLException
-     *                if a database access error occurs
+     *
+     * @param parameterIndex the first parameter is 1...
+     * @param x              the parameter value
+     * @throws SQLException if a database access error occurs
      */
     public void setNString(int parameterIndex, String x) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4784,20 +4053,15 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
      * will read the data from the stream as needed, until it reaches
      * end-of-file. The JDBC driver will do any necessary conversion from
      * UNICODE to the database char format.
-     * 
+     * <p>
      * <P>
      * <B>Note:</B> This stream object can either be a standard Java stream object or your own subclass that implements the standard interface.
      * </p>
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param reader
-     *            the java reader which contains the UNICODE data
-     * @param length
-     *            the number of characters in the stream
-     * 
-     * @exception SQLException
-     *                if a database-access error occurs.
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param reader         the java reader which contains the UNICODE data
+     * @param length         the number of characters in the stream
+     * @throws SQLException if a database-access error occurs.
      */
     public void setNCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
@@ -4845,16 +4109,11 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param reader
-     *            the java reader which contains the UNICODE data
-     * @param length
-     *            the number of characters in the stream
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param reader         the java reader which contains the UNICODE data
+     * @param length         the number of characters in the stream
+     * @throws SQLException if a database error occurs
      */
     public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
         if (reader == null) {
@@ -4867,6 +4126,562 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
     public ParameterBindings getParameterBindings() throws SQLException {
         synchronized (checkClosed().getConnectionMutex()) {
             return new EmulatedPreparedStatementBindings();
+        }
+    }
+
+    public String getPreparedSql() {
+        try {
+            synchronized (checkClosed().getConnectionMutex()) {
+                if (this.rewrittenBatchSize == 0) {
+                    return this.originalSql;
+                }
+
+                try {
+                    return this.parseInfo.getSqlForBatch(this.parseInfo);
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e); // FIXME: evolve public interface
+        }
+    }
+
+    @Override
+    public int getUpdateCount() throws SQLException {
+        int count = super.getUpdateCount();
+
+        if (containsOnDuplicateKeyUpdateInSQL() && this.compensateForOnDuplicateKeyUpdate) {
+            if (count == 2 || count == 0) {
+                count = 1;
+            }
+        }
+
+        return count;
+    }
+
+    /**
+     * JDBC 4.2
+     * Same as PreparedStatement.executeUpdate() but returns long instead of int.
+     */
+    public long executeLargeUpdate() throws SQLException {
+        return executeUpdateInternal(true, false);
+    }
+
+    interface BatchVisitor {
+        abstract BatchVisitor increment();
+
+        abstract BatchVisitor decrement();
+
+        abstract BatchVisitor append(byte[] values);
+
+        abstract BatchVisitor merge(byte[] begin, byte[] end);
+    }
+
+    public static final class ParseInfo {
+        char firstStmtChar = 0;
+
+        boolean foundLoadData = false;
+
+        long lastUsed = 0;
+
+        int statementLength = 0;
+
+        int statementStartPos = 0;
+
+        boolean canRewriteAsMultiValueInsert = false;
+
+        byte[][] staticSql = null;
+
+        boolean isOnDuplicateKeyUpdate = false;
+
+        int locationOfOnDuplicateKeyUpdate = -1;
+
+        String valuesClause;
+
+        boolean parametersInDuplicateKeyClause = false;
+
+        String charEncoding;
+        private ParseInfo batchHead;
+        private ParseInfo batchValues;
+        private ParseInfo batchODKUClause;
+
+        /**
+         * Represents the "parsed" state of a client-side prepared statement, with the statement broken up into it's static and dynamic (where parameters are
+         * bound) parts.
+         */
+        ParseInfo(String sql, MySQLConnection conn, java.sql.DatabaseMetaData dbmd, String encoding, SingleByteCharsetConverter converter) throws SQLException {
+            this(sql, conn, dbmd, encoding, converter, true);
+        }
+
+        public ParseInfo(String sql, MySQLConnection conn, java.sql.DatabaseMetaData dbmd, String encoding, SingleByteCharsetConverter converter,
+                         boolean buildRewriteInfo) throws SQLException {
+            try {
+                if (sql == null) {
+                    throw SQLError.createSQLException(Messages.getString("PreparedStatement.61"), SQLError.SQL_STATE_ILLEGAL_ARGUMENT,
+                            conn.getExceptionInterceptor());
+                }
+
+                this.charEncoding = encoding;
+                this.lastUsed = System.currentTimeMillis();
+
+                String quotedIdentifierString = dbmd.getIdentifierQuoteString();
+
+                char quotedIdentifierChar = 0;
+
+                if ((quotedIdentifierString != null) && !quotedIdentifierString.equals(" ") && (quotedIdentifierString.length() > 0)) {
+                    quotedIdentifierChar = quotedIdentifierString.charAt(0);
+                }
+
+                this.statementLength = sql.length();
+
+                ArrayList<int[]> endpointList = new ArrayList<int[]>();
+                boolean inQuotes = false;
+                char quoteChar = 0;
+                boolean inQuotedId = false;
+                int lastParmEnd = 0;
+                int i;
+
+                boolean noBackslashEscapes = conn.isNoBackslashEscapesSet();
+
+                // we're not trying to be real pedantic here, but we'd like to  skip comments at the beginning of statements, as frameworks such as Hibernate
+                // use them to aid in debugging
+
+                this.statementStartPos = findStartOfStatement(sql);
+
+                for (i = this.statementStartPos; i < this.statementLength; ++i) {
+                    char c = sql.charAt(i);
+
+                    if ((this.firstStmtChar == 0) && Character.isLetter(c)) {
+                        // Determine what kind of statement we're doing (_S_elect, _I_nsert, etc.)
+                        this.firstStmtChar = Character.toUpperCase(c);
+
+                        // no need to search for "ON DUPLICATE KEY UPDATE" if not an INSERT statement
+                        if (this.firstStmtChar == 'I') {
+                            this.locationOfOnDuplicateKeyUpdate = getOnDuplicateKeyLocation(sql, conn.getDontCheckOnDuplicateKeyUpdateInSQL(),
+                                    conn.getRewriteBatchedStatements(), conn.isNoBackslashEscapesSet());
+                            this.isOnDuplicateKeyUpdate = this.locationOfOnDuplicateKeyUpdate != -1;
+                        }
+                    }
+
+                    if (!noBackslashEscapes && c == '\\' && i < (this.statementLength - 1)) {
+                        i++;
+                        continue; // next character is escaped
+                    }
+
+                    // are we in a quoted identifier? (only valid when the id is not inside a 'string')
+                    if (!inQuotes && (quotedIdentifierChar != 0) && (c == quotedIdentifierChar)) {
+                        inQuotedId = !inQuotedId;
+                    } else if (!inQuotedId) {
+                        //	only respect quotes when not in a quoted identifier
+
+                        if (inQuotes) {
+                            if (((c == '\'') || (c == '"')) && c == quoteChar) {
+                                if (i < (this.statementLength - 1) && sql.charAt(i + 1) == quoteChar) {
+                                    i++;
+                                    continue; // inline quote escape
+                                }
+
+                                inQuotes = !inQuotes;
+                                quoteChar = 0;
+                            } else if (((c == '\'') || (c == '"')) && c == quoteChar) {
+                                inQuotes = !inQuotes;
+                                quoteChar = 0;
+                            }
+                        } else {
+                            if (c == '#' || (c == '-' && (i + 1) < this.statementLength && sql.charAt(i + 1) == '-')) {
+                                // run out to end of statement, or newline, whichever comes first
+                                int endOfStmt = this.statementLength - 1;
+
+                                for (; i < endOfStmt; i++) {
+                                    c = sql.charAt(i);
+
+                                    if (c == '\r' || c == '\n') {
+                                        break;
+                                    }
+                                }
+
+                                continue;
+                            } else if (c == '/' && (i + 1) < this.statementLength) {
+                                // Comment?
+                                char cNext = sql.charAt(i + 1);
+
+                                if (cNext == '*') {
+                                    i += 2;
+
+                                    for (int j = i; j < this.statementLength; j++) {
+                                        i++;
+                                        cNext = sql.charAt(j);
+
+                                        if (cNext == '*' && (j + 1) < this.statementLength) {
+                                            if (sql.charAt(j + 1) == '/') {
+                                                i++;
+
+                                                if (i < this.statementLength) {
+                                                    c = sql.charAt(i);
+                                                }
+
+                                                break; // comment done
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if ((c == '\'') || (c == '"')) {
+                                inQuotes = true;
+                                quoteChar = c;
+                            }
+                        }
+                    }
+
+                    if ((c == '?') && !inQuotes && !inQuotedId) {
+                        endpointList.add(new int[]{lastParmEnd, i});
+                        lastParmEnd = i + 1;
+
+                        if (this.isOnDuplicateKeyUpdate && i > this.locationOfOnDuplicateKeyUpdate) {
+                            this.parametersInDuplicateKeyClause = true;
+                        }
+                    }
+                }
+
+                if (this.firstStmtChar == 'L') {
+                    if (StringUtils.startsWithIgnoreCaseAndWs(sql, "LOAD DATA")) {
+                        this.foundLoadData = true;
+                    } else {
+                        this.foundLoadData = false;
+                    }
+                } else {
+                    this.foundLoadData = false;
+                }
+
+                endpointList.add(new int[]{lastParmEnd, this.statementLength});
+                this.staticSql = new byte[endpointList.size()][];
+
+                for (i = 0; i < this.staticSql.length; i++) {
+                    int[] ep = endpointList.get(i);
+                    int end = ep[1];
+                    int begin = ep[0];
+                    int len = end - begin;
+
+                    if (this.foundLoadData) {
+                        this.staticSql[i] = StringUtils.getBytes(sql, begin, len);
+                    } else if (encoding == null) {
+                        byte[] buf = new byte[len];
+
+                        for (int j = 0; j < len; j++) {
+                            buf[j] = (byte) sql.charAt(begin + j);
+                        }
+
+                        this.staticSql[i] = buf;
+                    } else {
+                        if (converter != null) {
+                            this.staticSql[i] = StringUtils.getBytes(sql, converter, encoding, conn.getServerCharset(), begin, len, conn.parserKnowsUnicode(),
+                                    conn.getExceptionInterceptor());
+                        } else {
+                            this.staticSql[i] = StringUtils.getBytes(sql, encoding, conn.getServerCharset(), begin, len, conn.parserKnowsUnicode(), conn,
+                                    conn.getExceptionInterceptor());
+                        }
+                    }
+                }
+            } catch (StringIndexOutOfBoundsException oobEx) {
+                SQLException sqlEx = new SQLException("Parse error for " + sql);
+                sqlEx.initCause(oobEx);
+
+                throw sqlEx;
+            }
+
+            if (buildRewriteInfo) {
+                this.canRewriteAsMultiValueInsert = PreparedStatement.canRewrite(sql, this.isOnDuplicateKeyUpdate, this.locationOfOnDuplicateKeyUpdate,
+                        this.statementStartPos) && !this.parametersInDuplicateKeyClause;
+
+                if (this.canRewriteAsMultiValueInsert && conn.getRewriteBatchedStatements()) {
+                    buildRewriteBatchedParams(sql, conn, dbmd, encoding, converter);
+                }
+            }
+        }
+
+        private ParseInfo(byte[][] staticSql, char firstStmtChar, boolean foundLoadData, boolean isOnDuplicateKeyUpdate, int locationOfOnDuplicateKeyUpdate,
+                          int statementLength, int statementStartPos) {
+            this.firstStmtChar = firstStmtChar;
+            this.foundLoadData = foundLoadData;
+            this.isOnDuplicateKeyUpdate = isOnDuplicateKeyUpdate;
+            this.locationOfOnDuplicateKeyUpdate = locationOfOnDuplicateKeyUpdate;
+            this.statementLength = statementLength;
+            this.statementStartPos = statementStartPos;
+            this.staticSql = staticSql;
+        }
+
+        private void buildRewriteBatchedParams(String sql, MySQLConnection conn, DatabaseMetaData metadata, String encoding,
+                                               SingleByteCharsetConverter converter) throws SQLException {
+            this.valuesClause = extractValuesClause(sql, conn.getMetaData().getIdentifierQuoteString());
+            String odkuClause = this.isOnDuplicateKeyUpdate ? sql.substring(this.locationOfOnDuplicateKeyUpdate) : null;
+
+            String headSql = null;
+
+            if (this.isOnDuplicateKeyUpdate) {
+                headSql = sql.substring(0, this.locationOfOnDuplicateKeyUpdate);
+            } else {
+                headSql = sql;
+            }
+
+            this.batchHead = new ParseInfo(headSql, conn, metadata, encoding, converter, false);
+            this.batchValues = new ParseInfo("," + this.valuesClause, conn, metadata, encoding, converter, false);
+            this.batchODKUClause = null;
+
+            if (odkuClause != null && odkuClause.length() > 0) {
+                this.batchODKUClause = new ParseInfo("," + this.valuesClause + " " + odkuClause, conn, metadata, encoding, converter, false);
+            }
+        }
+
+        private String extractValuesClause(String sql, String quoteCharStr) throws SQLException {
+            int indexOfValues = -1;
+            int valuesSearchStart = this.statementStartPos;
+
+            while (indexOfValues == -1) {
+                if (quoteCharStr.length() > 0) {
+                    indexOfValues = StringUtils.indexOfIgnoreCase(valuesSearchStart, sql, "VALUES", quoteCharStr, quoteCharStr,
+                            StringUtils.SEARCH_MODE__MRK_COM_WS);
+                } else {
+                    indexOfValues = StringUtils.indexOfIgnoreCase(valuesSearchStart, sql, "VALUES");
+                }
+
+                if (indexOfValues > 0) {
+                    /* check if the char immediately preceding VALUES may be part of the table name */
+                    char c = sql.charAt(indexOfValues - 1);
+                    if (!(Character.isWhitespace(c) || c == ')' || c == '`')) {
+                        valuesSearchStart = indexOfValues + 6;
+                        indexOfValues = -1;
+                    } else {
+                        /* check if the char immediately following VALUES may be whitespace or open parenthesis */
+                        c = sql.charAt(indexOfValues + 6);
+                        if (!(Character.isWhitespace(c) || c == '(')) {
+                            valuesSearchStart = indexOfValues + 6;
+                            indexOfValues = -1;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if (indexOfValues == -1) {
+                return null;
+            }
+
+            int indexOfFirstParen = sql.indexOf('(', indexOfValues + 6);
+
+            if (indexOfFirstParen == -1) {
+                return null;
+            }
+
+            int endOfValuesClause = sql.lastIndexOf(')');
+
+            if (endOfValuesClause == -1) {
+                return null;
+            }
+
+            if (this.isOnDuplicateKeyUpdate) {
+                endOfValuesClause = this.locationOfOnDuplicateKeyUpdate - 1;
+            }
+
+            return sql.substring(indexOfFirstParen, endOfValuesClause + 1);
+        }
+
+        /**
+         * Returns a ParseInfo for a multi-value INSERT for a batch of size numBatch (without parsing!).
+         */
+        synchronized ParseInfo getParseInfoForBatch(int numBatch) {
+            AppendingBatchVisitor apv = new AppendingBatchVisitor();
+            buildInfoForBatch(numBatch, apv);
+
+            ParseInfo batchParseInfo = new ParseInfo(apv.getStaticSqlStrings(), this.firstStmtChar, this.foundLoadData, this.isOnDuplicateKeyUpdate,
+                    this.locationOfOnDuplicateKeyUpdate, this.statementLength, this.statementStartPos);
+
+            return batchParseInfo;
+        }
+
+        /**
+         * Returns a preparable SQL string for the number of batched parameters, used by server-side prepared statements
+         * when re-writing batch INSERTs.
+         */
+
+        String getSqlForBatch(int numBatch) throws UnsupportedEncodingException {
+            ParseInfo batchInfo = getParseInfoForBatch(numBatch);
+
+            return getSqlForBatch(batchInfo);
+        }
+
+        /**
+         * Used for filling in the SQL for getPreparedSql() - for debugging
+         */
+        String getSqlForBatch(ParseInfo batchInfo) throws UnsupportedEncodingException {
+            int size = 0;
+            final byte[][] sqlStrings = batchInfo.staticSql;
+            final int sqlStringsLength = sqlStrings.length;
+
+            for (int i = 0; i < sqlStringsLength; i++) {
+                size += sqlStrings[i].length;
+                size++; // for the '?'
+            }
+
+            StringBuilder buf = new StringBuilder(size);
+
+            for (int i = 0; i < sqlStringsLength - 1; i++) {
+                buf.append(StringUtils.toString(sqlStrings[i], this.charEncoding));
+                buf.append("?");
+            }
+
+            buf.append(StringUtils.toString(sqlStrings[sqlStringsLength - 1]));
+
+            return buf.toString();
+        }
+
+        /**
+         * Builds a ParseInfo for the given batch size, without parsing. We use
+         * a visitor pattern here, because the if {}s make computing a size for the
+         * resultant byte[][] make this too complex, and we don't necessarily want to
+         * use a List for this, because the size can be dynamic, and thus we'll not be
+         * able to guess a good initial size for an array-based list, and it's not
+         * efficient to convert a LinkedList to an array.
+         */
+        private void buildInfoForBatch(int numBatch, BatchVisitor visitor) {
+            final byte[][] headStaticSql = this.batchHead.staticSql;
+            final int headStaticSqlLength = headStaticSql.length;
+
+            if (headStaticSqlLength > 1) {
+                for (int i = 0; i < headStaticSqlLength - 1; i++) {
+                    visitor.append(headStaticSql[i]).increment();
+                }
+            }
+
+            // merge end of head, with beginning of a value clause
+            byte[] endOfHead = headStaticSql[headStaticSqlLength - 1];
+            final byte[][] valuesStaticSql = this.batchValues.staticSql;
+            byte[] beginOfValues = valuesStaticSql[0];
+
+            visitor.merge(endOfHead, beginOfValues).increment();
+
+            int numValueRepeats = numBatch - 1; // first one is in the "head"
+
+            if (this.batchODKUClause != null) {
+                numValueRepeats--; // Last one is in the ODKU clause
+            }
+
+            final int valuesStaticSqlLength = valuesStaticSql.length;
+            byte[] endOfValues = valuesStaticSql[valuesStaticSqlLength - 1];
+
+            for (int i = 0; i < numValueRepeats; i++) {
+                for (int j = 1; j < valuesStaticSqlLength - 1; j++) {
+                    visitor.append(valuesStaticSql[j]).increment();
+                }
+                visitor.merge(endOfValues, beginOfValues).increment();
+            }
+
+            if (this.batchODKUClause != null) {
+                final byte[][] batchOdkuStaticSql = this.batchODKUClause.staticSql;
+                byte[] beginOfOdku = batchOdkuStaticSql[0];
+                visitor.decrement().merge(endOfValues, beginOfOdku).increment();
+
+                final int batchOdkuStaticSqlLength = batchOdkuStaticSql.length;
+
+                if (numBatch > 1) {
+                    for (int i = 1; i < batchOdkuStaticSqlLength; i++) {
+                        visitor.append(batchOdkuStaticSql[i]).increment();
+                    }
+                } else {
+                    visitor.decrement().append(batchOdkuStaticSql[(batchOdkuStaticSqlLength - 1)]);
+                }
+            } else {
+                // Everything after the values clause, but not ODKU, which today is nothing but a syntax error, but we should still not mangle the SQL!
+                visitor.decrement().append(this.staticSql[this.staticSql.length - 1]);
+            }
+        }
+    }
+
+    static class AppendingBatchVisitor implements BatchVisitor {
+        LinkedList<byte[]> statementComponents = new LinkedList<byte[]>();
+
+        public BatchVisitor append(byte[] values) {
+            this.statementComponents.addLast(values);
+
+            return this;
+        }
+
+        public BatchVisitor increment() {
+            // no-op
+            return this;
+        }
+
+        public BatchVisitor decrement() {
+            this.statementComponents.removeLast();
+
+            return this;
+        }
+
+        public BatchVisitor merge(byte[] front, byte[] back) {
+            int mergedLength = front.length + back.length;
+            byte[] merged = new byte[mergedLength];
+            System.arraycopy(front, 0, merged, 0, front.length);
+            System.arraycopy(back, 0, merged, front.length, back.length);
+            this.statementComponents.addLast(merged);
+            return this;
+        }
+
+        public byte[][] getStaticSqlStrings() {
+            byte[][] asBytes = new byte[this.statementComponents.size()][];
+            this.statementComponents.toArray(asBytes);
+
+            return asBytes;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder buf = new StringBuilder();
+            Iterator<byte[]> iter = this.statementComponents.iterator();
+            while (iter.hasNext()) {
+                buf.append(StringUtils.toString(iter.next()));
+            }
+
+            return buf.toString();
+        }
+
+    }
+
+    public class BatchParams {
+        public boolean[] isNull = null;
+
+        public boolean[] isStream = null;
+
+        public InputStream[] parameterStreams = null;
+
+        public byte[][] parameterStrings = null;
+
+        public int[] streamLengths = null;
+
+        BatchParams(byte[][] strings, InputStream[] streams, boolean[] isStreamFlags, int[] lengths, boolean[] isNullFlags) {
+            //
+            // Make copies
+            //
+            this.parameterStrings = new byte[strings.length][];
+            this.parameterStreams = new InputStream[streams.length];
+            this.isStream = new boolean[isStreamFlags.length];
+            this.streamLengths = new int[lengths.length];
+            this.isNull = new boolean[isNullFlags.length];
+            System.arraycopy(strings, 0, this.parameterStrings, 0, strings.length);
+            System.arraycopy(streams, 0, this.parameterStreams, 0, streams.length);
+            System.arraycopy(isStreamFlags, 0, this.isStream, 0, isStreamFlags.length);
+            System.arraycopy(lengths, 0, this.streamLengths, 0, lengths.length);
+            System.arraycopy(isNullFlags, 0, this.isNull, 0, isNullFlags.length);
+        }
+    }
+
+    class EndPoint {
+        int begin;
+
+        int end;
+
+        EndPoint(int b, int e) {
+            this.begin = b;
+            this.end = e;
         }
     }
 
@@ -5042,65 +4857,5 @@ public class PreparedStatement extends com.mysql.jdbc.StatementImpl implements j
 
             return this.parameterIsNull[parameterIndex - 1];
         }
-    }
-
-    public String getPreparedSql() {
-        try {
-            synchronized (checkClosed().getConnectionMutex()) {
-                if (this.rewrittenBatchSize == 0) {
-                    return this.originalSql;
-                }
-
-                try {
-                    return this.parseInfo.getSqlForBatch(this.parseInfo);
-                } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException(e); // FIXME: evolve public interface
-        }
-    }
-
-    @Override
-    public int getUpdateCount() throws SQLException {
-        int count = super.getUpdateCount();
-
-        if (containsOnDuplicateKeyUpdateInSQL() && this.compensateForOnDuplicateKeyUpdate) {
-            if (count == 2 || count == 0) {
-                count = 1;
-            }
-        }
-
-        return count;
-    }
-
-    protected static boolean canRewrite(String sql, boolean isOnDuplicateKeyUpdate, int locationOfOnDuplicateKeyUpdate, int statementStartPos) {
-        // Needs to be INSERT or REPLACE.
-        // Can't have INSERT ... SELECT or INSERT ... ON DUPLICATE KEY UPDATE with an id=LAST_INSERT_ID(...).
-
-        if (StringUtils.startsWithIgnoreCaseAndWs(sql, "INSERT", statementStartPos)) {
-            if (StringUtils.indexOfIgnoreCase(statementStartPos, sql, "SELECT", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) != -1) {
-                return false;
-            }
-            if (isOnDuplicateKeyUpdate) {
-                int updateClausePos = StringUtils.indexOfIgnoreCase(locationOfOnDuplicateKeyUpdate, sql, " UPDATE ");
-                if (updateClausePos != -1) {
-                    return StringUtils.indexOfIgnoreCase(updateClausePos, sql, "LAST_INSERT_ID", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) == -1;
-                }
-            }
-            return true;
-        }
-
-        return StringUtils.startsWithIgnoreCaseAndWs(sql, "REPLACE", statementStartPos)
-                && StringUtils.indexOfIgnoreCase(statementStartPos, sql, "SELECT", "\"'`", "\"'`", StringUtils.SEARCH_MODE__MRK_COM_WS) == -1;
-    }
-
-    /**
-     * JDBC 4.2
-     * Same as PreparedStatement.executeUpdate() but returns long instead of int.
-     */
-    public long executeLargeUpdate() throws SQLException {
-        return executeUpdateInternal(true, false);
     }
 }

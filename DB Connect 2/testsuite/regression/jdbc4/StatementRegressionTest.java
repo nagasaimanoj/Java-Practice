@@ -23,33 +23,23 @@
 
 package testsuite.regression.jdbc4;
 
+import com.mysql.jdbc.CallableStatement;
+import com.mysql.jdbc.PreparedStatement;
+import com.mysql.jdbc.StatementImpl;
+import com.mysql.jdbc.Util;
+import testsuite.BaseTestCase;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Properties;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import com.mysql.jdbc.CallableStatement;
-import com.mysql.jdbc.MySQLConnection;
-import com.mysql.jdbc.PreparedStatement;
-import com.mysql.jdbc.ReplicationConnection;
-import com.mysql.jdbc.StatementImpl;
-import com.mysql.jdbc.Util;
-
-import testsuite.BaseTestCase;
+import java.util.concurrent.*;
 
 public class StatementRegressionTest extends BaseTestCase {
     /**
      * Creates a new StatementRegressionTest.
-     * 
-     * @param name
-     *            the name of the test
+     *
+     * @param name the name of the test
      */
     public StatementRegressionTest(String name) {
         super(name);
@@ -57,7 +47,7 @@ public class StatementRegressionTest extends BaseTestCase {
 
     /**
      * Runs all test cases in this test suite
-     * 
+     *
      * @param args
      */
     public static void main(String[] args) {
@@ -66,9 +56,8 @@ public class StatementRegressionTest extends BaseTestCase {
 
     /**
      * Tests fix for BUG#68916 - closeOnCompletion doesn't work.
-     * 
-     * @throws Exception
-     *             if the test fails.
+     *
+     * @throws Exception if the test fails.
      */
     public void testBug68916() throws Exception {
         // Prepare common test objects
@@ -1224,7 +1213,7 @@ public class StatementRegressionTest extends BaseTestCase {
         assertFalse(testStep + ".ST:2. Statement.isClosed(): false.", testStatement.isClosed());
 
         assertTrue(testStep + ".ST:3. There should be more ResultSets.", testStatement.getMoreResults()); // closes
-                                                                                                         // testResultSet2
+        // testResultSet2
         testResultSet3 = testStatement.getResultSet();
 
         assertTrue(testStep + ".ST:2. ResultSet.isClosed(): true.", testResultSet1.isClosed());
@@ -1360,16 +1349,16 @@ public class StatementRegressionTest extends BaseTestCase {
         ExecutorService executor = Executors.newCachedThreadPool();
         CompletionService<String> complService = new ExecutorCompletionService<String>(executor);
 
-        String[] connectionProperties = new String[] { "", "holdResultsOpenOverStatementClose=true", "dontTrackOpenResources=true" };
+        String[] connectionProperties = new String[]{"", "holdResultsOpenOverStatementClose=true", "dontTrackOpenResources=true"};
         // overridesCloseOnCompletion[n] refers to the effect of connectionProperties[n] on
         // Statement.closeOnCompletion()
-        boolean[] overridesCloseOnCompletion = new boolean[] { false, false, true };
-        String[] sampleQueries = new String[] { "SELECT * FROM mysql.help_topic", "SELECT SLEEP(1)",
+        boolean[] overridesCloseOnCompletion = new boolean[]{false, false, true};
+        String[] sampleQueries = new String[]{"SELECT * FROM mysql.help_topic", "SELECT SLEEP(1)",
                 "SELECT * FROM mysql.time_zone tz INNER JOIN mysql.time_zone_name tzn ON tz.time_zone_id = tzn.time_zone_id "
                         + "INNER JOIN mysql.time_zone_transition tzt ON tz.time_zone_id = tzt.time_zone_id "
                         + "INNER JOIN mysql.time_zone_transition_type tztt ON tzt.time_zone_id = tztt.time_zone_id "
                         + "AND tzt.transition_type_id = tztt.transition_type_id ORDER BY tzn.name , tztt.abbreviation , tzt.transition_time",
-                "SELECT 1" };
+                "SELECT 1"};
         int threadCount = sampleQueries.length;
 
         for (int c = 0; c < connectionProperties.length; c++) {
@@ -1394,6 +1383,25 @@ public class StatementRegressionTest extends BaseTestCase {
             }
 
             testConnection.close();
+        }
+    }
+
+    /**
+     * Tests fix for BUG#73163 - IndexOutOfBoundsException thrown preparing statement.
+     * <p>
+     * This bug occurs only if running with Java6+. Duplicated in testsuite.regression.StatementRegressionTest.testBug73163().
+     *
+     * @throws Exception if the test fails.
+     */
+    public void testBug73163() throws Exception {
+        try {
+            stmt = conn.prepareStatement("LOAD DATA INFILE ? INTO TABLE testBug73163");
+        } catch (SQLException e) {
+            if (e.getCause() instanceof IndexOutOfBoundsException && Util.isJdbc4()) {
+                fail("IOOBE thrown in Java6+ while preparing a LOAD DATA statement with placeholders.");
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -1446,26 +1454,6 @@ public class StatementRegressionTest extends BaseTestCase {
                 stopTime = System.currentTimeMillis();
             }
             return threadName + ": processed " + count + " rows in " + (stopTime - startTime) + " milliseconds.";
-        }
-    }
-
-    /**
-     * Tests fix for BUG#73163 - IndexOutOfBoundsException thrown preparing statement.
-     * 
-     * This bug occurs only if running with Java6+. Duplicated in testsuite.regression.StatementRegressionTest.testBug73163().
-     * 
-     * @throws Exception
-     *             if the test fails.
-     */
-    public void testBug73163() throws Exception {
-        try {
-            stmt = conn.prepareStatement("LOAD DATA INFILE ? INTO TABLE testBug73163");
-        } catch (SQLException e) {
-            if (e.getCause() instanceof IndexOutOfBoundsException && Util.isJdbc4()) {
-                fail("IOOBE thrown in Java6+ while preparing a LOAD DATA statement with placeholders.");
-            } else {
-                throw e;
-            }
         }
     }
 }

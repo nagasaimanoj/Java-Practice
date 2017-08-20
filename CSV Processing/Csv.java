@@ -26,7 +26,7 @@ public class Csv {
                     c = fis.read();
                 }
 
-                System.out.println(name + " is " + age + " years old. His/her phone number is " + phone +"\n");
+                System.out.println(name + " is " + age + " years old. His/her phone number is " + phone + "\n");
             }
             fis.close();
         } catch (Exception e) {

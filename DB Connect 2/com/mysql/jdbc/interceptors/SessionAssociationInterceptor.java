@@ -23,23 +23,19 @@
 
 package com.mysql.jdbc.interceptors;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.Properties;
-
 import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.ResultSetInternalMethods;
 import com.mysql.jdbc.Statement;
 import com.mysql.jdbc.StatementInterceptor;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Properties;
+
 public class SessionAssociationInterceptor implements StatementInterceptor {
 
-    protected String currentSessionKey;
     protected final static ThreadLocal<String> sessionLocal = new ThreadLocal<String>();
-
-    public static final void setSessionKey(String key) {
-        sessionLocal.set(key);
-    }
+    protected String currentSessionKey;
 
     public static final void resetSessionKey() {
         sessionLocal.set(null);
@@ -47,6 +43,10 @@ public class SessionAssociationInterceptor implements StatementInterceptor {
 
     public static final String getSessionKey() {
         return sessionLocal.get();
+    }
+
+    public static final void setSessionKey(String key) {
+        sessionLocal.set(key);
     }
 
     public boolean executeTopLevelOnly() {

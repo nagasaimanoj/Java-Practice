@@ -23,22 +23,16 @@
 
 package com.mysql.fabric.hibernate;
 
+import com.mysql.fabric.*;
+import org.hibernate.service.jdbc.connections.spi.MultiTenantConnectionProvider;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-import org.hibernate.service.jdbc.connections.spi.MultiTenantConnectionProvider;
-
-import com.mysql.fabric.FabricCommunicationException;
-import com.mysql.fabric.FabricConnection;
-import com.mysql.fabric.Server;
-import com.mysql.fabric.ServerGroup;
-import com.mysql.fabric.ServerMode;
-import com.mysql.fabric.ShardMapping;
-
 /**
  * Multi-tenancy connection provider for Hibernate 4.
- * 
+ * <p>
  * http://docs.jboss.org/hibernate/orm/4.1/javadocs/org/hibernate/service/jdbc/connections/spi/MultiTenantConnectionProvider.html
  */
 public class FabricMultiTenantConnectionProvider implements MultiTenantConnectionProvider {
@@ -54,7 +48,7 @@ public class FabricMultiTenantConnectionProvider implements MultiTenantConnectio
     private ServerGroup globalGroup;
 
     public FabricMultiTenantConnectionProvider(String fabricUrl, String database, String table, String user, String password, String fabricUser,
-            String fabricPassword) {
+                                               String fabricPassword) {
         try {
             this.fabricConnection = new FabricConnection(fabricUrl, fabricUser, fabricPassword);
             this.database = database;
@@ -70,10 +64,9 @@ public class FabricMultiTenantConnectionProvider implements MultiTenantConnectio
 
     /**
      * Find a server with mode READ_WRITE in the given server group and create a JDBC connection to it.
-     * 
+     *
+     * @throws SQLException if connection fails or a READ_WRITE server is not contained in the group
      * @returns a {@link Connection} to an arbitrary MySQL server
-     * @throws SQLException
-     *             if connection fails or a READ_WRITE server is not contained in the group
      */
     private Connection getReadWriteConnectionFromServerGroup(ServerGroup serverGroup) throws SQLException {
         for (Server s : serverGroup.getServers()) {
@@ -124,7 +117,7 @@ public class FabricMultiTenantConnectionProvider implements MultiTenantConnectio
 
     /**
      * We don't track connections.
-     * 
+     *
      * @returns false
      */
     public boolean supportsAggressiveRelease() {

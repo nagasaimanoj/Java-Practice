@@ -2,6 +2,18 @@ interface Specification {
     int WINDOWS = 1, LINUX = 2, MAC = 3, OTHERS = 4;
 
     interface HDD {
+        int getDiskSpace();
+
+        int getFreeSpace();
+
+        int getUsedSpace();
+
+        String getComputerName();
+
+        String getOsType();
+
+        String getOsVersion();
+
         class HSpace {
             static int Disk_Space = 512, Free_Space = 200, Used_Space = Disk_Space - Free_Space, i = 300;
 
@@ -38,55 +50,43 @@ interface Specification {
             String OsType;
             String OS_Version;
         }
-
-        int getDiskSpace();
-
-        int getFreeSpace();
-
-        int getUsedSpace();
-
-        String getComputerName();
-
-        String getOsType();
-
-        String getOsVersion();
     }
 
     interface RAM {
+        int getRAM();
+
         class Size {
             int RAM_Size;
             int InstalledTime;
         }
-
-        int getRAM();
     }
 
     interface GraphicsCard {
-        class GraphicsSpec {
-            int GSize;
-            String Gname;
-            String Processer_Name;
-        }
-
         int getGrapicsSize();
 
         String getCardName();
 
         String getProcessName();
+
+        class GraphicsSpec {
+            int GSize;
+            String Gname;
+            String Processer_Name;
+        }
     }
 
     interface Monitor {
-        class MonitorType {
-            String MonitorName;
-            String Resolution;
-            String MonitorSize;
-        }
-
         String getMonitorName();
 
         int getResolution();
 
         int getMonitorSize();
+
+        class MonitorType {
+            String MonitorName;
+            String Resolution;
+            String MonitorSize;
+        }
     }
 }
 
@@ -95,6 +95,14 @@ public class Computer implements Specification {
 
     public Computer() {
         System.out.println("\n\tMy Computer\t-----------\n");
+    }
+
+    public static void main(String[] args) {
+        Computer C = new Computer();
+        C.getDiskSpace();
+        C.getFreeSpace();
+        C.getUsedSpace();
+        C.getB();
     }
 
     int getDiskSpace() {
@@ -117,13 +125,5 @@ public class Computer implements Specification {
     int getB() {
         System.out.println("Calculating Used Space" + " " + Specification.HDD.HSpace.getJ());
         return 0;
-    }
-
-    public static void main(String[] args) {
-        Computer C = new Computer();
-        C.getDiskSpace();
-        C.getFreeSpace();
-        C.getUsedSpace();
-        C.getB();
     }
 }

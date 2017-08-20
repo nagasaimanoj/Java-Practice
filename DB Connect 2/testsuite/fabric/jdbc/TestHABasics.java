@@ -23,14 +23,13 @@
 
 package testsuite.fabric.jdbc;
 
+import com.mysql.fabric.jdbc.FabricMySQLConnection;
+import com.mysql.fabric.jdbc.FabricMySQLDataSource;
+import testsuite.fabric.BaseFabricTestCase;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-import com.mysql.fabric.jdbc.FabricMySQLConnection;
-import com.mysql.fabric.jdbc.FabricMySQLDataSource;
-
-import testsuite.fabric.BaseFabricTestCase;
 
 /**
  * TODO: document required setup for this test

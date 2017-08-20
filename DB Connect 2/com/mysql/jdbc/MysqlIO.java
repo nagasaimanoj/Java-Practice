@@ -23,15 +23,19 @@
 
 package com.mysql.jdbc;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
+import com.mysql.jdbc.authentication.MysqlClearPasswordPlugin;
+import com.mysql.jdbc.authentication.MysqlNativePasswordPlugin;
+import com.mysql.jdbc.authentication.MysqlOldPasswordPlugin;
+import com.mysql.jdbc.authentication.Sha256PasswordPlugin;
+import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
+import com.mysql.jdbc.exceptions.MySQLTimeoutException;
+import com.mysql.jdbc.log.LogUtils;
+import com.mysql.jdbc.profiler.ProfilerEvent;
+import com.mysql.jdbc.profiler.ProfilerEventHandler;
+import com.mysql.jdbc.util.ReadAheadInputStream;
+import com.mysql.jdbc.util.ResultSetUtil;
+
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -45,54 +49,42 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.zip.Deflater;
-
-import com.mysql.jdbc.authentication.MysqlClearPasswordPlugin;
-import com.mysql.jdbc.authentication.MysqlNativePasswordPlugin;
-import com.mysql.jdbc.authentication.MysqlOldPasswordPlugin;
-import com.mysql.jdbc.authentication.Sha256PasswordPlugin;
-import com.mysql.jdbc.exceptions.MySQLStatementCancelledException;
-import com.mysql.jdbc.exceptions.MySQLTimeoutException;
-import com.mysql.jdbc.log.LogUtils;
-import com.mysql.jdbc.profiler.ProfilerEvent;
-import com.mysql.jdbc.profiler.ProfilerEventHandler;
-import com.mysql.jdbc.util.ReadAheadInputStream;
-import com.mysql.jdbc.util.ResultSetUtil;
 
 /**
  * This class is used by Connection for communicating with the MySQL server.
  */
 public class MysqlIO {
-    private static final String CODE_PAGE_1252 = "Cp1252";
+    public static final int SEED_LENGTH = 20;
     protected static final int NULL_LENGTH = ~0;
     protected static final int COMP_HEADER_LENGTH = 3;
     protected static final int MIN_COMPRESS_LEN = 50;
     protected static final int HEADER_LENGTH = 4;
     protected static final int AUTH_411_OVERHEAD = 33;
-    public static final int SEED_LENGTH = 20;
-    private static int maxBufferSize = 65535;
-
+    protected static final int CLIENT_CONNECT_WITH_DB = 0x00000008;
+    protected static final int CLIENT_SSL = 0x00000800;
+    protected static final int CLIENT_RESERVED = 0x00004000; // for 4.1.0 only
+    protected static final int CLIENT_SECURE_CONNECTION = 0x00008000;
+    protected static final int MAX_QUERY_SIZE_TO_LOG = 1024; // truncate logging of queries at 1K
+    protected static final int MAX_QUERY_SIZE_TO_EXPLAIN = 1024 * 1024; // don't explain queries above 1MB
+    protected static final int INITIAL_PACKET_SIZE = 1024;
+    /**
+     * We need to have a 'marker' for all-zero datetimes so that ResultSet can decide what to do based on connection setting
+     */
+    protected final static String ZERO_DATE_VALUE_MARKER = "0000-00-00";
+    protected final static String ZERO_DATETIME_VALUE_MARKER = "0000-00-00 00:00:00";
+    static final int SERVER_MORE_RESULTS_EXISTS = 8; // Multi query - next query exists
+    private static final String CODE_PAGE_1252 = "Cp1252";
     private static final String NONE = "none";
-
     private static final int CLIENT_LONG_PASSWORD = 0x00000001; /* new more secure passwords */
     private static final int CLIENT_FOUND_ROWS = 0x00000002;
     private static final int CLIENT_LONG_FLAG = 0x00000004; /* Get all column flags */
-    protected static final int CLIENT_CONNECT_WITH_DB = 0x00000008;
     private static final int CLIENT_COMPRESS = 0x00000020; /* Can use compression protcol */
     private static final int CLIENT_LOCAL_FILES = 0x00000080; /* Can use LOAD DATA LOCAL */
     private static final int CLIENT_PROTOCOL_41 = 0x00000200; // for > 4.1.1
     private static final int CLIENT_INTERACTIVE = 0x00000400;
-    protected static final int CLIENT_SSL = 0x00000800;
     private static final int CLIENT_TRANSACTIONS = 0x00002000; // Client knows about transactions
-    protected static final int CLIENT_RESERVED = 0x00004000; // for 4.1.0 only
-    protected static final int CLIENT_SECURE_CONNECTION = 0x00008000;
     private static final int CLIENT_MULTI_STATEMENTS = 0x00010000; // Enable/disable multiquery support
     private static final int CLIENT_MULTI_RESULTS = 0x00020000; // Enable/disable multi-results
     private static final int CLIENT_PLUGIN_AUTH = 0x00080000;
@@ -101,31 +93,24 @@ public class MysqlIO {
     private static final int CLIENT_CAN_HANDLE_EXPIRED_PASSWORD = 0x00400000;
     private static final int CLIENT_SESSION_TRACK = 0x00800000;
     private static final int CLIENT_DEPRECATE_EOF = 0x01000000;
-
     private static final int SERVER_STATUS_IN_TRANS = 1;
     private static final int SERVER_STATUS_AUTOCOMMIT = 2; // Server in auto_commit mode
-    static final int SERVER_MORE_RESULTS_EXISTS = 8; // Multi query - next query exists
     private static final int SERVER_QUERY_NO_GOOD_INDEX_USED = 16;
     private static final int SERVER_QUERY_NO_INDEX_USED = 32;
     private static final int SERVER_QUERY_WAS_SLOW = 2048;
     private static final int SERVER_STATUS_CURSOR_EXISTS = 64;
     private static final String FALSE_SCRAMBLE = "xxxxxxxx";
-    protected static final int MAX_QUERY_SIZE_TO_LOG = 1024; // truncate logging of queries at 1K
-    protected static final int MAX_QUERY_SIZE_TO_EXPLAIN = 1024 * 1024; // don't explain queries above 1MB
-    protected static final int INITIAL_PACKET_SIZE = 1024;
+    private static final String EXPLAINABLE_STATEMENT = "SELECT";
+    private static final String[] EXPLAINABLE_STATEMENT_EXTENSION = new String[]{"INSERT", "UPDATE", "REPLACE", "DELETE"};
+    /**
+     * Max number of bytes to dump when tracing the protocol
+     */
+    private final static int MAX_PACKET_DUMP_LENGTH = 1024;
+    private static int maxBufferSize = 65535;
     /**
      * We store the platform 'encoding' here, only used to avoid munging filenames for LOAD DATA LOCAL INFILE...
      */
     private static String jvmPlatformCharset = null;
-
-    /**
-     * We need to have a 'marker' for all-zero datetimes so that ResultSet can decide what to do based on connection setting
-     */
-    protected final static String ZERO_DATE_VALUE_MARKER = "0000-00-00";
-    protected final static String ZERO_DATETIME_VALUE_MARKER = "0000-00-00 00:00:00";
-
-    private static final String EXPLAINABLE_STATEMENT = "SELECT";
-    private static final String[] EXPLAINABLE_STATEMENT_EXTENSION = new String[] { "INSERT", "UPDATE", "REPLACE", "DELETE" };
 
     static {
         OutputStreamWriter outWriter = null;
@@ -148,57 +133,60 @@ public class MysqlIO {
         }
     }
 
-    /** Max number of bytes to dump when tracing the protocol */
-    private final static int MAX_PACKET_DUMP_LENGTH = 1024;
-    private boolean packetSequenceReset = false;
+    /**
+     * The connection to the server
+     */
+    public Socket mysqlConnection = null;
     protected int serverCharsetIndex;
-
+    /**
+     * Data to the server
+     */
+    protected BufferedOutputStream mysqlOutput = null;
+    protected MySQLConnection connection;
+    protected InputStream mysqlInput = null;
+    protected SocketFactory socketFactory = null;
+    protected String host = null;
+    protected String seed;
+    protected int maxThreeBytes = 255 * 255 * 255;
+    protected int port = 3306;
+    protected int serverCapabilities;
+    protected long clientParam = 0;
+    protected long lastPacketSentTimeMs = 0;
+    protected long lastPacketReceivedTimeMs = 0;
+    private boolean packetSequenceReset = false;
     //
     // Use this when reading in rows to avoid thousands of new() calls, because the byte arrays just get copied out of the packet anyway
     //
     private Buffer reusablePacket = null;
     private Buffer sendPacket = null;
     private Buffer sharedSendPacket = null;
-
-    /** Data to the server */
-    protected BufferedOutputStream mysqlOutput = null;
-    protected MySQLConnection connection;
     private Deflater deflater = null;
-    protected InputStream mysqlInput = null;
     private LinkedList<StringBuilder> packetDebugRingBuffer = null;
     private RowData streamingData = null;
-
-    /** The connection to the server */
-    public Socket mysqlConnection = null;
-    protected SocketFactory socketFactory = null;
-
     //
     // Packet used for 'LOAD DATA LOCAL INFILE'
     //
     // We use a SoftReference, so that we don't penalize intermittent use of this feature
     //
     private SoftReference<Buffer> loadFileBufRef;
-
     //
     // Used to send large packets to the server versions 4+
     // We use a SoftReference, so that we don't penalize intermittent use of this feature
     //
     private SoftReference<Buffer> splitBufRef;
     private SoftReference<Buffer> compressBufRef;
-    protected String host = null;
-    protected String seed;
     private String serverVersion = null;
     private String socketFactoryClassName = null;
     private byte[] packetHeaderBuf = new byte[4];
     private boolean colDecimalNeedsBump = false; // do we need to increment the colDecimal flag?
     private boolean hadWarnings = false;
     private boolean has41NewNewProt = false;
-
-    /** Does the server support long column info? */
+    /**
+     * Does the server support long column info?
+     */
     private boolean hasLongColumnInfo = false;
     private boolean isInteractiveClient = false;
     private boolean logSlowQueries = false;
-
     /**
      * Does the character set of this connection match the character set of the
      * platform
@@ -208,8 +196,9 @@ public class MysqlIO {
     private boolean queryBadIndexUsed = false;
     private boolean queryNoIndexUsed = false;
     private boolean serverQueryWasSlow = false;
-
-    /** Should we use 4.1 protocol extensions? */
+    /**
+     * Should we use 4.1 protocol extensions?
+     */
     private boolean use41Extensions = false;
     private boolean useCompression = false;
     private boolean useNewLargePackets = false;
@@ -220,18 +209,12 @@ public class MysqlIO {
     private boolean checkPacketSequence = false;
     private byte protocolVersion = 0;
     private int maxAllowedPacket = 1024 * 1024;
-    protected int maxThreeBytes = 255 * 255 * 255;
-    protected int port = 3306;
-    protected int serverCapabilities;
     private int serverMajorVersion = 0;
     private int serverMinorVersion = 0;
     private int oldServerStatus = 0;
     private int serverStatus = 0;
     private int serverSubMinorVersion = 0;
     private int warningCount = 0;
-    protected long clientParam = 0;
-    protected long lastPacketSentTimeMs = 0;
-    protected long lastPacketReceivedTimeMs = 0;
     private boolean traceProtocol = false;
     private boolean enablePacketDebug = false;
     private boolean useConnectWithDb;
@@ -247,31 +230,47 @@ public class MysqlIO {
     private List<StatementInterceptorV2> statementInterceptors;
     private ExceptionInterceptor exceptionInterceptor;
     private int authPluginDataLength = 0;
+    /**
+     * Contains instances of authentication plugins which implements {@link AuthenticationPlugin} interface. Key values are mysql
+     * protocol plugin names, for example "mysql_native_password" and
+     * "mysql_old_password" for built-in plugins.
+     */
+    private Map<String, AuthenticationPlugin> authenticationPlugins = null;
+    /**
+     * Contains names of classes or mechanisms ("mysql_native_password"
+     * for example) of authentication plugins which must be disabled.
+     */
+    private List<String> disabledAuthenticationPlugins = null;
+    /**
+     * Name of class for default authentication plugin in client
+     */
+    private String clientDefaultAuthenticationPlugin = null;
+    /**
+     * Protocol name of default authentication plugin in client
+     */
+    private String clientDefaultAuthenticationPluginName = null;
+    /**
+     * Protocol name of default authentication plugin in server
+     */
+    private String serverDefaultAuthenticationPluginName = null;
+    private int statementExecutionDepth = 0;
+    private boolean useAutoSlowLog;
 
     /**
      * Constructor: Connect to the MySQL server and setup a stream connection.
-     * 
-     * @param host
-     *            the hostname to connect to
-     * @param port
-     *            the port number that the server is listening on
-     * @param props
-     *            the Properties from DriverManager.getConnection()
-     * @param socketFactoryClassName
-     *            the socket factory to use
-     * @param conn
-     *            the Connection that is creating us
-     * @param socketTimeout
-     *            the timeout to set for the socket (0 means no
-     *            timeout)
-     * 
-     * @throws IOException
-     *             if an IOException occurs during connect.
-     * @throws SQLException
-     *             if a database access error occurs.
+     *
+     * @param host                   the hostname to connect to
+     * @param port                   the port number that the server is listening on
+     * @param props                  the Properties from DriverManager.getConnection()
+     * @param socketFactoryClassName the socket factory to use
+     * @param conn                   the Connection that is creating us
+     * @param socketTimeout          the timeout to set for the socket (0 means no
+     *                               timeout)
+     * @throws IOException  if an IOException occurs during connect.
+     * @throws SQLException if a database access error occurs.
      */
     public MysqlIO(String host, int port, Properties props, String socketFactoryClassName, MySQLConnection conn, int socketTimeout,
-            int useBufferRowSizeThreshold) throws IOException, SQLException {
+                   int useBufferRowSizeThreshold) throws IOException, SQLException {
         this.connection = conn;
 
         if (this.connection.getEnablePacketDebug()) {
@@ -342,9 +341,53 @@ public class MysqlIO {
         }
     }
 
+    static int getMaxBuf() {
+        return maxBufferSize;
+    }
+
+    /**
+     * Returns the hex dump of the given packet, truncated to
+     * MAX_PACKET_DUMP_LENGTH if packetLength exceeds that value.
+     *
+     * @param packetToDump the packet to dump in hex
+     * @param packetLength the number of bytes to dump
+     * @return the hex dump of the given packet
+     */
+    private final static String getPacketDumpToLog(Buffer packetToDump, int packetLength) {
+        if (packetLength < MAX_PACKET_DUMP_LENGTH) {
+            return packetToDump.dump(packetLength);
+        }
+
+        StringBuilder packetDumpBuf = new StringBuilder(MAX_PACKET_DUMP_LENGTH * 4);
+        packetDumpBuf.append(packetToDump.dump(MAX_PACKET_DUMP_LENGTH));
+        packetDumpBuf.append(Messages.getString("MysqlIO.36"));
+        packetDumpBuf.append(MAX_PACKET_DUMP_LENGTH);
+        packetDumpBuf.append(Messages.getString("MysqlIO.37"));
+
+        return packetDumpBuf.toString();
+    }
+
+    public static boolean useBufferRowExplicit(Field[] fields) {
+        if (fields == null) {
+            return false;
+        }
+
+        for (int i = 0; i < fields.length; i++) {
+            switch (fields[i].getSQLType()) {
+                case Types.BLOB:
+                case Types.CLOB:
+                case Types.LONGVARBINARY:
+                case Types.LONGVARCHAR:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Does the server send back extra column info?
-     * 
+     *
      * @return true if so
      */
     public boolean hasLongColumnInfo() {
@@ -375,34 +418,23 @@ public class MysqlIO {
      * Build a result set. Delegates to buildResultSetWithRows() to build a
      * JDBC-version-specific ResultSet, given rows as byte data, and field
      * information.
-     * 
+     *
      * @param callingStatement
-     * @param columnCount
-     *            the number of columns in the result set
-     * @param maxRows
-     *            the maximum number of rows to read (-1 means all rows)
-     * @param resultSetType
-     *            (TYPE_FORWARD_ONLY, TYPE_SCROLL_????)
-     * @param resultSetConcurrency
-     *            the type of result set (CONCUR_UPDATABLE or
-     *            READ_ONLY)
-     * @param streamResults
-     *            should the result set be read all at once, or
-     *            streamed?
-     * @param catalog
-     *            the database name in use when the result set was created
-     * @param isBinaryEncoded
-     *            is this result set in native encoding?
-     * @param unpackFieldInfo
-     *            should we read MYSQL_FIELD info (if available)?
-     * 
+     * @param columnCount          the number of columns in the result set
+     * @param maxRows              the maximum number of rows to read (-1 means all rows)
+     * @param resultSetType        (TYPE_FORWARD_ONLY, TYPE_SCROLL_????)
+     * @param resultSetConcurrency the type of result set (CONCUR_UPDATABLE or
+     *                             READ_ONLY)
+     * @param streamResults        should the result set be read all at once, or
+     *                             streamed?
+     * @param catalog              the database name in use when the result set was created
+     * @param isBinaryEncoded      is this result set in native encoding?
+     * @param unpackFieldInfo      should we read MYSQL_FIELD info (if available)?
      * @return a result set
-     * 
-     * @throws SQLException
-     *             if a database access error occurs
+     * @throws SQLException if a database access error occurs
      */
     protected ResultSetImpl getResultSet(StatementImpl callingStatement, long columnCount, int maxRows, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, boolean isBinaryEncoded, Field[] metadataFromCache) throws SQLException {
+                                         boolean streamResults, String catalog, boolean isBinaryEncoded, Field[] metadataFromCache) throws SQLException {
         Buffer packet; // The packet from the server
         Field[] fields = null;
 
@@ -425,7 +457,7 @@ public class MysqlIO {
 
         // There is no EOF packet after fields when CLIENT_DEPRECATE_EOF is set
         if (!isEOFDeprecated() ||
-        // if we asked to use cursor then there should be an OK packet here
+                // if we asked to use cursor then there should be an OK packet here
                 (this.connection.versionMeetsMinimum(5, 0, 2) && callingStatement != null && isBinaryEncoded && callingStatement.isCursorRequired())) {
 
             packet = reuseAndReadPacket(this.reusablePacket);
@@ -500,10 +532,9 @@ public class MysqlIO {
 
     /**
      * Reads and discards a single MySQL packet from the input stream.
-     * 
-     * @throws SQLException
-     *             if the network fails while skipping the
-     *             packet.
+     *
+     * @throws SQLException if the network fails while skipping the
+     *                      packet.
      */
     protected final void skipPacket() throws SQLException {
         try {
@@ -555,9 +586,8 @@ public class MysqlIO {
 
     /**
      * Read one packet from the MySQL server
-     * 
+     *
      * @return the packet from the server.
-     * 
      * @throws SQLException
      * @throws CommunicationsException
      */
@@ -643,14 +673,10 @@ public class MysqlIO {
     /**
      * Unpacks the Field information from the given packet. Understands pre 4.1
      * and post 4.1 server version field packet structures.
-     * 
-     * @param packet
-     *            the packet containing the field information
-     * @param extractDefaultValues
-     *            should default values be extracted?
-     * 
+     *
+     * @param packet               the packet containing the field information
+     * @param extractDefaultValues should default values be extracted?
      * @return the unpacked field
-     * 
      * @throws SQLException
      */
     protected final Field unpackField(Buffer packet, boolean extractDefaultValues) throws SQLException {
@@ -798,11 +824,10 @@ public class MysqlIO {
 
     /**
      * Re-authenticates as the given user and password
-     * 
+     *
      * @param userName
      * @param password
      * @param database
-     * 
      * @throws SQLException
      */
     protected void changeUser(String userName, String password, String database) throws SQLException {
@@ -863,11 +888,9 @@ public class MysqlIO {
     /**
      * Checks for errors in the reply packet, and if none, returns the reply
      * packet, ready for reading
-     * 
+     *
      * @return a packet ready for reading.
-     * 
-     * @throws SQLException
-     *             is the packet is an error packet
+     * @throws SQLException is the packet is an error packet
      */
     protected Buffer checkErrorPacket() throws SQLException {
         return checkErrorPacket(-1);
@@ -918,7 +941,7 @@ public class MysqlIO {
             dumpBuffer.append("Last " + this.packetDebugRingBuffer.size() + " packets received from server, from oldest->newest:\n");
             dumpBuffer.append("\n");
 
-            for (Iterator<StringBuilder> ringBufIter = this.packetDebugRingBuffer.iterator(); ringBufIter.hasNext();) {
+            for (Iterator<StringBuilder> ringBufIter = this.packetDebugRingBuffer.iterator(); ringBufIter.hasNext(); ) {
                 dumpBuffer.append(ringBufIter.next());
                 dumpBuffer.append("\n");
             }
@@ -929,10 +952,9 @@ public class MysqlIO {
 
     /**
      * Runs an 'EXPLAIN' on the given query and dumps the results to the log
-     * 
+     *
      * @param querySQL
      * @param truncatedQuery
-     * 
      * @throws SQLException
      */
     protected void explainSlowQuery(byte[] querySQL, String truncatedQuery) throws SQLException {
@@ -963,10 +985,6 @@ public class MysqlIO {
                 }
             }
         }
-    }
-
-    static int getMaxBuf() {
-        return maxBufferSize;
     }
 
     /**
@@ -1000,11 +1018,10 @@ public class MysqlIO {
     /**
      * Initialize communications with the MySQL server. Handles logging on, and
      * handling initial connection errors.
-     * 
+     *
      * @param user
      * @param password
      * @param database
-     * 
      * @throws SQLException
      * @throws CommunicationsException
      */
@@ -1147,7 +1164,7 @@ public class MysqlIO {
                     // TODO: disabled the following check for further clarification
                     //         			if (this.authPluginDataLength < 21) {
                     //                      forceClose();
-                    //                      throw SQLError.createSQLException(Messages.getString("MysqlIO.103"), 
+                    //                      throw SQLError.createSQLException(Messages.getString("MysqlIO.103"),
                     //                          SQLError.SQL_STATE_UNABLE_TO_CONNECT_TO_DATASOURCE, getExceptionInterceptor());
                     //         			}
                     seedPart2 = buf.readString("ASCII", getExceptionInterceptor(), this.authPluginDataLength - 8);
@@ -1383,43 +1400,19 @@ public class MysqlIO {
     }
 
     /**
-     * Contains instances of authentication plugins which implements {@link AuthenticationPlugin} interface. Key values are mysql
-     * protocol plugin names, for example "mysql_native_password" and
-     * "mysql_old_password" for built-in plugins.
-     */
-    private Map<String, AuthenticationPlugin> authenticationPlugins = null;
-    /**
-     * Contains names of classes or mechanisms ("mysql_native_password"
-     * for example) of authentication plugins which must be disabled.
-     */
-    private List<String> disabledAuthenticationPlugins = null;
-    /**
-     * Name of class for default authentication plugin in client
-     */
-    private String clientDefaultAuthenticationPlugin = null;
-    /**
-     * Protocol name of default authentication plugin in client
-     */
-    private String clientDefaultAuthenticationPluginName = null;
-    /**
-     * Protocol name of default authentication plugin in server
-     */
-    private String serverDefaultAuthenticationPluginName = null;
-
-    /**
      * Fill the {@link MysqlIO#authenticationPlugins} map.
      * First this method fill the map with instances of {@link MysqlOldPasswordPlugin}, {@link MysqlNativePasswordPlugin}, {@link MysqlClearPasswordPlugin} and
      * {@link Sha256PasswordPlugin}.
      * Then it gets instances of plugins listed in "authenticationPlugins" connection property by
      * {@link Util#loadExtensions(Connection, Properties, String, String, ExceptionInterceptor)} call and adds them to the map too.
-     * 
+     * <p>
      * The key for the map entry is getted by {@link AuthenticationPlugin#getProtocolPluginName()}.
      * Thus it is possible to replace built-in plugin with custom one, to do it custom plugin should return value
      * "mysql_native_password", "mysql_old_password", "mysql_clear_password" or "sha256_password" from it's own getProtocolPluginName() method.
-     * 
+     * <p>
      * All plugin instances in the map are initialized by {@link Extension#init(Connection, Properties)} call
      * with this.connection and this.connection.getProperties() values.
-     * 
+     *
      * @throws SQLException
      */
     private void loadAuthenticationPlugins() throws SQLException {
@@ -1428,7 +1421,7 @@ public class MysqlIO {
         this.clientDefaultAuthenticationPlugin = this.connection.getDefaultAuthenticationPlugin();
         if (this.clientDefaultAuthenticationPlugin == null || "".equals(this.clientDefaultAuthenticationPlugin.trim())) {
             throw SQLError.createSQLException(
-                    Messages.getString("Connection.BadDefaultAuthenticationPlugin", new Object[] { this.clientDefaultAuthenticationPlugin }),
+                    Messages.getString("Connection.BadDefaultAuthenticationPlugin", new Object[]{this.clientDefaultAuthenticationPlugin}),
                     getExceptionInterceptor());
         }
 
@@ -1486,7 +1479,7 @@ public class MysqlIO {
         // check if default plugin is listed
         if (!defaultIsFound) {
             throw SQLError.createSQLException(
-                    Messages.getString("Connection.DefaultAuthenticationPluginIsNotListed", new Object[] { this.clientDefaultAuthenticationPlugin }),
+                    Messages.getString("Connection.DefaultAuthenticationPluginIsNotListed", new Object[]{this.clientDefaultAuthenticationPlugin}),
                     getExceptionInterceptor());
         }
 
@@ -1495,12 +1488,10 @@ public class MysqlIO {
     /**
      * Add plugin to {@link MysqlIO#authenticationPlugins} if it is not disabled by
      * "disabledAuthenticationPlugins" property, check is it a default plugin.
-     * 
-     * @param plugin
-     *            Instance of AuthenticationPlugin
+     *
+     * @param plugin Instance of AuthenticationPlugin
      * @return True if plugin is default, false if plugin is not default.
-     * @throws SQLException
-     *             if plugin is default but disabled.
+     * @throws SQLException if plugin is default but disabled.
      */
     private boolean addAuthenticationPlugin(AuthenticationPlugin plugin) throws SQLException {
         boolean isDefault = false;
@@ -1510,10 +1501,10 @@ public class MysqlIO {
         boolean disabledByMechanism = this.disabledAuthenticationPlugins != null && this.disabledAuthenticationPlugins.contains(pluginProtocolName);
 
         if (disabledByClassName || disabledByMechanism) {
-            // if disabled then check is it default					
+            // if disabled then check is it default
             if (this.clientDefaultAuthenticationPlugin.equals(pluginClassName)) {
                 throw SQLError.createSQLException(Messages.getString("Connection.BadDisabledAuthenticationPlugin",
-                        new Object[] { disabledByClassName ? pluginClassName : pluginProtocolName }), getExceptionInterceptor());
+                        new Object[]{disabledByClassName ? pluginClassName : pluginProtocolName}), getExceptionInterceptor());
             }
         } else {
             this.authenticationPlugins.put(pluginProtocolName, plugin);
@@ -1530,14 +1521,13 @@ public class MysqlIO {
      * pluginName key. If such plugin is found it's {@link AuthenticationPlugin#isReusable()} method
      * is checked, when it's false this method returns a new instance of plugin
      * and the same instance otherwise.
-     * 
+     * <p>
      * If plugin is not found method returns null, in such case the subsequent behavior
      * of handshake process depends on type of last packet received from server:
      * if it was Auth Challenge Packet then handshake will proceed with default plugin,
      * if it was Auth Method Switch Request Packet then handshake will be interrupted with exception.
-     * 
-     * @param pluginName
-     *            mysql protocol plugin names, for example "mysql_native_password" and "mysql_old_password" for built-in plugins
+     *
+     * @param pluginName mysql protocol plugin names, for example "mysql_native_password" and "mysql_old_password" for built-in plugins
      * @return null if plugin is not found or authentication plugin instance initialized with current connection properties
      * @throws SQLException
      */
@@ -1551,7 +1541,7 @@ public class MysqlIO {
                 plugin.init(this.connection, this.connection.getProperties());
             } catch (Throwable t) {
                 SQLException sqlEx = SQLError.createSQLException(
-                        Messages.getString("Connection.BadAuthenticationPlugin", new Object[] { plugin.getClass().getName() }), getExceptionInterceptor());
+                        Messages.getString("Connection.BadAuthenticationPlugin", new Object[]{plugin.getClass().getName()}), getExceptionInterceptor());
                 sqlEx.initCause(t);
                 throw sqlEx;
             }
@@ -1562,13 +1552,13 @@ public class MysqlIO {
 
     /**
      * Check if given plugin requires confidentiality, but connection is without SSL
-     * 
+     *
      * @param plugin
      * @throws SQLException
      */
     private void checkConfidentiality(AuthenticationPlugin plugin) throws SQLException {
         if (plugin.requiresConfidentiality() && !isSSLEstablished()) {
-            throw SQLError.createSQLException(Messages.getString("Connection.AuthenticationPluginRequiresSSL", new Object[] { plugin.getProtocolPluginName() }),
+            throw SQLError.createSQLException(Messages.getString("Connection.AuthenticationPluginRequiresSSL", new Object[]{plugin.getProtocolPluginName()}),
                     getExceptionInterceptor());
         }
     }
@@ -1579,22 +1569,17 @@ public class MysqlIO {
      * connection to the server, after receiving Auth Challenge Packet, or
      * at any moment during the connection life-time via a Change User
      * request.
-     * 
+     * <p>
      * This method is aware of pluggable authentication and will use
      * registered authentication plugins as requested by the server.
-     * 
-     * @param user
-     *            the MySQL user account to log into
-     * @param password
-     *            authentication data for the user account (depends
-     *            on authentication method used - can be empty)
-     * @param database
-     *            database to connect to (can be empty)
-     * @param challenge
-     *            the Auth Challenge Packet received from server if
-     *            this method is used during the initial connection.
-     *            Otherwise null.
-     * 
+     *
+     * @param user      the MySQL user account to log into
+     * @param password  authentication data for the user account (depends
+     *                  on authentication method used - can be empty)
+     * @param database  database to connect to (can be empty)
+     * @param challenge the Auth Challenge Packet received from server if
+     *                  this method is used during the initial connection.
+     *                  Otherwise null.
      * @throws SQLException
      */
     private void proceedHandshakeWithPluggableAuthentication(String user, String password, String database, Buffer challenge) throws SQLException {
@@ -1627,7 +1612,7 @@ public class MysqlIO {
 
                     if (challenge.isOKPacket()) {
                         throw SQLError.createSQLException(
-                                Messages.getString("Connection.UnexpectedAuthenticationApproval", new Object[] { plugin.getProtocolPluginName() }),
+                                Messages.getString("Connection.UnexpectedAuthenticationApproval", new Object[]{plugin.getProtocolPluginName()}),
                                 getExceptionInterceptor());
                     }
 
@@ -1743,7 +1728,7 @@ public class MysqlIO {
                         plugin = getAuthenticationPlugin(pluginName);
                         // if plugin is not found for pluginName throw exception
                         if (plugin == null) {
-                            throw SQLError.createSQLException(Messages.getString("Connection.BadAuthenticationPlugin", new Object[] { pluginName }),
+                            throw SQLError.createSQLException(Messages.getString("Connection.BadAuthenticationPlugin", new Object[]{pluginName}),
                                     getExceptionInterceptor());
                         }
                     }
@@ -1840,7 +1825,7 @@ public class MysqlIO {
 
                     appendCharsetByteForHandshake(last_sent, enc);
 
-                    last_sent.writeBytesNoNull(new byte[23]);	// Set of bytes reserved for future use.
+                    last_sent.writeBytesNoNull(new byte[23]);    // Set of bytes reserved for future use.
 
                     // User/Password data
                     last_sent.writeString(user, enc, this.connection);
@@ -1973,17 +1958,16 @@ public class MysqlIO {
      * Retrieve one row from the MySQL server. Note: this method is not
      * thread-safe, but it is only called from methods that are guarded by
      * synchronizing on this object.
-     * 
+     *
      * @param fields
      * @param columnCount
      * @param isBinaryEncoded
      * @param resultSetConcurrency
      * @param b
-     * 
      * @throws SQLException
      */
     final ResultSetRow nextRow(Field[] fields, int columnCount, boolean isBinaryEncoded, int resultSetConcurrency, boolean useBufferRowIfPossible,
-            boolean useBufferRowExplicit, boolean canReuseRowPacketForBufferRow, Buffer existingRowPacket) throws SQLException {
+                               boolean useBufferRowExplicit, boolean canReuseRowPacketForBufferRow, Buffer existingRowPacket) throws SQLException {
 
         if (this.useDirectRowUnpack && existingRowPacket == null && !isBinaryEncoded && !useBufferRowIfPossible && !useBufferRowExplicit) {
             return nextRowFast(fields, columnCount, isBinaryEncoded, resultSetConcurrency, useBufferRowIfPossible, useBufferRowExplicit,
@@ -2059,7 +2043,7 @@ public class MysqlIO {
     }
 
     final ResultSetRow nextRowFast(Field[] fields, int columnCount, boolean isBinaryEncoded, int resultSetConcurrency, boolean useBufferRowIfPossible,
-            boolean useBufferRowExplicit, boolean canReuseRowPacket) throws SQLException {
+                                   boolean useBufferRowExplicit, boolean canReuseRowPacket) throws SQLException {
         try {
             int lengthRead = readFully(this.mysqlInput, this.packetHeaderBuf, 0, 4);
 
@@ -2233,7 +2217,7 @@ public class MysqlIO {
 
     /**
      * Log-off of the MySQL server and close the socket.
-     * 
+     *
      * @throws SQLException
      */
     final void quit() throws SQLException {
@@ -2265,7 +2249,7 @@ public class MysqlIO {
     /**
      * Returns the packet used for sending data (used by PreparedStatement)
      * Guarded by external synchronization on a mutex.
-     * 
+     *
      * @return A packet to send data with
      */
     Buffer getSharedSendPacket() {
@@ -2335,7 +2319,7 @@ public class MysqlIO {
     }
 
     ResultSetImpl readAllResults(StatementImpl callingStatement, int maxRows, int resultSetType, int resultSetConcurrency, boolean streamResults,
-            String catalog, Buffer resultPacket, boolean isBinaryEncoded, long preSentColumnCount, Field[] metadataFromCache) throws SQLException {
+                                 String catalog, Buffer resultPacket, boolean isBinaryEncoded, long preSentColumnCount, Field[] metadataFromCache) throws SQLException {
         resultPacket.setPosition(resultPacket.getPosition() - 1);
 
         ResultSetImpl topLevelResultSet = readResultsForQueryOrUpdate(callingStatement, maxRows, resultSetType, resultSetConcurrency, streamResults, catalog,
@@ -2353,7 +2337,7 @@ public class MysqlIO {
         if (serverHasMoreResults && streamResults) {
             //clearInputStream();
             //
-            //throw SQLError.createSQLException(Messages.getString("MysqlIO.23"), 
+            //throw SQLError.createSQLException(Messages.getString("MysqlIO.23"),
             //SQLError.SQL_STATE_DRIVER_NOT_CAPABLE);
             if (topLevelResultSet.getUpdateCount() != -1) {
                 tackOnMoreStreamingResults(topLevelResultSet);
@@ -2399,27 +2383,19 @@ public class MysqlIO {
     /**
      * Send a command to the MySQL server If data is to be sent with command,
      * it should be put in extraData.
-     * 
+     * <p>
      * Raw packets can be sent by setting queryPacket to something other
      * than null.
-     * 
-     * @param command
-     *            the MySQL protocol 'command' from MysqlDefs
-     * @param extraData
-     *            any 'string' data for the command
-     * @param queryPacket
-     *            a packet pre-loaded with data for the protocol (i.e.
-     *            from a client-side prepared statement).
-     * @param skipCheck
-     *            do not call checkErrorPacket() if true
-     * @param extraDataCharEncoding
-     *            the character encoding of the extraData
-     *            parameter.
-     * 
+     *
+     * @param command               the MySQL protocol 'command' from MysqlDefs
+     * @param extraData             any 'string' data for the command
+     * @param queryPacket           a packet pre-loaded with data for the protocol (i.e.
+     *                              from a client-side prepared statement).
+     * @param skipCheck             do not call checkErrorPacket() if true
+     * @param extraDataCharEncoding the character encoding of the extraData
+     *                              parameter.
      * @return the response packet from the server
-     * 
-     * @throws SQLException
-     *             if an I/O error or SQL error occurs
+     * @throws SQLException if an I/O error or SQL error occurs
      */
 
     final Buffer sendCommand(int command, String extraData, Buffer queryPacket, boolean skipCheck, String extraDataCharEncoding, int timeoutMillis)
@@ -2549,16 +2525,13 @@ public class MysqlIO {
         }
     }
 
-    private int statementExecutionDepth = 0;
-    private boolean useAutoSlowLog;
-
     protected boolean shouldIntercept() {
         return this.statementInterceptors != null;
     }
 
     /**
      * Send a query stored in a packet directly to the server.
-     * 
+     *
      * @param callingStatement
      * @param resultSetConcurrency
      * @param characterEncoding
@@ -2569,13 +2542,11 @@ public class MysqlIO {
      * @param resultSetConcurrency
      * @param streamResults
      * @param catalog
-     * @param unpackFieldInfo
-     *            should we read MYSQL_FIELD info (if available)?
-     * 
+     * @param unpackFieldInfo      should we read MYSQL_FIELD info (if available)?
      * @throws Exception
      */
     final ResultSetInternalMethods sqlQueryDirect(StatementImpl callingStatement, String query, String characterEncoding, Buffer queryPacket, int maxRows,
-            int resultSetType, int resultSetConcurrency, boolean streamResults, String catalog, Field[] cachedMetadata) throws Exception {
+                                                  int resultSetType, int resultSetConcurrency, boolean streamResults, String catalog, Field[] cachedMetadata) throws Exception {
         this.statementExecutionDepth++;
 
         try {
@@ -2740,8 +2711,8 @@ public class MysqlIO {
                 StringBuilder mesgBuf = new StringBuilder(48 + profileQueryToLog.length());
 
                 mesgBuf.append(Messages.getString("MysqlIO.SlowQuery",
-                        new Object[] { String.valueOf(this.useAutoSlowLog ? " 95% of all queries " : this.slowQueryThreshold), this.queryTimingUnits,
-                                Long.valueOf(queryEndTime - queryStartTime) }));
+                        new Object[]{String.valueOf(this.useAutoSlowLog ? " 95% of all queries " : this.slowQueryThreshold), this.queryTimingUnits,
+                                Long.valueOf(queryEndTime - queryStartTime)}));
                 mesgBuf.append(profileQueryToLog);
 
                 ProfilerEventHandler eventSink = ProfilerEventHandlerFactory.getInstance(this.connection);
@@ -2871,7 +2842,7 @@ public class MysqlIO {
     }
 
     ResultSetInternalMethods invokeStatementInterceptorsPost(String sql, Statement interceptedStatement, ResultSetInternalMethods originalResultSet,
-            boolean forceExecute, SQLException statementException) throws SQLException {
+                                                             boolean forceExecute, SQLException statementException) throws SQLException {
 
         for (int i = 0, s = this.statementInterceptors.size(); i < s; i++) {
             StatementInterceptorV2 interceptor = this.statementInterceptors.get(i);
@@ -2926,16 +2897,12 @@ public class MysqlIO {
     /**
      * Is the version of the MySQL server we are connected to the given
      * version?
-     * 
-     * @param major
-     *            the major version
-     * @param minor
-     *            the minor version
-     * @param subminor
-     *            the subminor version
-     * 
+     *
+     * @param major    the major version
+     * @param minor    the minor version
+     * @param subminor the subminor version
      * @return true if the version of the MySQL server we are connected is the
-     *         given version
+     * given version
      */
     boolean isVersion(int major, int minor, int subminor) {
         return ((major == getServerMajorVersion()) && (minor == getServerMinorVersion()) && (subminor == getServerSubMinorVersion()));
@@ -2944,7 +2911,7 @@ public class MysqlIO {
     /**
      * Does the version of the MySQL server we are connected to meet the given
      * minimums?
-     * 
+     *
      * @param major
      * @param minor
      * @param subminor
@@ -2972,31 +2939,6 @@ public class MysqlIO {
         return false;
     }
 
-    /**
-     * Returns the hex dump of the given packet, truncated to
-     * MAX_PACKET_DUMP_LENGTH if packetLength exceeds that value.
-     * 
-     * @param packetToDump
-     *            the packet to dump in hex
-     * @param packetLength
-     *            the number of bytes to dump
-     * 
-     * @return the hex dump of the given packet
-     */
-    private final static String getPacketDumpToLog(Buffer packetToDump, int packetLength) {
-        if (packetLength < MAX_PACKET_DUMP_LENGTH) {
-            return packetToDump.dump(packetLength);
-        }
-
-        StringBuilder packetDumpBuf = new StringBuilder(MAX_PACKET_DUMP_LENGTH * 4);
-        packetDumpBuf.append(packetToDump.dump(MAX_PACKET_DUMP_LENGTH));
-        packetDumpBuf.append(Messages.getString("MysqlIO.36"));
-        packetDumpBuf.append(MAX_PACKET_DUMP_LENGTH);
-        packetDumpBuf.append(Messages.getString("MysqlIO.37"));
-
-        return packetDumpBuf.toString();
-    }
-
     private final int readFully(InputStream in, byte[] b, int off, int len) throws IOException {
         if (len < 0) {
             throw new IndexOutOfBoundsException();
@@ -3008,7 +2950,7 @@ public class MysqlIO {
             int count = in.read(b, off + n, len - n);
 
             if (count < 0) {
-                throw new EOFException(Messages.getString("MysqlIO.EOF", new Object[] { Integer.valueOf(len), Integer.valueOf(n) }));
+                throw new EOFException(Messages.getString("MysqlIO.EOF", new Object[]{Integer.valueOf(len), Integer.valueOf(n)}));
             }
 
             n += count;
@@ -3028,7 +2970,7 @@ public class MysqlIO {
             long count = in.skip(len - n);
 
             if (count < 0) {
-                throw new EOFException(Messages.getString("MysqlIO.EOF", new Object[] { Long.valueOf(len), Long.valueOf(n) }));
+                throw new EOFException(Messages.getString("MysqlIO.EOF", new Object[]{Long.valueOf(len), Long.valueOf(n)}));
             }
 
             n += count;
@@ -3058,35 +3000,23 @@ public class MysqlIO {
     /**
      * Reads one result set off of the wire, if the result is actually an
      * update count, creates an update-count only result set.
-     * 
+     *
      * @param callingStatement
-     * @param maxRows
-     *            the maximum rows to return in the result set.
-     * @param resultSetType
-     *            scrollability
-     * @param resultSetConcurrency
-     *            updatability
-     * @param streamResults
-     *            should the driver leave the results on the wire,
-     *            and read them only when needed?
-     * @param catalog
-     *            the catalog in use
-     * @param resultPacket
-     *            the first packet of information in the result set
-     * @param isBinaryEncoded
-     *            is this result set from a prepared statement?
-     * @param preSentColumnCount
-     *            do we already know the number of columns?
-     * @param unpackFieldInfo
-     *            should we unpack the field information?
-     * 
+     * @param maxRows              the maximum rows to return in the result set.
+     * @param resultSetType        scrollability
+     * @param resultSetConcurrency updatability
+     * @param streamResults        should the driver leave the results on the wire,
+     *                             and read them only when needed?
+     * @param catalog              the catalog in use
+     * @param resultPacket         the first packet of information in the result set
+     * @param isBinaryEncoded      is this result set from a prepared statement?
+     * @param preSentColumnCount   do we already know the number of columns?
+     * @param unpackFieldInfo      should we unpack the field information?
      * @return a result set that either represents the rows, or an update count
-     * 
-     * @throws SQLException
-     *             if an error occurs while reading the rows
+     * @throws SQLException if an error occurs while reading the rows
      */
     protected final ResultSetImpl readResultsForQueryOrUpdate(StatementImpl callingStatement, int maxRows, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Buffer resultPacket, boolean isBinaryEncoded, long preSentColumnCount, Field[] metadataFromCache)
+                                                              boolean streamResults, String catalog, Buffer resultPacket, boolean isBinaryEncoded, long preSentColumnCount, Field[] metadataFromCache)
             throws SQLException {
         long columnCount = resultPacket.readFieldLength();
 
@@ -3121,7 +3051,7 @@ public class MysqlIO {
     }
 
     private com.mysql.jdbc.ResultSetImpl buildResultSetWithRows(StatementImpl callingStatement, String catalog, com.mysql.jdbc.Field[] fields, RowData rows,
-            int resultSetType, int resultSetConcurrency, boolean isBinaryEncoded) throws SQLException {
+                                                                int resultSetType, int resultSetConcurrency, boolean isBinaryEncoded) throws SQLException {
         ResultSetImpl rs = null;
 
         switch (resultSetConcurrency) {
@@ -3224,12 +3154,9 @@ public class MysqlIO {
     }
 
     /**
-     * @param packet
-     *            original uncompressed MySQL packet
-     * @param offset
-     *            begin of MySQL packet header
-     * @param packetLen
-     *            real length of packet
+     * @param packet    original uncompressed MySQL packet
+     * @param offset    begin of MySQL packet header
+     * @param packetLen real length of packet
      * @return compressed packet with header
      * @throws SQLException
      */
@@ -3422,24 +3349,6 @@ public class MysqlIO {
         return rowData;
     }
 
-    public static boolean useBufferRowExplicit(Field[] fields) {
-        if (fields == null) {
-            return false;
-        }
-
-        for (int i = 0; i < fields.length; i++) {
-            switch (fields[i].getSQLType()) {
-                case Types.BLOB:
-                case Types.CLOB:
-                case Types.LONGVARBINARY:
-                case Types.LONGVARCHAR:
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
     /**
      * Don't hold on to overly-large packets
      */
@@ -3451,7 +3360,7 @@ public class MysqlIO {
 
     /**
      * Re-use a packet to read from the MySQL server
-     * 
+     *
      * @param reuse
      * @throws SQLException
      */
@@ -3668,8 +3577,7 @@ public class MysqlIO {
 
     /**
      * @param packet
-     * @param packetLen
-     *            length of header + payload
+     * @param packetLen length of header + payload
      * @throws SQLException
      */
     private final void send(Buffer packet, int packetLen) throws SQLException {
@@ -3750,11 +3658,9 @@ public class MysqlIO {
 
     /**
      * Reads and sends a file to the server for LOAD DATA LOCAL INFILE
-     * 
+     *
      * @param callingStatement
-     * @param fileName
-     *            the file name to send.
-     * 
+     * @param fileName         the file name to send.
      * @throws SQLException
      */
     private final ResultSetImpl sendFileToServer(StatementImpl callingStatement, String fileName) throws SQLException {
@@ -3881,12 +3787,9 @@ public class MysqlIO {
     /**
      * Checks for errors in the reply packet, and if none, returns the reply
      * packet, ready for reading
-     * 
-     * @param command
-     *            the command being issued (if used)
-     * 
-     * @throws SQLException
-     *             if an error packet was received
+     *
+     * @param command the command being issued (if used)
+     * @throws SQLException            if an error packet was received
      * @throws CommunicationsException
      */
     private Buffer checkErrorPacket(int command) throws SQLException {
@@ -4081,9 +3984,8 @@ public class MysqlIO {
 
     /**
      * Sends a large packet to the server as a series of smaller packets
-     * 
+     *
      * @param packet
-     * 
      * @throws SQLException
      * @throws CommunicationsException
      */
@@ -4191,14 +4093,13 @@ public class MysqlIO {
 
     /**
      * Secure authentication for 4.1 and newer servers.
-     * 
+     *
      * @param packet
      * @param packLength
      * @param user
      * @param password
      * @param database
      * @param writeClientParams
-     * 
      * @throws SQLException
      */
     private void secureAuth(Buffer packet, int packLength, String user, String password, String database, boolean writeClientParams) throws SQLException {
@@ -4325,14 +4226,13 @@ public class MysqlIO {
 
     /**
      * Secure authentication for 4.1.1 and newer servers.
-     * 
+     *
      * @param packet
      * @param packLength
      * @param user
      * @param password
      * @param database
      * @param writeClientParams
-     * 
      * @throws SQLException
      */
     void secureAuth411(Buffer packet, int packLength, String user, String password, String database, boolean writeClientParams) throws SQLException {
@@ -4437,13 +4337,11 @@ public class MysqlIO {
 
     /**
      * Un-packs binary-encoded result set data for one row
-     * 
+     *
      * @param fields
      * @param binaryData
      * @param resultSetConcurrency
-     * 
      * @return byte[][]
-     * 
      * @throws SQLException
      */
     private final ResultSetRow unpackBinaryResultSetRow(Field[] fields, Buffer binaryData, int resultSetConcurrency) throws SQLException {
@@ -4494,7 +4392,7 @@ public class MysqlIO {
 
             case MysqlDefs.FIELD_TYPE_TINY:
 
-                unpackedRowData[columnIndex] = new byte[] { binaryData.readByte() };
+                unpackedRowData[columnIndex] = new byte[]{binaryData.readByte()};
                 break;
 
             case MysqlDefs.FIELD_TYPE_SHORT:
@@ -4866,7 +4764,7 @@ public class MysqlIO {
     /**
      * Negotiates the SSL communications channel used when connecting
      * to a MySQL server that understands SSL.
-     * 
+     *
      * @param user
      * @param password
      * @param database
@@ -4891,7 +4789,7 @@ public class MysqlIO {
             packet.writeLong(this.clientParam);
             packet.writeLong(this.maxThreeBytes);
             appendCharsetByteForHandshake(packet, getEncodingForHandshake());
-            packet.writeBytesNoNull(new byte[23]);	// Set of bytes reserved for future use.
+            packet.writeBytesNoNull(new byte[23]);    // Set of bytes reserved for future use.
         } else {
             packet.writeInt((int) this.clientParam);
         }
@@ -4910,7 +4808,7 @@ public class MysqlIO {
     }
 
     protected List<ResultSetRow> fetchRowsViaCursor(List<ResultSetRow> fetchedRows, long statementId, Field[] columnTypes, int fetchSize,
-            boolean useBufferRowExplicit) throws SQLException {
+                                                    boolean useBufferRowExplicit) throws SQLException {
 
         if (fetchedRows == null) {
             fetchedRows = new ArrayList<ResultSetRow>(fetchSize);
@@ -5015,17 +4913,15 @@ public class MysqlIO {
      * Append the MySQL collation index to the handshake packet. A
      * single byte will be added to the packet corresponding to the
      * collation index found for the requested Java encoding name.
-     * 
+     * <p>
      * If the index is &gt; 255 which may be valid at some point in
      * the future, an exception will be thrown. At the time of this
      * implementation the index cannot be &gt; 255 and only the
      * COM_CHANGE_USER rpc, not the handshake response, can handle a
      * value &gt; 255.
-     * 
-     * @param packet
-     *            to append to
-     * @param end
-     *            The Java encoding name used to lookup the collation index
+     *
+     * @param packet to append to
+     * @param end    The Java encoding name used to lookup the collation index
      */
     private void appendCharsetByteForHandshake(Buffer packet, String enc) throws SQLException {
         int charsetIndex = 0;

@@ -34,15 +34,6 @@ import java.util.TreeSet;
  * the same as in {@link RangeShardMapping} but strings are compared as opposed to ints.
  */
 public class HashShardMapping extends ShardMapping {
-    private static class ReverseShardIndexSorter implements Comparator<ShardIndex> {
-        public int compare(ShardIndex i1, ShardIndex i2) {
-            return i2.getBound().compareTo(i1.getBound());
-        }
-
-        // singleton instance
-        public static final ReverseShardIndexSorter instance = new ReverseShardIndexSorter();
-    }
-
     private static final MessageDigest md5Hasher;
 
     static {
@@ -79,5 +70,14 @@ public class HashShardMapping extends ShardMapping {
         // default to the first (highest) bound,
         // implementing wrapping
         return this.shardIndices.iterator().next();
+    }
+
+    private static class ReverseShardIndexSorter implements Comparator<ShardIndex> {
+        // singleton instance
+        public static final ReverseShardIndexSorter instance = new ReverseShardIndexSorter();
+
+        public int compare(ShardIndex i1, ShardIndex i2) {
+            return i2.getBound().compareTo(i1.getBound());
+        }
     }
 }

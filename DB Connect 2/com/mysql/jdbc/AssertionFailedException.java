@@ -31,25 +31,22 @@ public class AssertionFailedException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Convenience method.
-     * 
-     * @param ex
-     *            the exception that should never have been thrown.
-     * @throws AssertionFailedException
-     *             for the exception ex.
-     */
-    public static void shouldNotHappen(Exception ex) throws AssertionFailedException {
-        throw new AssertionFailedException(ex);
-    }
-
-    /**
      * Creates an AssertionFailedException for the given exception that should
      * never have been thrown.
-     * 
-     * @param ex
-     *            the exception that should never have been thrown.
+     *
+     * @param ex the exception that should never have been thrown.
      */
     public AssertionFailedException(Exception ex) {
         super(Messages.getString("AssertionFailedException.0") + ex.toString() + Messages.getString("AssertionFailedException.1"));
+    }
+
+    /**
+     * Convenience method.
+     *
+     * @param ex the exception that should never have been thrown.
+     * @throws AssertionFailedException for the exception ex.
+     */
+    public static void shouldNotHappen(Exception ex) throws AssertionFailedException {
+        throw new AssertionFailedException(ex);
     }
 }

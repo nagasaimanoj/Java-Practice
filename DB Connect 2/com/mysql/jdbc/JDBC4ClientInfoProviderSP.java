@@ -25,8 +25,8 @@ package com.mysql.jdbc;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.Properties;
 
@@ -43,7 +43,7 @@ public class JDBC4ClientInfoProviderSP implements JDBC4ClientInfoProvider {
         String getClientInfoSpName = configurationProps.getProperty("clientInfoGetSPName", "getClientInfo");
         String getClientInfoBulkSpName = configurationProps.getProperty("clientInfoGetBulkSPName", "getClientInfoBulk");
         String clientInfoCatalog = configurationProps.getProperty("clientInfoCatalog", ""); // "" means use current from
-                                                                                           // connection
+        // connection
 
         String catalog = "".equals(clientInfoCatalog) ? conn.getCatalog() : clientInfoCatalog;
 

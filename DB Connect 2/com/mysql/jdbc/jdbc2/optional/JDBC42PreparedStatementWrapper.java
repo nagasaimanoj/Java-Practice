@@ -23,13 +23,13 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLType;
-
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.jdbc2.optional.ConnectionWrapper;
 import com.mysql.jdbc.jdbc2.optional.MysqlPooledConnection;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.SQLType;
 
 public class JDBC42PreparedStatementWrapper extends JDBC4PreparedStatementWrapper {
     public JDBC42PreparedStatementWrapper(ConnectionWrapper c, MysqlPooledConnection conn, PreparedStatement toWrap) {
@@ -38,7 +38,7 @@ public class JDBC42PreparedStatementWrapper extends JDBC4PreparedStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param x
      * @param targetSqlType
@@ -58,7 +58,7 @@ public class JDBC42PreparedStatementWrapper extends JDBC4PreparedStatementWrappe
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param parameterIndex
      * @param x
      * @param targetSqlType

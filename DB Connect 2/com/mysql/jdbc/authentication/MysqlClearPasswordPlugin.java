@@ -23,17 +23,12 @@
 
 package com.mysql.jdbc.authentication;
 
+import com.mysql.jdbc.*;
+
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
-
-import com.mysql.jdbc.AuthenticationPlugin;
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.Messages;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.StringUtils;
 
 /**
  * MySQL Clear Password Authentication Plugin
@@ -75,7 +70,7 @@ public class MysqlClearPasswordPlugin implements AuthenticationPlugin {
             String encoding = this.connection.versionMeetsMinimum(5, 7, 6) ? this.connection.getPasswordCharacterEncoding() : "UTF-8";
             bresp = new Buffer(StringUtils.getBytes(this.password != null ? this.password : "", encoding));
         } catch (UnsupportedEncodingException e) {
-            throw SQLError.createSQLException(Messages.getString("MysqlClearPasswordPlugin.1", new Object[] { this.connection.getPasswordCharacterEncoding() }),
+            throw SQLError.createSQLException(Messages.getString("MysqlClearPasswordPlugin.1", new Object[]{this.connection.getPasswordCharacterEncoding()}),
                     SQLError.SQL_STATE_GENERAL_ERROR, null);
         }
 

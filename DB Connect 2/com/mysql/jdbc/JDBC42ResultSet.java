@@ -23,22 +23,13 @@
 
 package com.mysql.jdbc;
 
-import java.sql.Date;
-import java.sql.SQLException;
-import java.sql.SQLType;
-import java.sql.Struct;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.OffsetTime;
-import java.time.format.DateTimeParseException;
-
 import com.mysql.jdbc.Field;
 import com.mysql.jdbc.RowData;
 import com.mysql.jdbc.SQLError;
+
+import java.sql.*;
+import java.time.*;
+import java.time.format.DateTimeParseException;
 
 public class JDBC42ResultSet extends JDBC4ResultSet {
 
@@ -52,7 +43,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
 
     /**
      * Support for java.time.LocalDate, java.time.LocalTime, java.time.LocalDateTime, java.time.OffsetTime and java.time.OffsetDateTime.
-     * 
+     *
      * @param columnIndex
      * @param type
      * @return
@@ -82,7 +73,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
         } else if (type.equals(OffsetTime.class)) {
             try {
                 final String string = getString(columnIndex);
-                return string == null? null : type.cast(OffsetTime.parse(string));
+                return string == null ? null : type.cast(OffsetTime.parse(string));
             } catch (DateTimeParseException e) {
                 // Let it continue and try by object deserialization.
             }
@@ -93,7 +84,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType. (Not updatable)
-     * 
+     *
      * @param columnIndex
      * @param x
      * @param targetSqlType
@@ -105,7 +96,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param columnIndex
      * @param x
      * @param targetSqlType
@@ -118,7 +109,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param columnLabel
      * @param x
      * @param targetSqlType
@@ -130,7 +121,7 @@ public class JDBC42ResultSet extends JDBC4ResultSet {
 
     /**
      * Support for java.sql.JDBCType/java.sql.SQLType.
-     * 
+     *
      * @param columnLabel
      * @param x
      * @param targetSqlType

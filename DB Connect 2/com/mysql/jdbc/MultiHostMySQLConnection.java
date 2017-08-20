@@ -23,33 +23,22 @@
 
 package com.mysql.jdbc;
 
-import java.sql.CallableStatement;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TimeZone;
-import java.util.Timer;
-import java.util.concurrent.Executor;
-
 import com.mysql.jdbc.log.Log;
 import com.mysql.jdbc.profiler.ProfilerEventHandler;
 
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.Executor;
+
 /**
  * Each instance of MultiHostMySQLConnection is coupled with a MultiHostConnectionProxy instance.
- * 
+ * <p>
  * While this class implements MySQLConnection directly, MultiHostConnectionProxy does the same but via a dynamic proxy.
- * 
+ * <p>
  * Most of the methods in this class refer directly to the active connection from its MultiHostConnectionProxy pair, providing a non-proxied access to the
  * current active connection managed by this multi-host structure. The remaining methods either implement some local behavior or refer to the proxy itself
  * instead of the sub-connection.
- * 
+ * <p>
  * Referring to the higher level proxy connection is needed when some operation needs to be extended to all open sub-connections existing in this multi-host
  * structure as opposed to just refer to the active current connection, such as with close() which is most likely required to close all sub-connections as
  * well.
@@ -154,13 +143,13 @@ public class MultiHostMySQLConnection implements MySQLConnection {
     }
 
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata, boolean isBatch) throws SQLException {
         return getActiveMySQLConnection().execSQL(callingStatement, sql, maxRows, packet, resultSetType, resultSetConcurrency, streamResults, catalog,
                 cachedMetadata, isBatch);
     }
 
     public ResultSetInternalMethods execSQL(StatementImpl callingStatement, String sql, int maxRows, Buffer packet, int resultSetType, int resultSetConcurrency,
-            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
+                                            boolean streamResults, String catalog, Field[] cachedMetadata) throws SQLException {
         return getActiveMySQLConnection().execSQL(callingStatement, sql, maxRows, packet, resultSetType, resultSetConcurrency, streamResults, catalog,
                 cachedMetadata);
     }
@@ -177,288 +166,576 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getAllowLoadLocalInfile();
     }
 
+    public void setAllowLoadLocalInfile(boolean property) {
+        getActiveMySQLConnection().setAllowLoadLocalInfile(property);
+    }
+
     public boolean getAllowMultiQueries() {
         return getActiveMySQLConnection().getAllowMultiQueries();
+    }
+
+    public void setAllowMultiQueries(boolean property) {
+        getActiveMySQLConnection().setAllowMultiQueries(property);
     }
 
     public boolean getAllowNanAndInf() {
         return getActiveMySQLConnection().getAllowNanAndInf();
     }
 
+    public void setAllowNanAndInf(boolean flag) {
+        getActiveMySQLConnection().setAllowNanAndInf(flag);
+    }
+
     public boolean getAllowUrlInLocalInfile() {
         return getActiveMySQLConnection().getAllowUrlInLocalInfile();
+    }
+
+    public void setAllowUrlInLocalInfile(boolean flag) {
+        getActiveMySQLConnection().setAllowUrlInLocalInfile(flag);
     }
 
     public boolean getAlwaysSendSetIsolation() {
         return getActiveMySQLConnection().getAlwaysSendSetIsolation();
     }
 
+    public void setAlwaysSendSetIsolation(boolean flag) {
+        getActiveMySQLConnection().setAlwaysSendSetIsolation(flag);
+    }
+
     public boolean getAutoClosePStmtStreams() {
         return getActiveMySQLConnection().getAutoClosePStmtStreams();
+    }
+
+    public void setAutoClosePStmtStreams(boolean flag) {
+        getActiveMySQLConnection().setAutoClosePStmtStreams(flag);
     }
 
     public boolean getAutoDeserialize() {
         return getActiveMySQLConnection().getAutoDeserialize();
     }
 
+    public void setAutoDeserialize(boolean flag) {
+        getActiveMySQLConnection().setAutoDeserialize(flag);
+    }
+
     public boolean getAutoGenerateTestcaseScript() {
         return getActiveMySQLConnection().getAutoGenerateTestcaseScript();
+    }
+
+    public void setAutoGenerateTestcaseScript(boolean flag) {
+        getActiveMySQLConnection().setAutoGenerateTestcaseScript(flag);
     }
 
     public boolean getAutoReconnectForPools() {
         return getActiveMySQLConnection().getAutoReconnectForPools();
     }
 
+    public void setAutoReconnectForPools(boolean flag) {
+        getActiveMySQLConnection().setAutoReconnectForPools(flag);
+    }
+
     public boolean getAutoSlowLog() {
         return getActiveMySQLConnection().getAutoSlowLog();
+    }
+
+    public void setAutoSlowLog(boolean flag) {
+        getActiveMySQLConnection().setAutoSlowLog(flag);
     }
 
     public int getBlobSendChunkSize() {
         return getActiveMySQLConnection().getBlobSendChunkSize();
     }
 
+    public void setBlobSendChunkSize(String value) throws SQLException {
+        getActiveMySQLConnection().setBlobSendChunkSize(value);
+    }
+
     public boolean getBlobsAreStrings() {
         return getActiveMySQLConnection().getBlobsAreStrings();
+    }
+
+    public void setBlobsAreStrings(boolean flag) {
+        getActiveMySQLConnection().setBlobsAreStrings(flag);
     }
 
     public boolean getCacheCallableStatements() {
         return getActiveMySQLConnection().getCacheCallableStatements();
     }
 
+    public void setCacheCallableStatements(boolean flag) {
+        getActiveMySQLConnection().setCacheCallableStatements(flag);
+    }
+
     public boolean getCacheCallableStmts() {
         return getActiveMySQLConnection().getCacheCallableStmts();
+    }
+
+    public void setCacheCallableStmts(boolean flag) {
+        getActiveMySQLConnection().setCacheCallableStmts(flag);
     }
 
     public boolean getCachePrepStmts() {
         return getActiveMySQLConnection().getCachePrepStmts();
     }
 
+    public void setCachePrepStmts(boolean flag) {
+        getActiveMySQLConnection().setCachePrepStmts(flag);
+    }
+
     public boolean getCachePreparedStatements() {
         return getActiveMySQLConnection().getCachePreparedStatements();
+    }
+
+    public void setCachePreparedStatements(boolean flag) {
+        getActiveMySQLConnection().setCachePreparedStatements(flag);
     }
 
     public boolean getCacheResultSetMetadata() {
         return getActiveMySQLConnection().getCacheResultSetMetadata();
     }
 
+    public void setCacheResultSetMetadata(boolean property) {
+        getActiveMySQLConnection().setCacheResultSetMetadata(property);
+    }
+
     public boolean getCacheServerConfiguration() {
         return getActiveMySQLConnection().getCacheServerConfiguration();
+    }
+
+    public void setCacheServerConfiguration(boolean flag) {
+        getActiveMySQLConnection().setCacheServerConfiguration(flag);
     }
 
     public int getCallableStatementCacheSize() {
         return getActiveMySQLConnection().getCallableStatementCacheSize();
     }
 
+    public void setCallableStatementCacheSize(int size) throws SQLException {
+        getActiveMySQLConnection().setCallableStatementCacheSize(size);
+    }
+
     public int getCallableStmtCacheSize() {
         return getActiveMySQLConnection().getCallableStmtCacheSize();
+    }
+
+    public void setCallableStmtCacheSize(int cacheSize) throws SQLException {
+        getActiveMySQLConnection().setCallableStmtCacheSize(cacheSize);
     }
 
     public boolean getCapitalizeTypeNames() {
         return getActiveMySQLConnection().getCapitalizeTypeNames();
     }
 
+    public void setCapitalizeTypeNames(boolean flag) {
+        getActiveMySQLConnection().setCapitalizeTypeNames(flag);
+    }
+
     public String getCharacterSetResults() {
         return getActiveMySQLConnection().getCharacterSetResults();
+    }
+
+    public void setCharacterSetResults(String characterSet) {
+        getActiveMySQLConnection().setCharacterSetResults(characterSet);
     }
 
     public String getClientCertificateKeyStorePassword() {
         return getActiveMySQLConnection().getClientCertificateKeyStorePassword();
     }
 
+    public void setClientCertificateKeyStorePassword(String value) {
+        getActiveMySQLConnection().setClientCertificateKeyStorePassword(value);
+    }
+
     public String getClientCertificateKeyStoreType() {
         return getActiveMySQLConnection().getClientCertificateKeyStoreType();
+    }
+
+    public void setClientCertificateKeyStoreType(String value) {
+        getActiveMySQLConnection().setClientCertificateKeyStoreType(value);
     }
 
     public String getClientCertificateKeyStoreUrl() {
         return getActiveMySQLConnection().getClientCertificateKeyStoreUrl();
     }
 
+    public void setClientCertificateKeyStoreUrl(String value) {
+        getActiveMySQLConnection().setClientCertificateKeyStoreUrl(value);
+    }
+
     public String getClientInfoProvider() {
         return getActiveMySQLConnection().getClientInfoProvider();
+    }
+
+    public void setClientInfoProvider(String classname) {
+        getActiveMySQLConnection().setClientInfoProvider(classname);
     }
 
     public String getClobCharacterEncoding() {
         return getActiveMySQLConnection().getClobCharacterEncoding();
     }
 
+    public void setClobCharacterEncoding(String encoding) {
+        getActiveMySQLConnection().setClobCharacterEncoding(encoding);
+    }
+
     public boolean getClobberStreamingResults() {
         return getActiveMySQLConnection().getClobberStreamingResults();
+    }
+
+    public void setClobberStreamingResults(boolean flag) {
+        getActiveMySQLConnection().setClobberStreamingResults(flag);
     }
 
     public boolean getCompensateOnDuplicateKeyUpdateCounts() {
         return getActiveMySQLConnection().getCompensateOnDuplicateKeyUpdateCounts();
     }
 
+    public void setCompensateOnDuplicateKeyUpdateCounts(boolean flag) {
+        getActiveMySQLConnection().setCompensateOnDuplicateKeyUpdateCounts(flag);
+    }
+
     public int getConnectTimeout() {
         return getActiveMySQLConnection().getConnectTimeout();
+    }
+
+    public void setConnectTimeout(int timeoutMs) throws SQLException {
+        getActiveMySQLConnection().setConnectTimeout(timeoutMs);
     }
 
     public String getConnectionCollation() {
         return getActiveMySQLConnection().getConnectionCollation();
     }
 
+    public void setConnectionCollation(String collation) {
+        getActiveMySQLConnection().setConnectionCollation(collation);
+    }
+
     public String getConnectionLifecycleInterceptors() {
         return getActiveMySQLConnection().getConnectionLifecycleInterceptors();
+    }
+
+    public void setConnectionLifecycleInterceptors(String interceptors) {
+        getActiveMySQLConnection().setConnectionLifecycleInterceptors(interceptors);
     }
 
     public boolean getContinueBatchOnError() {
         return getActiveMySQLConnection().getContinueBatchOnError();
     }
 
+    public void setContinueBatchOnError(boolean property) {
+        getActiveMySQLConnection().setContinueBatchOnError(property);
+    }
+
     public boolean getCreateDatabaseIfNotExist() {
         return getActiveMySQLConnection().getCreateDatabaseIfNotExist();
+    }
+
+    public void setCreateDatabaseIfNotExist(boolean flag) {
+        getActiveMySQLConnection().setCreateDatabaseIfNotExist(flag);
     }
 
     public int getDefaultFetchSize() {
         return getActiveMySQLConnection().getDefaultFetchSize();
     }
 
+    public void setDefaultFetchSize(int n) throws SQLException {
+        getActiveMySQLConnection().setDefaultFetchSize(n);
+    }
+
     public boolean getDontTrackOpenResources() {
         return getActiveMySQLConnection().getDontTrackOpenResources();
+    }
+
+    public void setDontTrackOpenResources(boolean flag) {
+        getActiveMySQLConnection().setDontTrackOpenResources(flag);
     }
 
     public boolean getDumpMetadataOnColumnNotFound() {
         return getActiveMySQLConnection().getDumpMetadataOnColumnNotFound();
     }
 
+    public void setDumpMetadataOnColumnNotFound(boolean flag) {
+        getActiveMySQLConnection().setDumpMetadataOnColumnNotFound(flag);
+    }
+
     public boolean getDumpQueriesOnException() {
         return getActiveMySQLConnection().getDumpQueriesOnException();
+    }
+
+    public void setDumpQueriesOnException(boolean flag) {
+        getActiveMySQLConnection().setDumpQueriesOnException(flag);
     }
 
     public boolean getDynamicCalendars() {
         return getActiveMySQLConnection().getDynamicCalendars();
     }
 
+    public void setDynamicCalendars(boolean flag) {
+        getActiveMySQLConnection().setDynamicCalendars(flag);
+    }
+
     public boolean getElideSetAutoCommits() {
         return getActiveMySQLConnection().getElideSetAutoCommits();
+    }
+
+    public void setElideSetAutoCommits(boolean flag) {
+        getActiveMySQLConnection().setElideSetAutoCommits(flag);
     }
 
     public boolean getEmptyStringsConvertToZero() {
         return getActiveMySQLConnection().getEmptyStringsConvertToZero();
     }
 
+    public void setEmptyStringsConvertToZero(boolean flag) {
+        getActiveMySQLConnection().setEmptyStringsConvertToZero(flag);
+    }
+
     public boolean getEmulateLocators() {
         return getActiveMySQLConnection().getEmulateLocators();
+    }
+
+    public void setEmulateLocators(boolean property) {
+        getActiveMySQLConnection().setEmulateLocators(property);
     }
 
     public boolean getEmulateUnsupportedPstmts() {
         return getActiveMySQLConnection().getEmulateUnsupportedPstmts();
     }
 
+    public void setEmulateUnsupportedPstmts(boolean flag) {
+        getActiveMySQLConnection().setEmulateUnsupportedPstmts(flag);
+    }
+
     public boolean getEnablePacketDebug() {
         return getActiveMySQLConnection().getEnablePacketDebug();
+    }
+
+    public void setEnablePacketDebug(boolean flag) {
+        getActiveMySQLConnection().setEnablePacketDebug(flag);
     }
 
     public boolean getEnableQueryTimeouts() {
         return getActiveMySQLConnection().getEnableQueryTimeouts();
     }
 
+    public void setEnableQueryTimeouts(boolean flag) {
+        getActiveMySQLConnection().setEnableQueryTimeouts(flag);
+    }
+
     public String getEncoding() {
         return getActiveMySQLConnection().getEncoding();
+    }
+
+    public void setEncoding(String property) {
+        getActiveMySQLConnection().setEncoding(property);
     }
 
     public String getExceptionInterceptors() {
         return getActiveMySQLConnection().getExceptionInterceptors();
     }
 
+    public void setExceptionInterceptors(String exceptionInterceptors) {
+        getActiveMySQLConnection().setExceptionInterceptors(exceptionInterceptors);
+    }
+
     public boolean getExplainSlowQueries() {
         return getActiveMySQLConnection().getExplainSlowQueries();
+    }
+
+    public void setExplainSlowQueries(boolean flag) {
+        getActiveMySQLConnection().setExplainSlowQueries(flag);
     }
 
     public boolean getFailOverReadOnly() {
         return getActiveMySQLConnection().getFailOverReadOnly();
     }
 
+    public void setFailOverReadOnly(boolean flag) {
+        getActiveMySQLConnection().setFailOverReadOnly(flag);
+    }
+
     public boolean getFunctionsNeverReturnBlobs() {
         return getActiveMySQLConnection().getFunctionsNeverReturnBlobs();
+    }
+
+    public void setFunctionsNeverReturnBlobs(boolean flag) {
+        getActiveMySQLConnection().setFunctionsNeverReturnBlobs(flag);
     }
 
     public boolean getGatherPerfMetrics() {
         return getActiveMySQLConnection().getGatherPerfMetrics();
     }
 
+    public void setGatherPerfMetrics(boolean flag) {
+        getActiveMySQLConnection().setGatherPerfMetrics(flag);
+    }
+
     public boolean getGatherPerformanceMetrics() {
         return getActiveMySQLConnection().getGatherPerformanceMetrics();
+    }
+
+    public void setGatherPerformanceMetrics(boolean flag) {
+        getActiveMySQLConnection().setGatherPerformanceMetrics(flag);
     }
 
     public boolean getGenerateSimpleParameterMetadata() {
         return getActiveMySQLConnection().getGenerateSimpleParameterMetadata();
     }
 
+    public void setGenerateSimpleParameterMetadata(boolean flag) {
+        getActiveMySQLConnection().setGenerateSimpleParameterMetadata(flag);
+    }
+
     public boolean getIgnoreNonTxTables() {
         return getActiveMySQLConnection().getIgnoreNonTxTables();
+    }
+
+    public void setIgnoreNonTxTables(boolean property) {
+        getActiveMySQLConnection().setIgnoreNonTxTables(property);
     }
 
     public boolean getIncludeInnodbStatusInDeadlockExceptions() {
         return getActiveMySQLConnection().getIncludeInnodbStatusInDeadlockExceptions();
     }
 
+    public void setIncludeInnodbStatusInDeadlockExceptions(boolean flag) {
+        getActiveMySQLConnection().setIncludeInnodbStatusInDeadlockExceptions(flag);
+    }
+
     public int getInitialTimeout() {
         return getActiveMySQLConnection().getInitialTimeout();
+    }
+
+    public void setInitialTimeout(int property) throws SQLException {
+        getActiveMySQLConnection().setInitialTimeout(property);
     }
 
     public boolean getInteractiveClient() {
         return getActiveMySQLConnection().getInteractiveClient();
     }
 
+    public void setInteractiveClient(boolean property) {
+        getActiveMySQLConnection().setInteractiveClient(property);
+    }
+
     public boolean getIsInteractiveClient() {
         return getActiveMySQLConnection().getIsInteractiveClient();
+    }
+
+    public void setIsInteractiveClient(boolean property) {
+        getActiveMySQLConnection().setIsInteractiveClient(property);
     }
 
     public boolean getJdbcCompliantTruncation() {
         return getActiveMySQLConnection().getJdbcCompliantTruncation();
     }
 
+    public void setJdbcCompliantTruncation(boolean flag) {
+        getActiveMySQLConnection().setJdbcCompliantTruncation(flag);
+    }
+
     public boolean getJdbcCompliantTruncationForReads() {
         return getActiveMySQLConnection().getJdbcCompliantTruncationForReads();
+    }
+
+    public void setJdbcCompliantTruncationForReads(boolean jdbcCompliantTruncationForReads) {
+        getActiveMySQLConnection().setJdbcCompliantTruncationForReads(jdbcCompliantTruncationForReads);
     }
 
     public String getLargeRowSizeThreshold() {
         return getActiveMySQLConnection().getLargeRowSizeThreshold();
     }
 
+    public void setLargeRowSizeThreshold(String value) throws SQLException {
+        getActiveMySQLConnection().setLargeRowSizeThreshold(value);
+    }
+
     public int getLoadBalanceBlacklistTimeout() {
         return getActiveMySQLConnection().getLoadBalanceBlacklistTimeout();
+    }
+
+    public void setLoadBalanceBlacklistTimeout(int loadBalanceBlacklistTimeout) throws SQLException {
+        getActiveMySQLConnection().setLoadBalanceBlacklistTimeout(loadBalanceBlacklistTimeout);
     }
 
     public int getLoadBalancePingTimeout() {
         return getActiveMySQLConnection().getLoadBalancePingTimeout();
     }
 
+    public void setLoadBalancePingTimeout(int loadBalancePingTimeout) throws SQLException {
+        getActiveMySQLConnection().setLoadBalancePingTimeout(loadBalancePingTimeout);
+    }
+
     public String getLoadBalanceStrategy() {
         return getActiveMySQLConnection().getLoadBalanceStrategy();
+    }
+
+    public void setLoadBalanceStrategy(String strategy) {
+        getActiveMySQLConnection().setLoadBalanceStrategy(strategy);
     }
 
     public boolean getLoadBalanceValidateConnectionOnSwapServer() {
         return getActiveMySQLConnection().getLoadBalanceValidateConnectionOnSwapServer();
     }
 
+    public void setLoadBalanceValidateConnectionOnSwapServer(boolean loadBalanceValidateConnectionOnSwapServer) {
+        getActiveMySQLConnection().setLoadBalanceValidateConnectionOnSwapServer(loadBalanceValidateConnectionOnSwapServer);
+    }
+
     public String getLocalSocketAddress() {
         return getActiveMySQLConnection().getLocalSocketAddress();
+    }
+
+    public void setLocalSocketAddress(String address) {
+        getActiveMySQLConnection().setLocalSocketAddress(address);
     }
 
     public int getLocatorFetchBufferSize() {
         return getActiveMySQLConnection().getLocatorFetchBufferSize();
     }
 
+    public void setLocatorFetchBufferSize(String value) throws SQLException {
+        getActiveMySQLConnection().setLocatorFetchBufferSize(value);
+    }
+
     public boolean getLogSlowQueries() {
         return getActiveMySQLConnection().getLogSlowQueries();
+    }
+
+    public void setLogSlowQueries(boolean flag) {
+        getActiveMySQLConnection().setLogSlowQueries(flag);
     }
 
     public boolean getLogXaCommands() {
         return getActiveMySQLConnection().getLogXaCommands();
     }
 
+    public void setLogXaCommands(boolean flag) {
+        getActiveMySQLConnection().setLogXaCommands(flag);
+    }
+
     public String getLogger() {
         return getActiveMySQLConnection().getLogger();
+    }
+
+    public void setLogger(String property) {
+        getActiveMySQLConnection().setLogger(property);
     }
 
     public String getLoggerClassName() {
         return getActiveMySQLConnection().getLoggerClassName();
     }
 
+    public void setLoggerClassName(String className) {
+        getActiveMySQLConnection().setLoggerClassName(className);
+    }
+
     public boolean getMaintainTimeStats() {
         return getActiveMySQLConnection().getMaintainTimeStats();
+    }
+
+    public void setMaintainTimeStats(boolean flag) {
+        getActiveMySQLConnection().setMaintainTimeStats(flag);
     }
 
     public int getMaxAllowedPacket() {
@@ -469,468 +746,872 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getMaxQuerySizeToLog();
     }
 
+    public void setMaxQuerySizeToLog(int sizeInBytes) throws SQLException {
+        getActiveMySQLConnection().setMaxQuerySizeToLog(sizeInBytes);
+    }
+
     public int getMaxReconnects() {
         return getActiveMySQLConnection().getMaxReconnects();
+    }
+
+    public void setMaxReconnects(int property) throws SQLException {
+        getActiveMySQLConnection().setMaxReconnects(property);
     }
 
     public int getMaxRows() {
         return getActiveMySQLConnection().getMaxRows();
     }
 
+    public void setMaxRows(int property) throws SQLException {
+        getActiveMySQLConnection().setMaxRows(property);
+    }
+
     public int getMetadataCacheSize() {
         return getActiveMySQLConnection().getMetadataCacheSize();
+    }
+
+    public void setMetadataCacheSize(int value) throws SQLException {
+        getActiveMySQLConnection().setMetadataCacheSize(value);
     }
 
     public int getNetTimeoutForStreamingResults() {
         return getActiveMySQLConnection().getNetTimeoutForStreamingResults();
     }
 
+    public void setNetTimeoutForStreamingResults(int value) throws SQLException {
+        getActiveMySQLConnection().setNetTimeoutForStreamingResults(value);
+    }
+
     public boolean getNoAccessToProcedureBodies() {
         return getActiveMySQLConnection().getNoAccessToProcedureBodies();
+    }
+
+    public void setNoAccessToProcedureBodies(boolean flag) {
+        getActiveMySQLConnection().setNoAccessToProcedureBodies(flag);
     }
 
     public boolean getNoDatetimeStringSync() {
         return getActiveMySQLConnection().getNoDatetimeStringSync();
     }
 
+    public void setNoDatetimeStringSync(boolean flag) {
+        getActiveMySQLConnection().setNoDatetimeStringSync(flag);
+    }
+
     public boolean getNoTimezoneConversionForTimeType() {
         return getActiveMySQLConnection().getNoTimezoneConversionForTimeType();
+    }
+
+    public void setNoTimezoneConversionForTimeType(boolean flag) {
+        getActiveMySQLConnection().setNoTimezoneConversionForTimeType(flag);
     }
 
     public boolean getNoTimezoneConversionForDateType() {
         return getActiveMySQLConnection().getNoTimezoneConversionForDateType();
     }
 
+    public void setNoTimezoneConversionForDateType(boolean flag) {
+        getActiveMySQLConnection().setNoTimezoneConversionForDateType(flag);
+    }
+
     public boolean getCacheDefaultTimezone() {
         return getActiveMySQLConnection().getCacheDefaultTimezone();
+    }
+
+    public void setCacheDefaultTimezone(boolean flag) {
+        getActiveMySQLConnection().setCacheDefaultTimezone(flag);
     }
 
     public boolean getNullCatalogMeansCurrent() {
         return getActiveMySQLConnection().getNullCatalogMeansCurrent();
     }
 
+    public void setNullCatalogMeansCurrent(boolean value) {
+        getActiveMySQLConnection().setNullCatalogMeansCurrent(value);
+    }
+
     public boolean getNullNamePatternMatchesAll() {
         return getActiveMySQLConnection().getNullNamePatternMatchesAll();
+    }
+
+    public void setNullNamePatternMatchesAll(boolean value) {
+        getActiveMySQLConnection().setNullNamePatternMatchesAll(value);
     }
 
     public boolean getOverrideSupportsIntegrityEnhancementFacility() {
         return getActiveMySQLConnection().getOverrideSupportsIntegrityEnhancementFacility();
     }
 
+    public void setOverrideSupportsIntegrityEnhancementFacility(boolean flag) {
+        getActiveMySQLConnection().setOverrideSupportsIntegrityEnhancementFacility(flag);
+    }
+
     public int getPacketDebugBufferSize() {
         return getActiveMySQLConnection().getPacketDebugBufferSize();
+    }
+
+    public void setPacketDebugBufferSize(int size) throws SQLException {
+        getActiveMySQLConnection().setPacketDebugBufferSize(size);
     }
 
     public boolean getPadCharsWithSpace() {
         return getActiveMySQLConnection().getPadCharsWithSpace();
     }
 
+    public void setPadCharsWithSpace(boolean flag) {
+        getActiveMySQLConnection().setPadCharsWithSpace(flag);
+    }
+
     public boolean getParanoid() {
         return getActiveMySQLConnection().getParanoid();
+    }
+
+    public void setParanoid(boolean property) {
+        getActiveMySQLConnection().setParanoid(property);
     }
 
     public String getPasswordCharacterEncoding() {
         return getActiveMySQLConnection().getPasswordCharacterEncoding();
     }
 
+    public void setPasswordCharacterEncoding(String characterSet) {
+        getActiveMySQLConnection().setPasswordCharacterEncoding(characterSet);
+    }
+
     public boolean getPedantic() {
         return getActiveMySQLConnection().getPedantic();
+    }
+
+    public void setPedantic(boolean property) {
+        getActiveMySQLConnection().setPedantic(property);
     }
 
     public boolean getPinGlobalTxToPhysicalConnection() {
         return getActiveMySQLConnection().getPinGlobalTxToPhysicalConnection();
     }
 
+    public void setPinGlobalTxToPhysicalConnection(boolean flag) {
+        getActiveMySQLConnection().setPinGlobalTxToPhysicalConnection(flag);
+    }
+
     public boolean getPopulateInsertRowWithDefaultValues() {
         return getActiveMySQLConnection().getPopulateInsertRowWithDefaultValues();
+    }
+
+    public void setPopulateInsertRowWithDefaultValues(boolean flag) {
+        getActiveMySQLConnection().setPopulateInsertRowWithDefaultValues(flag);
     }
 
     public int getPrepStmtCacheSize() {
         return getActiveMySQLConnection().getPrepStmtCacheSize();
     }
 
+    public void setPrepStmtCacheSize(int cacheSize) throws SQLException {
+        getActiveMySQLConnection().setPrepStmtCacheSize(cacheSize);
+    }
+
     public int getPrepStmtCacheSqlLimit() {
         return getActiveMySQLConnection().getPrepStmtCacheSqlLimit();
+    }
+
+    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException {
+        getActiveMySQLConnection().setPrepStmtCacheSqlLimit(sqlLimit);
     }
 
     public int getPreparedStatementCacheSize() {
         return getActiveMySQLConnection().getPreparedStatementCacheSize();
     }
 
+    public void setPreparedStatementCacheSize(int cacheSize) throws SQLException {
+        getActiveMySQLConnection().setPreparedStatementCacheSize(cacheSize);
+    }
+
     public int getPreparedStatementCacheSqlLimit() {
         return getActiveMySQLConnection().getPreparedStatementCacheSqlLimit();
+    }
+
+    public void setPreparedStatementCacheSqlLimit(int cacheSqlLimit) throws SQLException {
+        getActiveMySQLConnection().setPreparedStatementCacheSqlLimit(cacheSqlLimit);
     }
 
     public boolean getProcessEscapeCodesForPrepStmts() {
         return getActiveMySQLConnection().getProcessEscapeCodesForPrepStmts();
     }
 
+    public void setProcessEscapeCodesForPrepStmts(boolean flag) {
+        getActiveMySQLConnection().setProcessEscapeCodesForPrepStmts(flag);
+    }
+
     public boolean getProfileSQL() {
         return getActiveMySQLConnection().getProfileSQL();
+    }
+
+    public void setProfileSQL(boolean flag) {
+        getActiveMySQLConnection().setProfileSQL(flag);
     }
 
     public boolean getProfileSql() {
         return getActiveMySQLConnection().getProfileSql();
     }
 
+    public void setProfileSql(boolean property) {
+        getActiveMySQLConnection().setProfileSql(property);
+    }
+
     public String getProfilerEventHandler() {
         return getActiveMySQLConnection().getProfilerEventHandler();
+    }
+
+    public void setProfilerEventHandler(String handler) {
+        getActiveMySQLConnection().setProfilerEventHandler(handler);
     }
 
     public String getPropertiesTransform() {
         return getActiveMySQLConnection().getPropertiesTransform();
     }
 
+    public void setPropertiesTransform(String value) {
+        getActiveMySQLConnection().setPropertiesTransform(value);
+    }
+
     public int getQueriesBeforeRetryMaster() {
         return getActiveMySQLConnection().getQueriesBeforeRetryMaster();
+    }
+
+    public void setQueriesBeforeRetryMaster(int property) throws SQLException {
+        getActiveMySQLConnection().setQueriesBeforeRetryMaster(property);
     }
 
     public boolean getQueryTimeoutKillsConnection() {
         return getActiveMySQLConnection().getQueryTimeoutKillsConnection();
     }
 
+    public void setQueryTimeoutKillsConnection(boolean queryTimeoutKillsConnection) {
+        getActiveMySQLConnection().setQueryTimeoutKillsConnection(queryTimeoutKillsConnection);
+    }
+
     public boolean getReconnectAtTxEnd() {
         return getActiveMySQLConnection().getReconnectAtTxEnd();
+    }
+
+    public void setReconnectAtTxEnd(boolean property) {
+        getActiveMySQLConnection().setReconnectAtTxEnd(property);
     }
 
     public boolean getRelaxAutoCommit() {
         return getActiveMySQLConnection().getRelaxAutoCommit();
     }
 
+    public void setRelaxAutoCommit(boolean property) {
+        getActiveMySQLConnection().setRelaxAutoCommit(property);
+    }
+
     public int getReportMetricsIntervalMillis() {
         return getActiveMySQLConnection().getReportMetricsIntervalMillis();
+    }
+
+    public void setReportMetricsIntervalMillis(int millis) throws SQLException {
+        getActiveMySQLConnection().setReportMetricsIntervalMillis(millis);
     }
 
     public boolean getRequireSSL() {
         return getActiveMySQLConnection().getRequireSSL();
     }
 
+    public void setRequireSSL(boolean property) {
+        getActiveMySQLConnection().setRequireSSL(property);
+    }
+
     public String getResourceId() {
         return getActiveMySQLConnection().getResourceId();
+    }
+
+    public void setResourceId(String resourceId) {
+        getActiveMySQLConnection().setResourceId(resourceId);
     }
 
     public int getResultSetSizeThreshold() {
         return getActiveMySQLConnection().getResultSetSizeThreshold();
     }
 
+    public void setResultSetSizeThreshold(int threshold) throws SQLException {
+        getActiveMySQLConnection().setResultSetSizeThreshold(threshold);
+    }
+
     public boolean getRetainStatementAfterResultSetClose() {
         return getActiveMySQLConnection().getRetainStatementAfterResultSetClose();
+    }
+
+    public void setRetainStatementAfterResultSetClose(boolean flag) {
+        getActiveMySQLConnection().setRetainStatementAfterResultSetClose(flag);
     }
 
     public int getRetriesAllDown() {
         return getActiveMySQLConnection().getRetriesAllDown();
     }
 
+    public void setRetriesAllDown(int retriesAllDown) throws SQLException {
+        getActiveMySQLConnection().setRetriesAllDown(retriesAllDown);
+    }
+
     public boolean getRewriteBatchedStatements() {
         return getActiveMySQLConnection().getRewriteBatchedStatements();
+    }
+
+    public void setRewriteBatchedStatements(boolean flag) {
+        getActiveMySQLConnection().setRewriteBatchedStatements(flag);
     }
 
     public boolean getRollbackOnPooledClose() {
         return getActiveMySQLConnection().getRollbackOnPooledClose();
     }
 
+    public void setRollbackOnPooledClose(boolean flag) {
+        getActiveMySQLConnection().setRollbackOnPooledClose(flag);
+    }
+
     public boolean getRoundRobinLoadBalance() {
         return getActiveMySQLConnection().getRoundRobinLoadBalance();
+    }
+
+    public void setRoundRobinLoadBalance(boolean flag) {
+        getActiveMySQLConnection().setRoundRobinLoadBalance(flag);
     }
 
     public boolean getRunningCTS13() {
         return getActiveMySQLConnection().getRunningCTS13();
     }
 
+    public void setRunningCTS13(boolean flag) {
+        getActiveMySQLConnection().setRunningCTS13(flag);
+    }
+
     public int getSecondsBeforeRetryMaster() {
         return getActiveMySQLConnection().getSecondsBeforeRetryMaster();
+    }
+
+    public void setSecondsBeforeRetryMaster(int property) throws SQLException {
+        getActiveMySQLConnection().setSecondsBeforeRetryMaster(property);
     }
 
     public int getSelfDestructOnPingMaxOperations() {
         return getActiveMySQLConnection().getSelfDestructOnPingMaxOperations();
     }
 
+    public void setSelfDestructOnPingMaxOperations(int maxOperations) throws SQLException {
+        getActiveMySQLConnection().setSelfDestructOnPingMaxOperations(maxOperations);
+    }
+
     public int getSelfDestructOnPingSecondsLifetime() {
         return getActiveMySQLConnection().getSelfDestructOnPingSecondsLifetime();
+    }
+
+    public void setSelfDestructOnPingSecondsLifetime(int seconds) throws SQLException {
+        getActiveMySQLConnection().setSelfDestructOnPingSecondsLifetime(seconds);
     }
 
     public String getServerTimezone() {
         return getActiveMySQLConnection().getServerTimezone();
     }
 
+    public void setServerTimezone(String property) {
+        getActiveMySQLConnection().setServerTimezone(property);
+    }
+
     public String getSessionVariables() {
         return getActiveMySQLConnection().getSessionVariables();
+    }
+
+    public void setSessionVariables(String variables) {
+        getActiveMySQLConnection().setSessionVariables(variables);
     }
 
     public int getSlowQueryThresholdMillis() {
         return getActiveMySQLConnection().getSlowQueryThresholdMillis();
     }
 
+    public void setSlowQueryThresholdMillis(int millis) throws SQLException {
+        getActiveMySQLConnection().setSlowQueryThresholdMillis(millis);
+    }
+
     public long getSlowQueryThresholdNanos() {
         return getActiveMySQLConnection().getSlowQueryThresholdNanos();
+    }
+
+    public void setSlowQueryThresholdNanos(long nanos) throws SQLException {
+        getActiveMySQLConnection().setSlowQueryThresholdNanos(nanos);
     }
 
     public String getSocketFactory() {
         return getActiveMySQLConnection().getSocketFactory();
     }
 
+    public void setSocketFactory(String name) {
+        getActiveMySQLConnection().setSocketFactory(name);
+    }
+
     public String getSocketFactoryClassName() {
         return getActiveMySQLConnection().getSocketFactoryClassName();
+    }
+
+    public void setSocketFactoryClassName(String property) {
+        getActiveMySQLConnection().setSocketFactoryClassName(property);
     }
 
     public int getSocketTimeout() {
         return getActiveMySQLConnection().getSocketTimeout();
     }
 
+    public void setSocketTimeout(int property) throws SQLException {
+        getActiveMySQLConnection().setSocketTimeout(property);
+    }
+
     public String getStatementInterceptors() {
         return getActiveMySQLConnection().getStatementInterceptors();
+    }
+
+    public void setStatementInterceptors(String value) {
+        getActiveMySQLConnection().setStatementInterceptors(value);
     }
 
     public boolean getStrictFloatingPoint() {
         return getActiveMySQLConnection().getStrictFloatingPoint();
     }
 
+    public void setStrictFloatingPoint(boolean property) {
+        getActiveMySQLConnection().setStrictFloatingPoint(property);
+    }
+
     public boolean getStrictUpdates() {
         return getActiveMySQLConnection().getStrictUpdates();
+    }
+
+    public void setStrictUpdates(boolean property) {
+        getActiveMySQLConnection().setStrictUpdates(property);
     }
 
     public boolean getTcpKeepAlive() {
         return getActiveMySQLConnection().getTcpKeepAlive();
     }
 
+    public void setTcpKeepAlive(boolean flag) {
+        getActiveMySQLConnection().setTcpKeepAlive(flag);
+    }
+
     public boolean getTcpNoDelay() {
         return getActiveMySQLConnection().getTcpNoDelay();
+    }
+
+    public void setTcpNoDelay(boolean flag) {
+        getActiveMySQLConnection().setTcpNoDelay(flag);
     }
 
     public int getTcpRcvBuf() {
         return getActiveMySQLConnection().getTcpRcvBuf();
     }
 
+    public void setTcpRcvBuf(int bufSize) throws SQLException {
+        getActiveMySQLConnection().setTcpRcvBuf(bufSize);
+    }
+
     public int getTcpSndBuf() {
         return getActiveMySQLConnection().getTcpSndBuf();
+    }
+
+    public void setTcpSndBuf(int bufSize) throws SQLException {
+        getActiveMySQLConnection().setTcpSndBuf(bufSize);
     }
 
     public int getTcpTrafficClass() {
         return getActiveMySQLConnection().getTcpTrafficClass();
     }
 
+    public void setTcpTrafficClass(int classFlags) throws SQLException {
+        getActiveMySQLConnection().setTcpTrafficClass(classFlags);
+    }
+
     public boolean getTinyInt1isBit() {
         return getActiveMySQLConnection().getTinyInt1isBit();
+    }
+
+    public void setTinyInt1isBit(boolean flag) {
+        getActiveMySQLConnection().setTinyInt1isBit(flag);
     }
 
     public boolean getTraceProtocol() {
         return getActiveMySQLConnection().getTraceProtocol();
     }
 
+    public void setTraceProtocol(boolean flag) {
+        getActiveMySQLConnection().setTraceProtocol(flag);
+    }
+
     public boolean getTransformedBitIsBoolean() {
         return getActiveMySQLConnection().getTransformedBitIsBoolean();
+    }
+
+    public void setTransformedBitIsBoolean(boolean flag) {
+        getActiveMySQLConnection().setTransformedBitIsBoolean(flag);
     }
 
     public boolean getTreatUtilDateAsTimestamp() {
         return getActiveMySQLConnection().getTreatUtilDateAsTimestamp();
     }
 
+    public void setTreatUtilDateAsTimestamp(boolean flag) {
+        getActiveMySQLConnection().setTreatUtilDateAsTimestamp(flag);
+    }
+
     public String getTrustCertificateKeyStorePassword() {
         return getActiveMySQLConnection().getTrustCertificateKeyStorePassword();
+    }
+
+    public void setTrustCertificateKeyStorePassword(String value) {
+        getActiveMySQLConnection().setTrustCertificateKeyStorePassword(value);
     }
 
     public String getTrustCertificateKeyStoreType() {
         return getActiveMySQLConnection().getTrustCertificateKeyStoreType();
     }
 
+    public void setTrustCertificateKeyStoreType(String value) {
+        getActiveMySQLConnection().setTrustCertificateKeyStoreType(value);
+    }
+
     public String getTrustCertificateKeyStoreUrl() {
         return getActiveMySQLConnection().getTrustCertificateKeyStoreUrl();
+    }
+
+    public void setTrustCertificateKeyStoreUrl(String value) {
+        getActiveMySQLConnection().setTrustCertificateKeyStoreUrl(value);
     }
 
     public boolean getUltraDevHack() {
         return getActiveMySQLConnection().getUltraDevHack();
     }
 
+    public void setUltraDevHack(boolean flag) {
+        getActiveMySQLConnection().setUltraDevHack(flag);
+    }
+
     public boolean getUseAffectedRows() {
         return getActiveMySQLConnection().getUseAffectedRows();
+    }
+
+    public void setUseAffectedRows(boolean flag) {
+        getActiveMySQLConnection().setUseAffectedRows(flag);
     }
 
     public boolean getUseBlobToStoreUTF8OutsideBMP() {
         return getActiveMySQLConnection().getUseBlobToStoreUTF8OutsideBMP();
     }
 
+    public void setUseBlobToStoreUTF8OutsideBMP(boolean flag) {
+        getActiveMySQLConnection().setUseBlobToStoreUTF8OutsideBMP(flag);
+    }
+
     public boolean getUseColumnNamesInFindColumn() {
         return getActiveMySQLConnection().getUseColumnNamesInFindColumn();
+    }
+
+    public void setUseColumnNamesInFindColumn(boolean flag) {
+        getActiveMySQLConnection().setUseColumnNamesInFindColumn(flag);
     }
 
     public boolean getUseCompression() {
         return getActiveMySQLConnection().getUseCompression();
     }
 
+    public void setUseCompression(boolean property) {
+        getActiveMySQLConnection().setUseCompression(property);
+    }
+
     public String getUseConfigs() {
         return getActiveMySQLConnection().getUseConfigs();
+    }
+
+    public void setUseConfigs(String configs) {
+        getActiveMySQLConnection().setUseConfigs(configs);
     }
 
     public boolean getUseCursorFetch() {
         return getActiveMySQLConnection().getUseCursorFetch();
     }
 
+    public void setUseCursorFetch(boolean flag) {
+        getActiveMySQLConnection().setUseCursorFetch(flag);
+    }
+
     public boolean getUseDirectRowUnpack() {
         return getActiveMySQLConnection().getUseDirectRowUnpack();
+    }
+
+    public void setUseDirectRowUnpack(boolean flag) {
+        getActiveMySQLConnection().setUseDirectRowUnpack(flag);
     }
 
     public boolean getUseDynamicCharsetInfo() {
         return getActiveMySQLConnection().getUseDynamicCharsetInfo();
     }
 
+    public void setUseDynamicCharsetInfo(boolean flag) {
+        getActiveMySQLConnection().setUseDynamicCharsetInfo(flag);
+    }
+
     public boolean getUseFastDateParsing() {
         return getActiveMySQLConnection().getUseFastDateParsing();
+    }
+
+    public void setUseFastDateParsing(boolean flag) {
+        getActiveMySQLConnection().setUseFastDateParsing(flag);
     }
 
     public boolean getUseFastIntParsing() {
         return getActiveMySQLConnection().getUseFastIntParsing();
     }
 
+    public void setUseFastIntParsing(boolean flag) {
+        getActiveMySQLConnection().setUseFastIntParsing(flag);
+    }
+
     public boolean getUseGmtMillisForDatetimes() {
         return getActiveMySQLConnection().getUseGmtMillisForDatetimes();
+    }
+
+    public void setUseGmtMillisForDatetimes(boolean flag) {
+        getActiveMySQLConnection().setUseGmtMillisForDatetimes(flag);
     }
 
     public boolean getUseHostsInPrivileges() {
         return getActiveMySQLConnection().getUseHostsInPrivileges();
     }
 
+    public void setUseHostsInPrivileges(boolean property) {
+        getActiveMySQLConnection().setUseHostsInPrivileges(property);
+    }
+
     public boolean getUseInformationSchema() {
         return getActiveMySQLConnection().getUseInformationSchema();
+    }
+
+    public void setUseInformationSchema(boolean flag) {
+        getActiveMySQLConnection().setUseInformationSchema(flag);
     }
 
     public boolean getUseJDBCCompliantTimezoneShift() {
         return getActiveMySQLConnection().getUseJDBCCompliantTimezoneShift();
     }
 
+    public void setUseJDBCCompliantTimezoneShift(boolean flag) {
+        getActiveMySQLConnection().setUseJDBCCompliantTimezoneShift(flag);
+    }
+
     public boolean getUseJvmCharsetConverters() {
         return getActiveMySQLConnection().getUseJvmCharsetConverters();
+    }
+
+    public void setUseJvmCharsetConverters(boolean flag) {
+        getActiveMySQLConnection().setUseJvmCharsetConverters(flag);
     }
 
     public boolean getUseLegacyDatetimeCode() {
         return getActiveMySQLConnection().getUseLegacyDatetimeCode();
     }
 
+    public void setUseLegacyDatetimeCode(boolean flag) {
+        getActiveMySQLConnection().setUseLegacyDatetimeCode(flag);
+    }
+
     public boolean getSendFractionalSeconds() {
         return getActiveMySQLConnection().getSendFractionalSeconds();
+    }
+
+    public void setSendFractionalSeconds(boolean flag) {
+        getActiveMySQLConnection().setSendFractionalSeconds(flag);
     }
 
     public boolean getUseLocalSessionState() {
         return getActiveMySQLConnection().getUseLocalSessionState();
     }
 
+    public void setUseLocalSessionState(boolean flag) {
+        getActiveMySQLConnection().setUseLocalSessionState(flag);
+    }
+
     public boolean getUseLocalTransactionState() {
         return getActiveMySQLConnection().getUseLocalTransactionState();
+    }
+
+    public void setUseLocalTransactionState(boolean flag) {
+        getActiveMySQLConnection().setUseLocalTransactionState(flag);
     }
 
     public boolean getUseNanosForElapsedTime() {
         return getActiveMySQLConnection().getUseNanosForElapsedTime();
     }
 
+    public void setUseNanosForElapsedTime(boolean flag) {
+        getActiveMySQLConnection().setUseNanosForElapsedTime(flag);
+    }
+
     public boolean getUseOldAliasMetadataBehavior() {
         return getActiveMySQLConnection().getUseOldAliasMetadataBehavior();
+    }
+
+    public void setUseOldAliasMetadataBehavior(boolean flag) {
+        getActiveMySQLConnection().setUseOldAliasMetadataBehavior(flag);
     }
 
     public boolean getUseOldUTF8Behavior() {
         return getActiveMySQLConnection().getUseOldUTF8Behavior();
     }
 
+    public void setUseOldUTF8Behavior(boolean flag) {
+        getActiveMySQLConnection().setUseOldUTF8Behavior(flag);
+    }
+
     public boolean getUseOnlyServerErrorMessages() {
         return getActiveMySQLConnection().getUseOnlyServerErrorMessages();
+    }
+
+    public void setUseOnlyServerErrorMessages(boolean flag) {
+        getActiveMySQLConnection().setUseOnlyServerErrorMessages(flag);
     }
 
     public boolean getUseReadAheadInput() {
         return getActiveMySQLConnection().getUseReadAheadInput();
     }
 
+    public void setUseReadAheadInput(boolean flag) {
+        getActiveMySQLConnection().setUseReadAheadInput(flag);
+    }
+
     public boolean getUseSSL() {
         return getActiveMySQLConnection().getUseSSL();
+    }
+
+    public void setUseSSL(boolean property) {
+        getActiveMySQLConnection().setUseSSL(property);
     }
 
     public boolean getUseSSPSCompatibleTimezoneShift() {
         return getActiveMySQLConnection().getUseSSPSCompatibleTimezoneShift();
     }
 
+    public void setUseSSPSCompatibleTimezoneShift(boolean flag) {
+        getActiveMySQLConnection().setUseSSPSCompatibleTimezoneShift(flag);
+    }
+
     public boolean getUseServerPrepStmts() {
         return getActiveMySQLConnection().getUseServerPrepStmts();
+    }
+
+    public void setUseServerPrepStmts(boolean flag) {
+        getActiveMySQLConnection().setUseServerPrepStmts(flag);
     }
 
     public boolean getUseServerPreparedStmts() {
         return getActiveMySQLConnection().getUseServerPreparedStmts();
     }
 
+    public void setUseServerPreparedStmts(boolean flag) {
+        getActiveMySQLConnection().setUseServerPreparedStmts(flag);
+    }
+
     public boolean getUseSqlStateCodes() {
         return getActiveMySQLConnection().getUseSqlStateCodes();
+    }
+
+    public void setUseSqlStateCodes(boolean flag) {
+        getActiveMySQLConnection().setUseSqlStateCodes(flag);
     }
 
     public boolean getUseStreamLengthsInPrepStmts() {
         return getActiveMySQLConnection().getUseStreamLengthsInPrepStmts();
     }
 
+    public void setUseStreamLengthsInPrepStmts(boolean property) {
+        getActiveMySQLConnection().setUseStreamLengthsInPrepStmts(property);
+    }
+
     public boolean getUseTimezone() {
         return getActiveMySQLConnection().getUseTimezone();
+    }
+
+    public void setUseTimezone(boolean property) {
+        getActiveMySQLConnection().setUseTimezone(property);
     }
 
     public boolean getUseUltraDevWorkAround() {
         return getActiveMySQLConnection().getUseUltraDevWorkAround();
     }
 
+    public void setUseUltraDevWorkAround(boolean property) {
+        getActiveMySQLConnection().setUseUltraDevWorkAround(property);
+    }
+
     public boolean getUseUnbufferedInput() {
         return getActiveMySQLConnection().getUseUnbufferedInput();
+    }
+
+    public void setUseUnbufferedInput(boolean flag) {
+        getActiveMySQLConnection().setUseUnbufferedInput(flag);
     }
 
     public boolean getUseUnicode() {
         return getActiveMySQLConnection().getUseUnicode();
     }
 
+    public void setUseUnicode(boolean flag) {
+        getActiveMySQLConnection().setUseUnicode(flag);
+    }
+
     public boolean getUseUsageAdvisor() {
         return getActiveMySQLConnection().getUseUsageAdvisor();
+    }
+
+    public void setUseUsageAdvisor(boolean useUsageAdvisorFlag) {
+        getActiveMySQLConnection().setUseUsageAdvisor(useUsageAdvisorFlag);
     }
 
     public String getUtf8OutsideBmpExcludedColumnNamePattern() {
         return getActiveMySQLConnection().getUtf8OutsideBmpExcludedColumnNamePattern();
     }
 
+    public void setUtf8OutsideBmpExcludedColumnNamePattern(String regexPattern) {
+        getActiveMySQLConnection().setUtf8OutsideBmpExcludedColumnNamePattern(regexPattern);
+    }
+
     public String getUtf8OutsideBmpIncludedColumnNamePattern() {
         return getActiveMySQLConnection().getUtf8OutsideBmpIncludedColumnNamePattern();
+    }
+
+    public void setUtf8OutsideBmpIncludedColumnNamePattern(String regexPattern) {
+        getActiveMySQLConnection().setUtf8OutsideBmpIncludedColumnNamePattern(regexPattern);
     }
 
     public boolean getVerifyServerCertificate() {
         return getActiveMySQLConnection().getVerifyServerCertificate();
     }
 
+    public void setVerifyServerCertificate(boolean flag) {
+        getActiveMySQLConnection().setVerifyServerCertificate(flag);
+    }
+
     public boolean getYearIsDateType() {
         return getActiveMySQLConnection().getYearIsDateType();
+    }
+
+    public void setYearIsDateType(boolean flag) {
+        getActiveMySQLConnection().setYearIsDateType(flag);
     }
 
     public String getZeroDateTimeBehavior() {
         return getActiveMySQLConnection().getZeroDateTimeBehavior();
     }
 
-    public void setAllowLoadLocalInfile(boolean property) {
-        getActiveMySQLConnection().setAllowLoadLocalInfile(property);
-    }
-
-    public void setAllowMultiQueries(boolean property) {
-        getActiveMySQLConnection().setAllowMultiQueries(property);
-    }
-
-    public void setAllowNanAndInf(boolean flag) {
-        getActiveMySQLConnection().setAllowNanAndInf(flag);
-    }
-
-    public void setAllowUrlInLocalInfile(boolean flag) {
-        getActiveMySQLConnection().setAllowUrlInLocalInfile(flag);
-    }
-
-    public void setAlwaysSendSetIsolation(boolean flag) {
-        getActiveMySQLConnection().setAlwaysSendSetIsolation(flag);
-    }
-
-    public void setAutoClosePStmtStreams(boolean flag) {
-        getActiveMySQLConnection().setAutoClosePStmtStreams(flag);
-    }
-
-    public void setAutoDeserialize(boolean flag) {
-        getActiveMySQLConnection().setAutoDeserialize(flag);
-    }
-
-    public void setAutoGenerateTestcaseScript(boolean flag) {
-        getActiveMySQLConnection().setAutoGenerateTestcaseScript(flag);
+    public void setZeroDateTimeBehavior(String behavior) {
+        getActiveMySQLConnection().setZeroDateTimeBehavior(behavior);
     }
 
     public void setAutoReconnect(boolean flag) {
@@ -941,712 +1622,16 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         getActiveMySQLConnection().setAutoReconnectForConnectionPools(property);
     }
 
-    public void setAutoReconnectForPools(boolean flag) {
-        getActiveMySQLConnection().setAutoReconnectForPools(flag);
-    }
-
-    public void setAutoSlowLog(boolean flag) {
-        getActiveMySQLConnection().setAutoSlowLog(flag);
-    }
-
-    public void setBlobSendChunkSize(String value) throws SQLException {
-        getActiveMySQLConnection().setBlobSendChunkSize(value);
-    }
-
-    public void setBlobsAreStrings(boolean flag) {
-        getActiveMySQLConnection().setBlobsAreStrings(flag);
-    }
-
-    public void setCacheCallableStatements(boolean flag) {
-        getActiveMySQLConnection().setCacheCallableStatements(flag);
-    }
-
-    public void setCacheCallableStmts(boolean flag) {
-        getActiveMySQLConnection().setCacheCallableStmts(flag);
-    }
-
-    public void setCachePrepStmts(boolean flag) {
-        getActiveMySQLConnection().setCachePrepStmts(flag);
-    }
-
-    public void setCachePreparedStatements(boolean flag) {
-        getActiveMySQLConnection().setCachePreparedStatements(flag);
-    }
-
-    public void setCacheResultSetMetadata(boolean property) {
-        getActiveMySQLConnection().setCacheResultSetMetadata(property);
-    }
-
-    public void setCacheServerConfiguration(boolean flag) {
-        getActiveMySQLConnection().setCacheServerConfiguration(flag);
-    }
-
-    public void setCallableStatementCacheSize(int size) throws SQLException {
-        getActiveMySQLConnection().setCallableStatementCacheSize(size);
-    }
-
-    public void setCallableStmtCacheSize(int cacheSize) throws SQLException {
-        getActiveMySQLConnection().setCallableStmtCacheSize(cacheSize);
-    }
-
     public void setCapitalizeDBMDTypes(boolean property) {
         getActiveMySQLConnection().setCapitalizeDBMDTypes(property);
-    }
-
-    public void setCapitalizeTypeNames(boolean flag) {
-        getActiveMySQLConnection().setCapitalizeTypeNames(flag);
     }
 
     public void setCharacterEncoding(String encoding) {
         getActiveMySQLConnection().setCharacterEncoding(encoding);
     }
 
-    public void setCharacterSetResults(String characterSet) {
-        getActiveMySQLConnection().setCharacterSetResults(characterSet);
-    }
-
-    public void setClientCertificateKeyStorePassword(String value) {
-        getActiveMySQLConnection().setClientCertificateKeyStorePassword(value);
-    }
-
-    public void setClientCertificateKeyStoreType(String value) {
-        getActiveMySQLConnection().setClientCertificateKeyStoreType(value);
-    }
-
-    public void setClientCertificateKeyStoreUrl(String value) {
-        getActiveMySQLConnection().setClientCertificateKeyStoreUrl(value);
-    }
-
-    public void setClientInfoProvider(String classname) {
-        getActiveMySQLConnection().setClientInfoProvider(classname);
-    }
-
-    public void setClobCharacterEncoding(String encoding) {
-        getActiveMySQLConnection().setClobCharacterEncoding(encoding);
-    }
-
-    public void setClobberStreamingResults(boolean flag) {
-        getActiveMySQLConnection().setClobberStreamingResults(flag);
-    }
-
-    public void setCompensateOnDuplicateKeyUpdateCounts(boolean flag) {
-        getActiveMySQLConnection().setCompensateOnDuplicateKeyUpdateCounts(flag);
-    }
-
-    public void setConnectTimeout(int timeoutMs) throws SQLException {
-        getActiveMySQLConnection().setConnectTimeout(timeoutMs);
-    }
-
-    public void setConnectionCollation(String collation) {
-        getActiveMySQLConnection().setConnectionCollation(collation);
-    }
-
-    public void setConnectionLifecycleInterceptors(String interceptors) {
-        getActiveMySQLConnection().setConnectionLifecycleInterceptors(interceptors);
-    }
-
-    public void setContinueBatchOnError(boolean property) {
-        getActiveMySQLConnection().setContinueBatchOnError(property);
-    }
-
-    public void setCreateDatabaseIfNotExist(boolean flag) {
-        getActiveMySQLConnection().setCreateDatabaseIfNotExist(flag);
-    }
-
-    public void setDefaultFetchSize(int n) throws SQLException {
-        getActiveMySQLConnection().setDefaultFetchSize(n);
-    }
-
     public void setDetectServerPreparedStmts(boolean property) {
         getActiveMySQLConnection().setDetectServerPreparedStmts(property);
-    }
-
-    public void setDontTrackOpenResources(boolean flag) {
-        getActiveMySQLConnection().setDontTrackOpenResources(flag);
-    }
-
-    public void setDumpMetadataOnColumnNotFound(boolean flag) {
-        getActiveMySQLConnection().setDumpMetadataOnColumnNotFound(flag);
-    }
-
-    public void setDumpQueriesOnException(boolean flag) {
-        getActiveMySQLConnection().setDumpQueriesOnException(flag);
-    }
-
-    public void setDynamicCalendars(boolean flag) {
-        getActiveMySQLConnection().setDynamicCalendars(flag);
-    }
-
-    public void setElideSetAutoCommits(boolean flag) {
-        getActiveMySQLConnection().setElideSetAutoCommits(flag);
-    }
-
-    public void setEmptyStringsConvertToZero(boolean flag) {
-        getActiveMySQLConnection().setEmptyStringsConvertToZero(flag);
-    }
-
-    public void setEmulateLocators(boolean property) {
-        getActiveMySQLConnection().setEmulateLocators(property);
-    }
-
-    public void setEmulateUnsupportedPstmts(boolean flag) {
-        getActiveMySQLConnection().setEmulateUnsupportedPstmts(flag);
-    }
-
-    public void setEnablePacketDebug(boolean flag) {
-        getActiveMySQLConnection().setEnablePacketDebug(flag);
-    }
-
-    public void setEnableQueryTimeouts(boolean flag) {
-        getActiveMySQLConnection().setEnableQueryTimeouts(flag);
-    }
-
-    public void setEncoding(String property) {
-        getActiveMySQLConnection().setEncoding(property);
-    }
-
-    public void setExceptionInterceptors(String exceptionInterceptors) {
-        getActiveMySQLConnection().setExceptionInterceptors(exceptionInterceptors);
-    }
-
-    public void setExplainSlowQueries(boolean flag) {
-        getActiveMySQLConnection().setExplainSlowQueries(flag);
-    }
-
-    public void setFailOverReadOnly(boolean flag) {
-        getActiveMySQLConnection().setFailOverReadOnly(flag);
-    }
-
-    public void setFunctionsNeverReturnBlobs(boolean flag) {
-        getActiveMySQLConnection().setFunctionsNeverReturnBlobs(flag);
-    }
-
-    public void setGatherPerfMetrics(boolean flag) {
-        getActiveMySQLConnection().setGatherPerfMetrics(flag);
-    }
-
-    public void setGatherPerformanceMetrics(boolean flag) {
-        getActiveMySQLConnection().setGatherPerformanceMetrics(flag);
-    }
-
-    public void setGenerateSimpleParameterMetadata(boolean flag) {
-        getActiveMySQLConnection().setGenerateSimpleParameterMetadata(flag);
-    }
-
-    public void setHoldResultsOpenOverStatementClose(boolean flag) {
-        getActiveMySQLConnection().setHoldResultsOpenOverStatementClose(flag);
-    }
-
-    public void setIgnoreNonTxTables(boolean property) {
-        getActiveMySQLConnection().setIgnoreNonTxTables(property);
-    }
-
-    public void setIncludeInnodbStatusInDeadlockExceptions(boolean flag) {
-        getActiveMySQLConnection().setIncludeInnodbStatusInDeadlockExceptions(flag);
-    }
-
-    public void setInitialTimeout(int property) throws SQLException {
-        getActiveMySQLConnection().setInitialTimeout(property);
-    }
-
-    public void setInteractiveClient(boolean property) {
-        getActiveMySQLConnection().setInteractiveClient(property);
-    }
-
-    public void setIsInteractiveClient(boolean property) {
-        getActiveMySQLConnection().setIsInteractiveClient(property);
-    }
-
-    public void setJdbcCompliantTruncation(boolean flag) {
-        getActiveMySQLConnection().setJdbcCompliantTruncation(flag);
-    }
-
-    public void setJdbcCompliantTruncationForReads(boolean jdbcCompliantTruncationForReads) {
-        getActiveMySQLConnection().setJdbcCompliantTruncationForReads(jdbcCompliantTruncationForReads);
-    }
-
-    public void setLargeRowSizeThreshold(String value) throws SQLException {
-        getActiveMySQLConnection().setLargeRowSizeThreshold(value);
-    }
-
-    public void setLoadBalanceBlacklistTimeout(int loadBalanceBlacklistTimeout) throws SQLException {
-        getActiveMySQLConnection().setLoadBalanceBlacklistTimeout(loadBalanceBlacklistTimeout);
-    }
-
-    public void setLoadBalancePingTimeout(int loadBalancePingTimeout) throws SQLException {
-        getActiveMySQLConnection().setLoadBalancePingTimeout(loadBalancePingTimeout);
-    }
-
-    public void setLoadBalanceStrategy(String strategy) {
-        getActiveMySQLConnection().setLoadBalanceStrategy(strategy);
-    }
-
-    public void setLoadBalanceValidateConnectionOnSwapServer(boolean loadBalanceValidateConnectionOnSwapServer) {
-        getActiveMySQLConnection().setLoadBalanceValidateConnectionOnSwapServer(loadBalanceValidateConnectionOnSwapServer);
-    }
-
-    public void setLocalSocketAddress(String address) {
-        getActiveMySQLConnection().setLocalSocketAddress(address);
-    }
-
-    public void setLocatorFetchBufferSize(String value) throws SQLException {
-        getActiveMySQLConnection().setLocatorFetchBufferSize(value);
-    }
-
-    public void setLogSlowQueries(boolean flag) {
-        getActiveMySQLConnection().setLogSlowQueries(flag);
-    }
-
-    public void setLogXaCommands(boolean flag) {
-        getActiveMySQLConnection().setLogXaCommands(flag);
-    }
-
-    public void setLogger(String property) {
-        getActiveMySQLConnection().setLogger(property);
-    }
-
-    public void setLoggerClassName(String className) {
-        getActiveMySQLConnection().setLoggerClassName(className);
-    }
-
-    public void setMaintainTimeStats(boolean flag) {
-        getActiveMySQLConnection().setMaintainTimeStats(flag);
-    }
-
-    public void setMaxQuerySizeToLog(int sizeInBytes) throws SQLException {
-        getActiveMySQLConnection().setMaxQuerySizeToLog(sizeInBytes);
-    }
-
-    public void setMaxReconnects(int property) throws SQLException {
-        getActiveMySQLConnection().setMaxReconnects(property);
-    }
-
-    public void setMaxRows(int property) throws SQLException {
-        getActiveMySQLConnection().setMaxRows(property);
-    }
-
-    public void setMetadataCacheSize(int value) throws SQLException {
-        getActiveMySQLConnection().setMetadataCacheSize(value);
-    }
-
-    public void setNetTimeoutForStreamingResults(int value) throws SQLException {
-        getActiveMySQLConnection().setNetTimeoutForStreamingResults(value);
-    }
-
-    public void setNoAccessToProcedureBodies(boolean flag) {
-        getActiveMySQLConnection().setNoAccessToProcedureBodies(flag);
-    }
-
-    public void setNoDatetimeStringSync(boolean flag) {
-        getActiveMySQLConnection().setNoDatetimeStringSync(flag);
-    }
-
-    public void setNoTimezoneConversionForTimeType(boolean flag) {
-        getActiveMySQLConnection().setNoTimezoneConversionForTimeType(flag);
-    }
-
-    public void setNoTimezoneConversionForDateType(boolean flag) {
-        getActiveMySQLConnection().setNoTimezoneConversionForDateType(flag);
-    }
-
-    public void setCacheDefaultTimezone(boolean flag) {
-        getActiveMySQLConnection().setCacheDefaultTimezone(flag);
-    }
-
-    public void setNullCatalogMeansCurrent(boolean value) {
-        getActiveMySQLConnection().setNullCatalogMeansCurrent(value);
-    }
-
-    public void setNullNamePatternMatchesAll(boolean value) {
-        getActiveMySQLConnection().setNullNamePatternMatchesAll(value);
-    }
-
-    public void setOverrideSupportsIntegrityEnhancementFacility(boolean flag) {
-        getActiveMySQLConnection().setOverrideSupportsIntegrityEnhancementFacility(flag);
-    }
-
-    public void setPacketDebugBufferSize(int size) throws SQLException {
-        getActiveMySQLConnection().setPacketDebugBufferSize(size);
-    }
-
-    public void setPadCharsWithSpace(boolean flag) {
-        getActiveMySQLConnection().setPadCharsWithSpace(flag);
-    }
-
-    public void setParanoid(boolean property) {
-        getActiveMySQLConnection().setParanoid(property);
-    }
-
-    public void setPasswordCharacterEncoding(String characterSet) {
-        getActiveMySQLConnection().setPasswordCharacterEncoding(characterSet);
-    }
-
-    public void setPedantic(boolean property) {
-        getActiveMySQLConnection().setPedantic(property);
-    }
-
-    public void setPinGlobalTxToPhysicalConnection(boolean flag) {
-        getActiveMySQLConnection().setPinGlobalTxToPhysicalConnection(flag);
-    }
-
-    public void setPopulateInsertRowWithDefaultValues(boolean flag) {
-        getActiveMySQLConnection().setPopulateInsertRowWithDefaultValues(flag);
-    }
-
-    public void setPrepStmtCacheSize(int cacheSize) throws SQLException {
-        getActiveMySQLConnection().setPrepStmtCacheSize(cacheSize);
-    }
-
-    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException {
-        getActiveMySQLConnection().setPrepStmtCacheSqlLimit(sqlLimit);
-    }
-
-    public void setPreparedStatementCacheSize(int cacheSize) throws SQLException {
-        getActiveMySQLConnection().setPreparedStatementCacheSize(cacheSize);
-    }
-
-    public void setPreparedStatementCacheSqlLimit(int cacheSqlLimit) throws SQLException {
-        getActiveMySQLConnection().setPreparedStatementCacheSqlLimit(cacheSqlLimit);
-    }
-
-    public void setProcessEscapeCodesForPrepStmts(boolean flag) {
-        getActiveMySQLConnection().setProcessEscapeCodesForPrepStmts(flag);
-    }
-
-    public void setProfileSQL(boolean flag) {
-        getActiveMySQLConnection().setProfileSQL(flag);
-    }
-
-    public void setProfileSql(boolean property) {
-        getActiveMySQLConnection().setProfileSql(property);
-    }
-
-    public void setProfilerEventHandler(String handler) {
-        getActiveMySQLConnection().setProfilerEventHandler(handler);
-    }
-
-    public void setPropertiesTransform(String value) {
-        getActiveMySQLConnection().setPropertiesTransform(value);
-    }
-
-    public void setQueriesBeforeRetryMaster(int property) throws SQLException {
-        getActiveMySQLConnection().setQueriesBeforeRetryMaster(property);
-    }
-
-    public void setQueryTimeoutKillsConnection(boolean queryTimeoutKillsConnection) {
-        getActiveMySQLConnection().setQueryTimeoutKillsConnection(queryTimeoutKillsConnection);
-    }
-
-    public void setReconnectAtTxEnd(boolean property) {
-        getActiveMySQLConnection().setReconnectAtTxEnd(property);
-    }
-
-    public void setRelaxAutoCommit(boolean property) {
-        getActiveMySQLConnection().setRelaxAutoCommit(property);
-    }
-
-    public void setReportMetricsIntervalMillis(int millis) throws SQLException {
-        getActiveMySQLConnection().setReportMetricsIntervalMillis(millis);
-    }
-
-    public void setRequireSSL(boolean property) {
-        getActiveMySQLConnection().setRequireSSL(property);
-    }
-
-    public void setResourceId(String resourceId) {
-        getActiveMySQLConnection().setResourceId(resourceId);
-    }
-
-    public void setResultSetSizeThreshold(int threshold) throws SQLException {
-        getActiveMySQLConnection().setResultSetSizeThreshold(threshold);
-    }
-
-    public void setRetainStatementAfterResultSetClose(boolean flag) {
-        getActiveMySQLConnection().setRetainStatementAfterResultSetClose(flag);
-    }
-
-    public void setRetriesAllDown(int retriesAllDown) throws SQLException {
-        getActiveMySQLConnection().setRetriesAllDown(retriesAllDown);
-    }
-
-    public void setRewriteBatchedStatements(boolean flag) {
-        getActiveMySQLConnection().setRewriteBatchedStatements(flag);
-    }
-
-    public void setRollbackOnPooledClose(boolean flag) {
-        getActiveMySQLConnection().setRollbackOnPooledClose(flag);
-    }
-
-    public void setRoundRobinLoadBalance(boolean flag) {
-        getActiveMySQLConnection().setRoundRobinLoadBalance(flag);
-    }
-
-    public void setRunningCTS13(boolean flag) {
-        getActiveMySQLConnection().setRunningCTS13(flag);
-    }
-
-    public void setSecondsBeforeRetryMaster(int property) throws SQLException {
-        getActiveMySQLConnection().setSecondsBeforeRetryMaster(property);
-    }
-
-    public void setSelfDestructOnPingMaxOperations(int maxOperations) throws SQLException {
-        getActiveMySQLConnection().setSelfDestructOnPingMaxOperations(maxOperations);
-    }
-
-    public void setSelfDestructOnPingSecondsLifetime(int seconds) throws SQLException {
-        getActiveMySQLConnection().setSelfDestructOnPingSecondsLifetime(seconds);
-    }
-
-    public void setServerTimezone(String property) {
-        getActiveMySQLConnection().setServerTimezone(property);
-    }
-
-    public void setSessionVariables(String variables) {
-        getActiveMySQLConnection().setSessionVariables(variables);
-    }
-
-    public void setSlowQueryThresholdMillis(int millis) throws SQLException {
-        getActiveMySQLConnection().setSlowQueryThresholdMillis(millis);
-    }
-
-    public void setSlowQueryThresholdNanos(long nanos) throws SQLException {
-        getActiveMySQLConnection().setSlowQueryThresholdNanos(nanos);
-    }
-
-    public void setSocketFactory(String name) {
-        getActiveMySQLConnection().setSocketFactory(name);
-    }
-
-    public void setSocketFactoryClassName(String property) {
-        getActiveMySQLConnection().setSocketFactoryClassName(property);
-    }
-
-    public void setSocketTimeout(int property) throws SQLException {
-        getActiveMySQLConnection().setSocketTimeout(property);
-    }
-
-    public void setStatementInterceptors(String value) {
-        getActiveMySQLConnection().setStatementInterceptors(value);
-    }
-
-    public void setStrictFloatingPoint(boolean property) {
-        getActiveMySQLConnection().setStrictFloatingPoint(property);
-    }
-
-    public void setStrictUpdates(boolean property) {
-        getActiveMySQLConnection().setStrictUpdates(property);
-    }
-
-    public void setTcpKeepAlive(boolean flag) {
-        getActiveMySQLConnection().setTcpKeepAlive(flag);
-    }
-
-    public void setTcpNoDelay(boolean flag) {
-        getActiveMySQLConnection().setTcpNoDelay(flag);
-    }
-
-    public void setTcpRcvBuf(int bufSize) throws SQLException {
-        getActiveMySQLConnection().setTcpRcvBuf(bufSize);
-    }
-
-    public void setTcpSndBuf(int bufSize) throws SQLException {
-        getActiveMySQLConnection().setTcpSndBuf(bufSize);
-    }
-
-    public void setTcpTrafficClass(int classFlags) throws SQLException {
-        getActiveMySQLConnection().setTcpTrafficClass(classFlags);
-    }
-
-    public void setTinyInt1isBit(boolean flag) {
-        getActiveMySQLConnection().setTinyInt1isBit(flag);
-    }
-
-    public void setTraceProtocol(boolean flag) {
-        getActiveMySQLConnection().setTraceProtocol(flag);
-    }
-
-    public void setTransformedBitIsBoolean(boolean flag) {
-        getActiveMySQLConnection().setTransformedBitIsBoolean(flag);
-    }
-
-    public void setTreatUtilDateAsTimestamp(boolean flag) {
-        getActiveMySQLConnection().setTreatUtilDateAsTimestamp(flag);
-    }
-
-    public void setTrustCertificateKeyStorePassword(String value) {
-        getActiveMySQLConnection().setTrustCertificateKeyStorePassword(value);
-    }
-
-    public void setTrustCertificateKeyStoreType(String value) {
-        getActiveMySQLConnection().setTrustCertificateKeyStoreType(value);
-    }
-
-    public void setTrustCertificateKeyStoreUrl(String value) {
-        getActiveMySQLConnection().setTrustCertificateKeyStoreUrl(value);
-    }
-
-    public void setUltraDevHack(boolean flag) {
-        getActiveMySQLConnection().setUltraDevHack(flag);
-    }
-
-    public void setUseAffectedRows(boolean flag) {
-        getActiveMySQLConnection().setUseAffectedRows(flag);
-    }
-
-    public void setUseBlobToStoreUTF8OutsideBMP(boolean flag) {
-        getActiveMySQLConnection().setUseBlobToStoreUTF8OutsideBMP(flag);
-    }
-
-    public void setUseColumnNamesInFindColumn(boolean flag) {
-        getActiveMySQLConnection().setUseColumnNamesInFindColumn(flag);
-    }
-
-    public void setUseCompression(boolean property) {
-        getActiveMySQLConnection().setUseCompression(property);
-    }
-
-    public void setUseConfigs(String configs) {
-        getActiveMySQLConnection().setUseConfigs(configs);
-    }
-
-    public void setUseCursorFetch(boolean flag) {
-        getActiveMySQLConnection().setUseCursorFetch(flag);
-    }
-
-    public void setUseDirectRowUnpack(boolean flag) {
-        getActiveMySQLConnection().setUseDirectRowUnpack(flag);
-    }
-
-    public void setUseDynamicCharsetInfo(boolean flag) {
-        getActiveMySQLConnection().setUseDynamicCharsetInfo(flag);
-    }
-
-    public void setUseFastDateParsing(boolean flag) {
-        getActiveMySQLConnection().setUseFastDateParsing(flag);
-    }
-
-    public void setUseFastIntParsing(boolean flag) {
-        getActiveMySQLConnection().setUseFastIntParsing(flag);
-    }
-
-    public void setUseGmtMillisForDatetimes(boolean flag) {
-        getActiveMySQLConnection().setUseGmtMillisForDatetimes(flag);
-    }
-
-    public void setUseHostsInPrivileges(boolean property) {
-        getActiveMySQLConnection().setUseHostsInPrivileges(property);
-    }
-
-    public void setUseInformationSchema(boolean flag) {
-        getActiveMySQLConnection().setUseInformationSchema(flag);
-    }
-
-    public void setUseJDBCCompliantTimezoneShift(boolean flag) {
-        getActiveMySQLConnection().setUseJDBCCompliantTimezoneShift(flag);
-    }
-
-    public void setUseJvmCharsetConverters(boolean flag) {
-        getActiveMySQLConnection().setUseJvmCharsetConverters(flag);
-    }
-
-    public void setUseLegacyDatetimeCode(boolean flag) {
-        getActiveMySQLConnection().setUseLegacyDatetimeCode(flag);
-    }
-
-    public void setSendFractionalSeconds(boolean flag) {
-        getActiveMySQLConnection().setSendFractionalSeconds(flag);
-    }
-
-    public void setUseLocalSessionState(boolean flag) {
-        getActiveMySQLConnection().setUseLocalSessionState(flag);
-    }
-
-    public void setUseLocalTransactionState(boolean flag) {
-        getActiveMySQLConnection().setUseLocalTransactionState(flag);
-    }
-
-    public void setUseNanosForElapsedTime(boolean flag) {
-        getActiveMySQLConnection().setUseNanosForElapsedTime(flag);
-    }
-
-    public void setUseOldAliasMetadataBehavior(boolean flag) {
-        getActiveMySQLConnection().setUseOldAliasMetadataBehavior(flag);
-    }
-
-    public void setUseOldUTF8Behavior(boolean flag) {
-        getActiveMySQLConnection().setUseOldUTF8Behavior(flag);
-    }
-
-    public void setUseOnlyServerErrorMessages(boolean flag) {
-        getActiveMySQLConnection().setUseOnlyServerErrorMessages(flag);
-    }
-
-    public void setUseReadAheadInput(boolean flag) {
-        getActiveMySQLConnection().setUseReadAheadInput(flag);
-    }
-
-    public void setUseSSL(boolean property) {
-        getActiveMySQLConnection().setUseSSL(property);
-    }
-
-    public void setUseSSPSCompatibleTimezoneShift(boolean flag) {
-        getActiveMySQLConnection().setUseSSPSCompatibleTimezoneShift(flag);
-    }
-
-    public void setUseServerPrepStmts(boolean flag) {
-        getActiveMySQLConnection().setUseServerPrepStmts(flag);
-    }
-
-    public void setUseServerPreparedStmts(boolean flag) {
-        getActiveMySQLConnection().setUseServerPreparedStmts(flag);
-    }
-
-    public void setUseSqlStateCodes(boolean flag) {
-        getActiveMySQLConnection().setUseSqlStateCodes(flag);
-    }
-
-    public void setUseStreamLengthsInPrepStmts(boolean property) {
-        getActiveMySQLConnection().setUseStreamLengthsInPrepStmts(property);
-    }
-
-    public void setUseTimezone(boolean property) {
-        getActiveMySQLConnection().setUseTimezone(property);
-    }
-
-    public void setUseUltraDevWorkAround(boolean property) {
-        getActiveMySQLConnection().setUseUltraDevWorkAround(property);
-    }
-
-    public void setUseUnbufferedInput(boolean flag) {
-        getActiveMySQLConnection().setUseUnbufferedInput(flag);
-    }
-
-    public void setUseUnicode(boolean flag) {
-        getActiveMySQLConnection().setUseUnicode(flag);
-    }
-
-    public void setUseUsageAdvisor(boolean useUsageAdvisorFlag) {
-        getActiveMySQLConnection().setUseUsageAdvisor(useUsageAdvisorFlag);
-    }
-
-    public void setUtf8OutsideBmpExcludedColumnNamePattern(String regexPattern) {
-        getActiveMySQLConnection().setUtf8OutsideBmpExcludedColumnNamePattern(regexPattern);
-    }
-
-    public void setUtf8OutsideBmpIncludedColumnNamePattern(String regexPattern) {
-        getActiveMySQLConnection().setUtf8OutsideBmpIncludedColumnNamePattern(regexPattern);
-    }
-
-    public void setVerifyServerCertificate(boolean flag) {
-        getActiveMySQLConnection().setVerifyServerCertificate(flag);
-    }
-
-    public void setYearIsDateType(boolean flag) {
-        getActiveMySQLConnection().setYearIsDateType(flag);
-    }
-
-    public void setZeroDateTimeBehavior(String behavior) {
-        getActiveMySQLConnection().setZeroDateTimeBehavior(behavior);
     }
 
     public boolean useUnbufferedInput() {
@@ -1663,6 +1648,10 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     public boolean getAutoCommit() throws SQLException {
         return getActiveMySQLConnection().getAutoCommit();
+    }
+
+    public void setAutoCommit(boolean autoCommitFlag) throws SQLException {
+        getActiveMySQLConnection().setAutoCommit(autoCommitFlag);
     }
 
     public int getAutoIncrementIncrement() {
@@ -1683,6 +1672,10 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     public String getCatalog() throws SQLException {
         return getActiveMySQLConnection().getCatalog();
+    }
+
+    public void setCatalog(String catalog) throws SQLException {
+        getActiveMySQLConnection().setCatalog(catalog);
     }
 
     public String getCharacterSetMetadata() {
@@ -1719,6 +1712,10 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     public int getHoldability() throws SQLException {
         return getActiveMySQLConnection().getHoldability();
+    }
+
+    public void setHoldability(int arg0) throws SQLException {
+        getActiveMySQLConnection().setHoldability(arg0);
     }
 
     public String getHost() {
@@ -1829,6 +1826,10 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getStatementComment();
     }
 
+    public void setStatementComment(String comment) {
+        getActiveMySQLConnection().setStatementComment(comment);
+    }
+
     public List<StatementInterceptorV2> getStatementInterceptorsInstances() {
         return getActiveMySQLConnection().getStatementInterceptorsInstances();
     }
@@ -1837,8 +1838,16 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getTransactionIsolation();
     }
 
+    public void setTransactionIsolation(int level) throws SQLException {
+        getActiveMySQLConnection().setTransactionIsolation(level);
+    }
+
     public Map<String, Class<?>> getTypeMap() throws SQLException {
         return getActiveMySQLConnection().getTypeMap();
+    }
+
+    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
+        getActiveMySQLConnection().setTypeMap(map);
     }
 
     public String getURL() {
@@ -1906,6 +1915,10 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().isInGlobalTx();
     }
 
+    public void setInGlobalTx(boolean flag) {
+        getActiveMySQLConnection().setInGlobalTx(flag);
+    }
+
     public boolean isMasterConnection() {
         return getThisAsProxy().isMasterConnection();
     }
@@ -1918,8 +1931,16 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().isReadInfoMsgEnabled();
     }
 
+    public void setReadInfoMsgEnabled(boolean flag) {
+        getActiveMySQLConnection().setReadInfoMsgEnabled(flag);
+    }
+
     public boolean isReadOnly() throws SQLException {
         return getActiveMySQLConnection().isReadOnly();
+    }
+
+    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
+        getActiveMySQLConnection().setReadOnly(readOnlyFlag);
     }
 
     public boolean isReadOnly(boolean useSessionStatus) throws SQLException {
@@ -2066,24 +2087,8 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().serverSupportsConvertFn();
     }
 
-    public void setAutoCommit(boolean autoCommitFlag) throws SQLException {
-        getActiveMySQLConnection().setAutoCommit(autoCommitFlag);
-    }
-
-    public void setCatalog(String catalog) throws SQLException {
-        getActiveMySQLConnection().setCatalog(catalog);
-    }
-
     public void setFailedOver(boolean flag) {
         getActiveMySQLConnection().setFailedOver(flag);
-    }
-
-    public void setHoldability(int arg0) throws SQLException {
-        getActiveMySQLConnection().setHoldability(arg0);
-    }
-
-    public void setInGlobalTx(boolean flag) {
-        getActiveMySQLConnection().setInGlobalTx(flag);
     }
 
     @Deprecated
@@ -2093,14 +2098,6 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     public void setProxy(MySQLConnection proxy) {
         getThisAsProxy().setProxy(proxy);
-    }
-
-    public void setReadInfoMsgEnabled(boolean flag) {
-        getActiveMySQLConnection().setReadInfoMsgEnabled(flag);
-    }
-
-    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
-        getActiveMySQLConnection().setReadOnly(readOnlyFlag);
     }
 
     public void setReadOnlyInternal(boolean readOnlyFlag) throws SQLException {
@@ -2113,14 +2110,6 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     public Savepoint setSavepoint(String name) throws SQLException {
         return getActiveMySQLConnection().setSavepoint(name);
-    }
-
-    public void setStatementComment(String comment) {
-        getActiveMySQLConnection().setStatementComment(comment);
-    }
-
-    public void setTransactionIsolation(int level) throws SQLException {
-        getActiveMySQLConnection().setTransactionIsolation(level);
     }
 
     public void shutdownServer() throws SQLException {
@@ -2179,24 +2168,12 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getHoldResultsOpenOverStatementClose();
     }
 
+    public void setHoldResultsOpenOverStatementClose(boolean flag) {
+        getActiveMySQLConnection().setHoldResultsOpenOverStatementClose(flag);
+    }
+
     public String getLoadBalanceConnectionGroup() {
         return getActiveMySQLConnection().getLoadBalanceConnectionGroup();
-    }
-
-    public boolean getLoadBalanceEnableJMX() {
-        return getActiveMySQLConnection().getLoadBalanceEnableJMX();
-    }
-
-    public String getLoadBalanceExceptionChecker() {
-        return getActiveMySQLConnection().getLoadBalanceExceptionChecker();
-    }
-
-    public String getLoadBalanceSQLExceptionSubclassFailover() {
-        return getActiveMySQLConnection().getLoadBalanceSQLExceptionSubclassFailover();
-    }
-
-    public String getLoadBalanceSQLStateFailover() {
-        return getActiveMySQLConnection().getLoadBalanceSQLStateFailover();
     }
 
     public void setLoadBalanceConnectionGroup(String loadBalanceConnectionGroup) {
@@ -2204,9 +2181,17 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     }
 
+    public boolean getLoadBalanceEnableJMX() {
+        return getActiveMySQLConnection().getLoadBalanceEnableJMX();
+    }
+
     public void setLoadBalanceEnableJMX(boolean loadBalanceEnableJMX) {
         getActiveMySQLConnection().setLoadBalanceEnableJMX(loadBalanceEnableJMX);
 
+    }
+
+    public String getLoadBalanceExceptionChecker() {
+        return getActiveMySQLConnection().getLoadBalanceExceptionChecker();
     }
 
     public void setLoadBalanceExceptionChecker(String loadBalanceExceptionChecker) {
@@ -2214,21 +2199,29 @@ public class MultiHostMySQLConnection implements MySQLConnection {
 
     }
 
+    public String getLoadBalanceSQLExceptionSubclassFailover() {
+        return getActiveMySQLConnection().getLoadBalanceSQLExceptionSubclassFailover();
+    }
+
     public void setLoadBalanceSQLExceptionSubclassFailover(String loadBalanceSQLExceptionSubclassFailover) {
         getActiveMySQLConnection().setLoadBalanceSQLExceptionSubclassFailover(loadBalanceSQLExceptionSubclassFailover);
 
+    }
+
+    public String getLoadBalanceSQLStateFailover() {
+        return getActiveMySQLConnection().getLoadBalanceSQLStateFailover();
     }
 
     public void setLoadBalanceSQLStateFailover(String loadBalanceSQLStateFailover) {
         getActiveMySQLConnection().setLoadBalanceSQLStateFailover(loadBalanceSQLStateFailover);
     }
 
-    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException {
-        getActiveMySQLConnection().setLoadBalanceHostRemovalGracePeriod(loadBalanceHostRemovalGracePeriod);
-    }
-
     public int getLoadBalanceHostRemovalGracePeriod() {
         return getActiveMySQLConnection().getLoadBalanceHostRemovalGracePeriod();
+    }
+
+    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException {
+        getActiveMySQLConnection().setLoadBalanceHostRemovalGracePeriod(loadBalanceHostRemovalGracePeriod);
     }
 
     public boolean isProxySet() {
@@ -2239,12 +2232,12 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getLoadBalanceAutoCommitStatementRegex();
     }
 
-    public int getLoadBalanceAutoCommitStatementThreshold() {
-        return getActiveMySQLConnection().getLoadBalanceAutoCommitStatementThreshold();
-    }
-
     public void setLoadBalanceAutoCommitStatementRegex(String loadBalanceAutoCommitStatementRegex) {
         getActiveMySQLConnection().setLoadBalanceAutoCommitStatementRegex(loadBalanceAutoCommitStatementRegex);
+    }
+
+    public int getLoadBalanceAutoCommitStatementThreshold() {
+        return getActiveMySQLConnection().getLoadBalanceAutoCommitStatementThreshold();
     }
 
     public void setLoadBalanceAutoCommitStatementThreshold(int loadBalanceAutoCommitStatementThreshold) throws SQLException {
@@ -2259,10 +2252,6 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         getActiveMySQLConnection().setIncludeThreadDumpInDeadlockExceptions(flag);
     }
 
-    public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-        getActiveMySQLConnection().setTypeMap(map);
-    }
-
     public boolean getIncludeThreadNamesAsStatementComment() {
         return getActiveMySQLConnection().getIncludeThreadNamesAsStatementComment();
     }
@@ -2275,44 +2264,44 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().isServerLocal();
     }
 
-    public void setAuthenticationPlugins(String authenticationPlugins) {
-        getActiveMySQLConnection().setAuthenticationPlugins(authenticationPlugins);
-    }
-
     public String getAuthenticationPlugins() {
         return getActiveMySQLConnection().getAuthenticationPlugins();
     }
 
-    public void setDisabledAuthenticationPlugins(String disabledAuthenticationPlugins) {
-        getActiveMySQLConnection().setDisabledAuthenticationPlugins(disabledAuthenticationPlugins);
+    public void setAuthenticationPlugins(String authenticationPlugins) {
+        getActiveMySQLConnection().setAuthenticationPlugins(authenticationPlugins);
     }
 
     public String getDisabledAuthenticationPlugins() {
         return getActiveMySQLConnection().getDisabledAuthenticationPlugins();
     }
 
-    public void setDefaultAuthenticationPlugin(String defaultAuthenticationPlugin) {
-        getActiveMySQLConnection().setDefaultAuthenticationPlugin(defaultAuthenticationPlugin);
+    public void setDisabledAuthenticationPlugins(String disabledAuthenticationPlugins) {
+        getActiveMySQLConnection().setDisabledAuthenticationPlugins(disabledAuthenticationPlugins);
     }
 
     public String getDefaultAuthenticationPlugin() {
         return getActiveMySQLConnection().getDefaultAuthenticationPlugin();
     }
 
-    public void setParseInfoCacheFactory(String factoryClassname) {
-        getActiveMySQLConnection().setParseInfoCacheFactory(factoryClassname);
+    public void setDefaultAuthenticationPlugin(String defaultAuthenticationPlugin) {
+        getActiveMySQLConnection().setDefaultAuthenticationPlugin(defaultAuthenticationPlugin);
     }
 
     public String getParseInfoCacheFactory() {
         return getActiveMySQLConnection().getParseInfoCacheFactory();
     }
 
-    public void setSchema(String schema) throws SQLException {
-        getActiveMySQLConnection().setSchema(schema);
+    public void setParseInfoCacheFactory(String factoryClassname) {
+        getActiveMySQLConnection().setParseInfoCacheFactory(factoryClassname);
     }
 
     public String getSchema() throws SQLException {
         return getActiveMySQLConnection().getSchema();
+    }
+
+    public void setSchema(String schema) throws SQLException {
+        getActiveMySQLConnection().setSchema(schema);
     }
 
     public void abort(Executor executor) throws SQLException {
@@ -2327,28 +2316,28 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         return getActiveMySQLConnection().getNetworkTimeout();
     }
 
-    public void setServerConfigCacheFactory(String factoryClassname) {
-        getActiveMySQLConnection().setServerConfigCacheFactory(factoryClassname);
-    }
-
     public String getServerConfigCacheFactory() {
         return getActiveMySQLConnection().getServerConfigCacheFactory();
     }
 
-    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords) {
-        getActiveMySQLConnection().setDisconnectOnExpiredPasswords(disconnectOnExpiredPasswords);
+    public void setServerConfigCacheFactory(String factoryClassname) {
+        getActiveMySQLConnection().setServerConfigCacheFactory(factoryClassname);
     }
 
     public boolean getDisconnectOnExpiredPasswords() {
         return getActiveMySQLConnection().getDisconnectOnExpiredPasswords();
     }
 
-    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions) {
-        getActiveMySQLConnection().setGetProceduresReturnsFunctions(getProcedureReturnsFunctions);
+    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords) {
+        getActiveMySQLConnection().setDisconnectOnExpiredPasswords(disconnectOnExpiredPasswords);
     }
 
     public boolean getGetProceduresReturnsFunctions() {
         return getActiveMySQLConnection().getGetProceduresReturnsFunctions();
+    }
+
+    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions) {
+        getActiveMySQLConnection().setGetProceduresReturnsFunctions(getProcedureReturnsFunctions);
     }
 
     public Object getConnectionMutex() {
@@ -2391,12 +2380,12 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         getActiveMySQLConnection().setReplicationEnableJMX(replicationEnableJMX);
     }
 
-    public void setDetectCustomCollations(boolean detectCustomCollations) {
-        getActiveMySQLConnection().setDetectCustomCollations(detectCustomCollations);
-    }
-
     public boolean getDetectCustomCollations() {
         return getActiveMySQLConnection().getDetectCustomCollations();
+    }
+
+    public void setDetectCustomCollations(boolean detectCustomCollations) {
+        getActiveMySQLConnection().setDetectCustomCollations(detectCustomCollations);
     }
 
     public int getSessionMaxRows() {
@@ -2431,28 +2420,28 @@ public class MultiHostMySQLConnection implements MySQLConnection {
         getActiveMySQLConnection().setAllowPublicKeyRetrieval(allowPublicKeyRetrieval);
     }
 
-    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL) {
-        getActiveMySQLConnection().setDontCheckOnDuplicateKeyUpdateInSQL(dontCheckOnDuplicateKeyUpdateInSQL);
-    }
-
     public boolean getDontCheckOnDuplicateKeyUpdateInSQL() {
         return getActiveMySQLConnection().getDontCheckOnDuplicateKeyUpdateInSQL();
     }
 
-    public void setSocksProxyHost(String socksProxyHost) {
-        getActiveMySQLConnection().setSocksProxyHost(socksProxyHost);
+    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL) {
+        getActiveMySQLConnection().setDontCheckOnDuplicateKeyUpdateInSQL(dontCheckOnDuplicateKeyUpdateInSQL);
     }
 
     public String getSocksProxyHost() {
         return getActiveMySQLConnection().getSocksProxyHost();
     }
 
-    public void setSocksProxyPort(int socksProxyPort) throws SQLException {
-        getActiveMySQLConnection().setSocksProxyPort(socksProxyPort);
+    public void setSocksProxyHost(String socksProxyHost) {
+        getActiveMySQLConnection().setSocksProxyHost(socksProxyHost);
     }
 
     public int getSocksProxyPort() {
         return getActiveMySQLConnection().getSocksProxyPort();
+    }
+
+    public void setSocksProxyPort(int socksProxyPort) throws SQLException {
+        getActiveMySQLConnection().setSocksProxyPort(socksProxyPort);
     }
 
     public boolean getReadOnlyPropagatesToServer() {

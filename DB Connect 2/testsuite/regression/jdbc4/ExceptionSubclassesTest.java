@@ -24,15 +24,13 @@
 package testsuite.regression.jdbc4;
 
 import com.mysql.jdbc.SQLError;
-
 import testsuite.BaseTestCase;
 
 public class ExceptionSubclassesTest extends BaseTestCase {
     /**
      * Creates a new ExceptionSubclassesTest.
-     * 
-     * @param name
-     *            the name of the test
+     *
+     * @param name the name of the test
      */
     public ExceptionSubclassesTest(String name) {
         super(name);

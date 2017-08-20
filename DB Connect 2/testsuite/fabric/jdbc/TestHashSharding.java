@@ -23,17 +23,16 @@
 
 package testsuite.fabric.jdbc;
 
+import com.mysql.fabric.jdbc.FabricMySQLConnection;
+import com.mysql.fabric.jdbc.FabricMySQLDataSource;
+import testsuite.fabric.BaseFabricTestCase;
+
 import java.sql.ResultSet;
 import java.sql.Statement;
 
-import com.mysql.fabric.jdbc.FabricMySQLConnection;
-import com.mysql.fabric.jdbc.FabricMySQLDataSource;
-
-import testsuite.fabric.BaseFabricTestCase;
-
 /**
  * @todo this hash sharding test is incompatible with the
- *       default Fabric configuration for these C/J Fabric tests.
+ * default Fabric configuration for these C/J Fabric tests.
  */
 public class TestHashSharding extends BaseFabricTestCase {
     private FabricMySQLDataSource ds;

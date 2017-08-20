@@ -23,17 +23,16 @@
 
 package com.mysql.jdbc.exceptions.jdbc4;
 
-import java.net.BindException;
-import java.sql.SQLRecoverableException;
-
 import com.mysql.jdbc.Messages;
 import com.mysql.jdbc.MySQLConnection;
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.StreamingNotifiable;
 
+import java.sql.SQLRecoverableException;
+
 /**
  * An exception to represent communications errors with the database.
- * 
+ * <p>
  * Attempts to provide 'friendler' error messages to end-users, including last time a packet was sent to the database, what the client-timeout is set to, and
  * whether the idle time has been exceeded.
  */

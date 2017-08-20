@@ -23,18 +23,13 @@
 
 package com.mysql.jdbc.authentication;
 
+import com.mysql.jdbc.*;
+
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
-
-import com.mysql.jdbc.AuthenticationPlugin;
-import com.mysql.jdbc.Buffer;
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.Messages;
-import com.mysql.jdbc.SQLError;
-import com.mysql.jdbc.Security;
 
 /**
  * MySQL Native Password Authentication Plugin
@@ -88,7 +83,7 @@ public class MysqlNativePasswordPlugin implements AuthenticationPlugin {
             throw SQLError.createSQLException(Messages.getString("MysqlIO.91") + Messages.getString("MysqlIO.92"), SQLError.SQL_STATE_GENERAL_ERROR, null);
         } catch (UnsupportedEncodingException e) {
             throw SQLError.createSQLException(
-                    Messages.getString("MysqlNativePasswordPlugin.1", new Object[] { this.connection.getPasswordCharacterEncoding() }),
+                    Messages.getString("MysqlNativePasswordPlugin.1", new Object[]{this.connection.getPasswordCharacterEncoding()}),
                     SQLError.SQL_STATE_GENERAL_ERROR, null);
         }
 

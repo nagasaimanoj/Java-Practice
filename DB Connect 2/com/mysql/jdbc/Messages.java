@@ -62,10 +62,15 @@ public class Messages {
     }
 
     /**
+     * Dis-allow construction ...
+     */
+    private Messages() {
+    }
+
+    /**
      * Returns the localized message for the given message key
-     * 
-     * @param key
-     *            the message key
+     *
+     * @param key the message key
      * @return The localized message for the key
      */
     public static String getString(String key) {
@@ -92,11 +97,5 @@ public class Messages {
 
     public static String getString(String key, Object[] args) {
         return MessageFormat.format(getString(key), args);
-    }
-
-    /**
-     * Dis-allow construction ...
-     */
-    private Messages() {
     }
 }

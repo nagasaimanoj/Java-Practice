@@ -30,17 +30,14 @@ import java.util.List;
  * Represents an in-memory result set
  */
 public class RowDataStatic implements RowData {
-    private Field[] metadata;
-
-    private int index;
-
     ResultSetImpl owner;
-
+    private Field[] metadata;
+    private int index;
     private List<ResultSetRow> rows;
 
     /**
      * Creates a new RowDataStatic object.
-     * 
+     *
      * @param rows
      */
     public RowDataStatic(List<ResultSetRow> rows) {
@@ -96,6 +93,13 @@ public class RowDataStatic implements RowData {
      */
     public ResultSetInternalMethods getOwner() {
         return this.owner;
+    }
+
+    /**
+     * @see com.mysql.jdbc.RowData#setOwner(com.mysql.jdbc.ResultSetInternalMethods)
+     */
+    public void setOwner(ResultSetImpl rs) {
+        this.owner = rs;
     }
 
     public boolean hasNext() {
@@ -172,13 +176,6 @@ public class RowDataStatic implements RowData {
 
     public void setCurrentRow(int newIndex) {
         this.index = newIndex;
-    }
-
-    /**
-     * @see com.mysql.jdbc.RowData#setOwner(com.mysql.jdbc.ResultSetInternalMethods)
-     */
-    public void setOwner(ResultSetImpl rs) {
-        this.owner = rs;
     }
 
     public int size() {

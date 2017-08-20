@@ -58,7 +58,7 @@ public class PerVmServerConfigCacheFactory implements CacheAdapterFactory<String
     };
 
     public CacheAdapter<String, Map<String, String>> getInstance(Connection forConn, String url, int cacheMaxSize, int maxKeySize,
-            Properties connectionProperties) throws SQLException {
+                                                                 Properties connectionProperties) throws SQLException {
         return serverConfigCache;
     }
 }

@@ -23,17 +23,16 @@
 
 package com.mysql.jdbc;
 
-import java.io.Reader;
-import java.sql.NClob;
-import java.sql.RowId;
-import java.sql.SQLXML;
-import java.sql.SQLException;
-
-import com.mysql.jdbc.Connection;
 import com.mysql.jdbc.MysqlDefs;
 import com.mysql.jdbc.SQLError;
 import com.mysql.jdbc.ServerPreparedStatement;
 import com.mysql.jdbc.ServerPreparedStatement.BindValue;
+
+import java.io.Reader;
+import java.sql.NClob;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLXML;
 
 public class JDBC4ServerPreparedStatement extends ServerPreparedStatement {
 
@@ -78,16 +77,11 @@ public class JDBC4ServerPreparedStatement extends ServerPreparedStatement {
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param parameterIndex
-     *            the first parameter is 1, the second is 2, ...
-     * @param reader
-     *            the java reader which contains the UNICODE data
-     * @param length
-     *            the number of characters in the stream
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param parameterIndex the first parameter is 1, the second is 2, ...
+     * @param reader         the java reader which contains the UNICODE data
+     * @param length         the number of characters in the stream
+     * @throws SQLException if a database error occurs
      */
     public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
         // can't take if characterEncoding isn't utf8

@@ -23,11 +23,11 @@
 
 package com.mysql.fabric.proto.xmlrpc;
 
+import com.mysql.fabric.FabricCommunicationException;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-
-import com.mysql.fabric.FabricCommunicationException;
 
 /**
  * An XML-RPC method caller which wraps another caller with RFC-2617 authentication.

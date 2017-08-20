@@ -23,28 +23,28 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.lang.reflect.Constructor;
-import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
+import com.mysql.jdbc.Connection;
+import com.mysql.jdbc.Util;
 
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
-
-import com.mysql.jdbc.Connection;
-import com.mysql.jdbc.Util;
+import java.lang.reflect.Constructor;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SuspendableXAConnection extends MysqlPooledConnection implements XAConnection, XAResource {
 
     private static final Constructor<?> JDBC_4_XA_CONNECTION_WRAPPER_CTOR;
+    private static final Map<Xid, XAConnection> XIDS_TO_PHYSICAL_CONNECTIONS = new HashMap<Xid, XAConnection>();
 
     static {
         if (Util.isJdbc4()) {
             try {
                 JDBC_4_XA_CONNECTION_WRAPPER_CTOR = Class.forName("com.mysql.jdbc.jdbc2.optional.JDBC4SuspendableXAConnection")
-                        .getConstructor(new Class[] { Connection.class });
+                        .getConstructor(new Class[]{Connection.class});
             } catch (SecurityException e) {
                 throw new RuntimeException(e);
             } catch (NoSuchMethodException e) {
@@ -57,28 +57,23 @@ public class SuspendableXAConnection extends MysqlPooledConnection implements XA
         }
     }
 
-    protected static SuspendableXAConnection getInstance(Connection mysqlConnection) throws SQLException {
-        if (!Util.isJdbc4()) {
-            return new SuspendableXAConnection(mysqlConnection);
-        }
-
-        return (SuspendableXAConnection) Util.handleNewInstance(JDBC_4_XA_CONNECTION_WRAPPER_CTOR, new Object[] { mysqlConnection },
-                mysqlConnection.getExceptionInterceptor());
-    }
-
+    private Xid currentXid;
+    private XAConnection currentXAConnection;
+    private XAResource currentXAResource;
+    private Connection underlyingConnection;
     public SuspendableXAConnection(Connection connection) {
         super(connection);
         this.underlyingConnection = connection;
     }
 
-    private static final Map<Xid, XAConnection> XIDS_TO_PHYSICAL_CONNECTIONS = new HashMap<Xid, XAConnection>();
+    protected static SuspendableXAConnection getInstance(Connection mysqlConnection) throws SQLException {
+        if (!Util.isJdbc4()) {
+            return new SuspendableXAConnection(mysqlConnection);
+        }
 
-    private Xid currentXid;
-
-    private XAConnection currentXAConnection;
-    private XAResource currentXAResource;
-
-    private Connection underlyingConnection;
+        return (SuspendableXAConnection) Util.handleNewInstance(JDBC_4_XA_CONNECTION_WRAPPER_CTOR, new Object[]{mysqlConnection},
+                mysqlConnection.getExceptionInterceptor());
+    }
 
     private static synchronized XAConnection findConnectionForXid(Connection connectionToWrap, Xid xid) throws SQLException {
         // TODO: check for same GTRID, but different BQUALs...MySQL doesn't allow this yet

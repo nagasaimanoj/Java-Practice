@@ -1,37 +1,38 @@
 package com.gnsmk;
 
 import com.opencsv.CSVReader;
+
 import java.io.*;
-import java.util.*;
 import java.sql.*;
+import java.util.*;
 
 class LineByLine {
-	
-        static Connection con = null;
-        static boolean isSuccess = false;
-		static String sql="";
 
-	public static void main(String[] args) throws IOException {
+    static Connection con = null;
+    static boolean isSuccess = false;
+    static String sql = "";
 
-		CSVReader reader = new CSVReader(new FileReader("dd.csv"), ',');
+    public static void main(String[] args) throws IOException {
 
-		ArrayList<Employee> emps = new ArrayList<Employee>();
+        CSVReader reader = new CSVReader(new FileReader("dd.csv"), ',');
 
-		String[] record=null;
+        ArrayList<Employee> emps = new ArrayList<Employee>();
 
-		while ((record = reader.readNext()) != null) {
-			emps.add(new Employee().setId(record[0]).setName(record[1]).setAge(record[2]));
-		}
+        String[] record = null;
 
-		System.out.println(emps);
+        while ((record = reader.readNext()) != null) {
+            emps.add(new Employee().setId(record[0]).setName(record[1]).setAge(record[2]));
+        }
 
-		
-		while (emps.size()!=0) {
-			sql += "INSERT INTO `studentdetials`(`name`, `age`, `phone`) VALUES ('" + emps.get(0).id + "'," + emps.get(0).name + "," + emps.get(0).age
-                + ");";
-				emps.remove(0);
-		}
-		reader.close();
+        System.out.println(emps);
+
+
+        while (emps.size() != 0) {
+            sql += "INSERT INTO `studentdetials`(`name`, `age`, `phone`) VALUES ('" + emps.get(0).id + "'," + emps.get(0).name + "," + emps.get(0).age
+                    + ");";
+            emps.remove(0);
+        }
+        reader.close();
 
         try {
             Class.forName("com.mysql.jdbc.Driver");
@@ -44,7 +45,6 @@ class LineByLine {
             e.printStackTrace();
         }
 
-       
 
         if (con != null) {
             try {

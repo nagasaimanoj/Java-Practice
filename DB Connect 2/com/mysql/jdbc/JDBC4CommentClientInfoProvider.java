@@ -23,10 +23,8 @@
 
 package com.mysql.jdbc;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
@@ -34,7 +32,7 @@ import java.util.Properties;
 
 /**
  * An implementation of JDBC4ClientInfoProvider that exposes the client info as a comment prepended to all statements issued by the driver.
- * 
+ * <p>
  * Client information is <i>never</i> read from the server with this implementation, it is always cached locally.
  */
 

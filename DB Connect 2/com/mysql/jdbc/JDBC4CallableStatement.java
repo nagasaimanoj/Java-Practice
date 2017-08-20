@@ -23,14 +23,11 @@
 
 package com.mysql.jdbc;
 
-import java.io.InputStream;
 import java.io.Reader;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.SQLException;
-import java.sql.RowId;
-import java.sql.SQLXML;
 import java.sql.NClob;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLXML;
 
 public class JDBC4CallableStatement extends CallableStatement {
 
@@ -102,14 +99,10 @@ public class JDBC4CallableStatement extends CallableStatement {
 
     /**
      * JDBC 4.0 Set a NCLOB parameter.
-     * 
-     * @param i
-     *            the first parameter is 1, the second is 2, ...
-     * @param x
-     *            an object representing a NCLOB
-     * 
-     * @throws SQLException
-     *             if a database error occurs
+     *
+     * @param i the first parameter is 1, the second is 2, ...
+     * @param x an object representing a NCLOB
+     * @throws SQLException if a database error occurs
      */
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
         JDBC4PreparedStatementHelper.setNClob(this, parameterIndex, value);

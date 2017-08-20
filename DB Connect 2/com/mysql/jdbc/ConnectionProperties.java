@@ -29,382 +29,17 @@ public interface ConnectionProperties {
 
     /**
      * Returns a description of the connection properties as an XML document.
-     * 
+     *
      * @return the connection properties as an XML document.
-     * @throws SQLException
-     *             if an error occurs.
+     * @throws SQLException if an error occurs.
      */
     public String exposeAsXml() throws SQLException;
 
     public boolean getAllowLoadLocalInfile();
 
-    public boolean getAllowMultiQueries();
-
-    /**
-     * @return Returns the allowNanAndInf.
-     */
-    public boolean getAllowNanAndInf();
-
-    /**
-     * @return Returns the allowUrlInLocalInfile.
-     */
-    public boolean getAllowUrlInLocalInfile();
-
-    /**
-     * @return Returns the alwaysSendSetIsolation.
-     */
-    public boolean getAlwaysSendSetIsolation();
-
-    /**
-     * @return Returns the autoDeserialize.
-     */
-    public boolean getAutoDeserialize();
-
-    public boolean getAutoGenerateTestcaseScript();
-
-    public boolean getAutoReconnectForPools();
-
-    /**
-     * @return Returns the blobSendChunkSize.
-     */
-    public int getBlobSendChunkSize();
-
-    /**
-     * @return Returns if cacheCallableStatements is enabled
-     */
-    public boolean getCacheCallableStatements();
-
-    /**
-     * @return Returns the cachePreparedStatements.
-     */
-    public boolean getCachePreparedStatements();
-
-    public boolean getCacheResultSetMetadata();
-
-    /**
-     * @return Returns the cacheServerConfiguration.
-     */
-    public boolean getCacheServerConfiguration();
-
-    /**
-     * @return Returns the callableStatementCacheSize.
-     */
-    public int getCallableStatementCacheSize();
-
-    public boolean getCapitalizeTypeNames();
-
-    /**
-     * @return Returns the characterSetResults.
-     */
-    public String getCharacterSetResults();
-
-    /**
-     * @return Returns the clobberStreamingResults.
-     */
-    public boolean getClobberStreamingResults();
-
-    public String getClobCharacterEncoding();
-
-    /**
-     * @return Returns the connectionCollation.
-     */
-    public String getConnectionCollation();
-
-    public int getConnectTimeout();
-
-    public boolean getContinueBatchOnError();
-
-    public boolean getCreateDatabaseIfNotExist();
-
-    public int getDefaultFetchSize();
-
-    /**
-     * @return Returns the dontTrackOpenResources.
-     */
-    public boolean getDontTrackOpenResources();
-
-    /**
-     * @return Returns the dumpQueriesOnException.
-     */
-    public boolean getDumpQueriesOnException();
-
-    /**
-     * @return Returns the dynamicCalendars.
-     */
-    public boolean getDynamicCalendars();
-
-    /**
-     * @return Returns the elideSetAutoCommits.
-     */
-    public boolean getElideSetAutoCommits();
-
-    public boolean getEmptyStringsConvertToZero();
-
-    public boolean getEmulateLocators();
-
-    /**
-     * @return Returns the emulateUnsupportedPstmts.
-     */
-    public boolean getEmulateUnsupportedPstmts();
-
-    /**
-     * @return Returns the enablePacketDebug.
-     */
-    public boolean getEnablePacketDebug();
-
-    public String getEncoding();
-
-    /**
-     * @return Returns the explainSlowQueries.
-     */
-    public boolean getExplainSlowQueries();
-
-    /**
-     * @return Returns the failOverReadOnly.
-     */
-    public boolean getFailOverReadOnly();
-
-    /**
-     * @return Returns the gatherPerformanceMetrics.
-     */
-    public boolean getGatherPerformanceMetrics();
-
-    /**
-     * @return Returns the holdResultsOpenOverStatementClose.
-     */
-    public boolean getHoldResultsOpenOverStatementClose();
-
-    public boolean getIgnoreNonTxTables();
-
-    public int getInitialTimeout();
-
-    public boolean getInteractiveClient();
-
-    /**
-     * @return Returns the isInteractiveClient.
-     */
-    public boolean getIsInteractiveClient();
-
-    /**
-     * @return Returns the jdbcCompliantTruncation.
-     */
-    public boolean getJdbcCompliantTruncation();
-
-    /**
-     * @return Returns the dontTrackOpenResources.
-     */
-    public int getLocatorFetchBufferSize();
-
-    public String getLogger();
-
-    /**
-     * @return Returns the loggerClassName.
-     */
-    public String getLoggerClassName();
-
-    /**
-     * @return Returns the logSlowQueries.
-     */
-    public boolean getLogSlowQueries();
-
-    public boolean getMaintainTimeStats();
-
-    /**
-     * @return Returns the maxQuerySizeToLog.
-     */
-    public int getMaxQuerySizeToLog();
-
-    public int getMaxReconnects();
-
-    public int getMaxRows();
-
-    /**
-     * Returns the number of queries that metadata can be cached if caching is
-     * enabled.
-     * 
-     * @return the number of queries to cache metadata for.
-     */
-    public int getMetadataCacheSize();
-
-    /**
-     * @return Returns the noDatetimeStringSync.
-     */
-    public boolean getNoDatetimeStringSync();
-
-    public boolean getNullCatalogMeansCurrent();
-
-    public boolean getNullNamePatternMatchesAll();
-
-    /**
-     * @return Returns the packetDebugBufferSize.
-     */
-    public int getPacketDebugBufferSize();
-
-    public boolean getParanoid();
-
-    public boolean getPedantic();
-
-    /**
-     * @return Returns the preparedStatementCacheSize.
-     */
-    public int getPreparedStatementCacheSize();
-
-    /**
-     * @return Returns the preparedStatementCacheSqlLimit.
-     */
-    public int getPreparedStatementCacheSqlLimit();
-
-    public boolean getProfileSql();
-
-    /**
-     * @return Returns the profileSQL flag
-     */
-    public boolean getProfileSQL();
-
-    /**
-     * @return Returns the propertiesTransform.
-     */
-    public String getPropertiesTransform();
-
-    public int getQueriesBeforeRetryMaster();
-
-    public boolean getReconnectAtTxEnd();
-
-    public boolean getRelaxAutoCommit();
-
-    /**
-     * @return Returns the reportMetricsIntervalMillis.
-     */
-    public int getReportMetricsIntervalMillis();
-
-    public boolean getRequireSSL();
-
-    /**
-     * @return Returns the rollbackOnPooledClose.
-     */
-    public boolean getRollbackOnPooledClose();
-
-    /**
-     * Returns whether or not hosts will be picked in a round-robin fashion.
-     * 
-     * @return Returns the roundRobinLoadBalance property.
-     */
-    public boolean getRoundRobinLoadBalance();
-
-    /**
-     * @return Returns the runningCTS13.
-     */
-    public boolean getRunningCTS13();
-
-    public int getSecondsBeforeRetryMaster();
-
-    /**
-     * Returns the 'serverTimezone' property.
-     * 
-     * @return the configured server timezone property.
-     */
-    public String getServerTimezone();
-
-    /**
-     * @return Returns the sessionVariables.
-     */
-    public String getSessionVariables();
-
-    /**
-     * @return Returns the slowQueryThresholdMillis.
-     */
-    public int getSlowQueryThresholdMillis();
-
-    public String getSocketFactoryClassName();
-
-    public int getSocketTimeout();
-
-    public boolean getStrictFloatingPoint();
-
-    public boolean getStrictUpdates();
-
-    /**
-     * @return Returns the tinyInt1isBit.
-     */
-    public boolean getTinyInt1isBit();
-
-    /**
-     * @return Returns the logProtocol.
-     */
-    public boolean getTraceProtocol();
-
-    public boolean getTransformedBitIsBoolean();
-
-    public boolean getUseCompression();
-
-    /**
-     * @return Returns the useFastIntParsing.
-     */
-    public boolean getUseFastIntParsing();
-
-    public boolean getUseHostsInPrivileges();
-
-    public boolean getUseInformationSchema();
-
-    /**
-     * @return Returns the useLocalSessionState.
-     */
-    public boolean getUseLocalSessionState();
-
-    /**
-     * @return Returns the useOldUTF8Behavior.
-     */
-    public boolean getUseOldUTF8Behavior();
-
-    /**
-     * @return Returns the useOnlyServerErrorMessages.
-     */
-    public boolean getUseOnlyServerErrorMessages();
-
-    /**
-     * @return Returns the useReadAheadInput.
-     */
-    public boolean getUseReadAheadInput();
-
-    public boolean getUseServerPreparedStmts();
-
-    /**
-     * @return Returns the useSqlStateCodes state.
-     */
-    public boolean getUseSqlStateCodes();
-
-    public boolean getUseSSL();
-
-    boolean isUseSSLExplicit();
-
-    public boolean getUseStreamLengthsInPrepStmts();
-
-    public boolean getUseTimezone();
-
-    public boolean getUseUltraDevWorkAround();
-
-    /**
-     * @return Returns the useUnbufferedInput.
-     */
-    public boolean getUseUnbufferedInput();
-
-    public boolean getUseUnicode();
-
-    /**
-     * Returns whether or not the driver advises of proper usage.
-     * 
-     * @return the value of useUsageAdvisor
-     */
-    public boolean getUseUsageAdvisor();
-
-    public boolean getYearIsDateType();
-
-    /**
-     * @return Returns the zeroDateTimeBehavior.
-     */
-    public String getZeroDateTimeBehavior();
-
     public void setAllowLoadLocalInfile(boolean property);
+
+    public boolean getAllowMultiQueries();
 
     /**
      * @param property
@@ -412,119 +47,161 @@ public interface ConnectionProperties {
     public void setAllowMultiQueries(boolean property);
 
     /**
-     * @param allowNanAndInf
-     *            The allowNanAndInf to set.
+     * @return Returns the allowNanAndInf.
+     */
+    public boolean getAllowNanAndInf();
+
+    /**
+     * @param allowNanAndInf The allowNanAndInf to set.
      */
     public void setAllowNanAndInf(boolean flag);
 
     /**
-     * @param allowUrlInLocalInfile
-     *            The allowUrlInLocalInfile to set.
+     * @return Returns the allowUrlInLocalInfile.
+     */
+    public boolean getAllowUrlInLocalInfile();
+
+    /**
+     * @param allowUrlInLocalInfile The allowUrlInLocalInfile to set.
      */
     public void setAllowUrlInLocalInfile(boolean flag);
 
     /**
-     * @param alwaysSendSetIsolation
-     *            The alwaysSendSetIsolation to set.
+     * @return Returns the alwaysSendSetIsolation.
+     */
+    public boolean getAlwaysSendSetIsolation();
+
+    /**
+     * @param alwaysSendSetIsolation The alwaysSendSetIsolation to set.
      */
     public void setAlwaysSendSetIsolation(boolean flag);
 
     /**
-     * @param autoDeserialize
-     *            The autoDeserialize to set.
+     * @return Returns the autoDeserialize.
+     */
+    public boolean getAutoDeserialize();
+
+    /**
+     * @param autoDeserialize The autoDeserialize to set.
      */
     public void setAutoDeserialize(boolean flag);
 
+    public boolean getAutoGenerateTestcaseScript();
+
     public void setAutoGenerateTestcaseScript(boolean flag);
 
-    /**
-     * @param flag
-     *            The autoReconnect to set.
-     */
-    public void setAutoReconnect(boolean flag);
-
-    public void setAutoReconnectForConnectionPools(boolean property);
+    public boolean getAutoReconnectForPools();
 
     /**
-     * @param flag
-     *            The autoReconnectForPools to set.
+     * @param flag The autoReconnectForPools to set.
      */
     public void setAutoReconnectForPools(boolean flag);
 
     /**
-     * @param blobSendChunkSize
-     *            The blobSendChunkSize to set.
+     * @return Returns the blobSendChunkSize.
+     */
+    public int getBlobSendChunkSize();
+
+    /**
+     * @param blobSendChunkSize The blobSendChunkSize to set.
      */
     public void setBlobSendChunkSize(String value) throws SQLException;
 
     /**
-     * @param flag
-     *            The cacheCallableStatements to set.
+     * @return Returns if cacheCallableStatements is enabled
+     */
+    public boolean getCacheCallableStatements();
+
+    /**
+     * @param flag The cacheCallableStatements to set.
      */
     public void setCacheCallableStatements(boolean flag);
 
     /**
-     * @param flag
-     *            The cachePreparedStatements to set.
+     * @return Returns the cachePreparedStatements.
+     */
+    public boolean getCachePreparedStatements();
+
+    /**
+     * @param flag The cachePreparedStatements to set.
      */
     public void setCachePreparedStatements(boolean flag);
 
+    public boolean getCacheResultSetMetadata();
+
     /**
      * Sets whether or not we should cache result set metadata.
-     * 
+     *
      * @param property
      */
     public void setCacheResultSetMetadata(boolean property);
 
     /**
-     * @param cacheServerConfiguration
-     *            The cacheServerConfiguration to set.
+     * @return Returns the cacheServerConfiguration.
+     */
+    public boolean getCacheServerConfiguration();
+
+    /**
+     * @param cacheServerConfiguration The cacheServerConfiguration to set.
      */
     public void setCacheServerConfiguration(boolean flag);
 
     /**
+     * @return Returns the callableStatementCacheSize.
+     */
+    public int getCallableStatementCacheSize();
+
+    /**
      * Configures the number of callable statements to cache. (this is
      * configurable during the life of the connection).
-     * 
-     * @param size
-     *            The callableStatementCacheSize to set.
+     *
+     * @param size The callableStatementCacheSize to set.
      * @throws SQLException
      */
     public void setCallableStatementCacheSize(int size) throws SQLException;
 
-    public void setCapitalizeDBMDTypes(boolean property);
+    public boolean getCapitalizeTypeNames();
 
     /**
-     * @param flag
-     *            The capitalizeTypeNames to set.
+     * @param flag The capitalizeTypeNames to set.
      */
     public void setCapitalizeTypeNames(boolean flag);
 
     /**
-     * @param encoding
-     *            The characterEncoding to set.
+     * @return Returns the characterSetResults.
      */
-    public void setCharacterEncoding(String encoding);
+    public String getCharacterSetResults();
 
     /**
-     * @param characterSet
-     *            The characterSetResults to set.
+     * @param characterSet The characterSetResults to set.
      */
     public void setCharacterSetResults(String characterSet);
 
     /**
-     * @param flag
-     *            The clobberStreamingResults to set.
+     * @return Returns the clobberStreamingResults.
+     */
+    public boolean getClobberStreamingResults();
+
+    /**
+     * @param flag The clobberStreamingResults to set.
      */
     public void setClobberStreamingResults(boolean flag);
+
+    public String getClobCharacterEncoding();
 
     public void setClobCharacterEncoding(String encoding);
 
     /**
-     * @param collation
-     *            The connectionCollation to set.
+     * @return Returns the connectionCollation.
+     */
+    public String getConnectionCollation();
+
+    /**
+     * @param collation The connectionCollation to set.
      */
     public void setConnectionCollation(String collation);
+
+    public int getConnectTimeout();
 
     /**
      * @param timeoutMs
@@ -532,45 +209,66 @@ public interface ConnectionProperties {
      */
     public void setConnectTimeout(int timeoutMs) throws SQLException;
 
+    public boolean getContinueBatchOnError();
+
     /**
      * @param property
      */
     public void setContinueBatchOnError(boolean property);
 
+    public boolean getCreateDatabaseIfNotExist();
+
     public void setCreateDatabaseIfNotExist(boolean flag);
+
+    public int getDefaultFetchSize();
 
     public void setDefaultFetchSize(int n) throws SQLException;
 
     /**
-     * @param property
+     * @return Returns the dontTrackOpenResources.
      */
-    public void setDetectServerPreparedStmts(boolean property);
+    public boolean getDontTrackOpenResources();
 
     /**
-     * @param dontTrackOpenResources
-     *            The dontTrackOpenResources to set.
+     * @param dontTrackOpenResources The dontTrackOpenResources to set.
      */
     public void setDontTrackOpenResources(boolean flag);
 
     /**
-     * @param flag
-     *            The dumpQueriesOnException to set.
+     * @return Returns the dumpQueriesOnException.
+     */
+    public boolean getDumpQueriesOnException();
+
+    /**
+     * @param flag The dumpQueriesOnException to set.
      */
     public void setDumpQueriesOnException(boolean flag);
 
     /**
-     * @param dynamicCalendars
-     *            The dynamicCalendars to set.
+     * @return Returns the dynamicCalendars.
+     */
+    public boolean getDynamicCalendars();
+
+    /**
+     * @param dynamicCalendars The dynamicCalendars to set.
      */
     public void setDynamicCalendars(boolean flag);
 
     /**
-     * @param flag
-     *            The elideSetAutoCommits to set.
+     * @return Returns the elideSetAutoCommits.
+     */
+    public boolean getElideSetAutoCommits();
+
+    /**
+     * @param flag The elideSetAutoCommits to set.
      */
     public void setElideSetAutoCommits(boolean flag);
 
+    public boolean getEmptyStringsConvertToZero();
+
     public void setEmptyStringsConvertToZero(boolean flag);
+
+    public boolean getEmulateLocators();
 
     /**
      * @param property
@@ -578,16 +276,26 @@ public interface ConnectionProperties {
     public void setEmulateLocators(boolean property);
 
     /**
-     * @param emulateUnsupportedPstmts
-     *            The emulateUnsupportedPstmts to set.
+     * @return Returns the emulateUnsupportedPstmts.
+     */
+    public boolean getEmulateUnsupportedPstmts();
+
+    /**
+     * @param emulateUnsupportedPstmts The emulateUnsupportedPstmts to set.
      */
     public void setEmulateUnsupportedPstmts(boolean flag);
 
     /**
-     * @param flag
-     *            The enablePacketDebug to set.
+     * @return Returns the enablePacketDebug.
+     */
+    public boolean getEnablePacketDebug();
+
+    /**
+     * @param flag The enablePacketDebug to set.
      */
     public void setEnablePacketDebug(boolean flag);
+
+    public String getEncoding();
 
     /**
      * @param property
@@ -595,33 +303,53 @@ public interface ConnectionProperties {
     public void setEncoding(String property);
 
     /**
-     * @param flag
-     *            The explainSlowQueries to set.
+     * @return Returns the explainSlowQueries.
+     */
+    public boolean getExplainSlowQueries();
+
+    /**
+     * @param flag The explainSlowQueries to set.
      */
     public void setExplainSlowQueries(boolean flag);
 
     /**
-     * @param flag
-     *            The failOverReadOnly to set.
+     * @return Returns the failOverReadOnly.
+     */
+    public boolean getFailOverReadOnly();
+
+    /**
+     * @param flag The failOverReadOnly to set.
      */
     public void setFailOverReadOnly(boolean flag);
 
     /**
-     * @param flag
-     *            The gatherPerformanceMetrics to set.
+     * @return Returns the gatherPerformanceMetrics.
+     */
+    public boolean getGatherPerformanceMetrics();
+
+    /**
+     * @param flag The gatherPerformanceMetrics to set.
      */
     public void setGatherPerformanceMetrics(boolean flag);
 
     /**
-     * @param holdResultsOpenOverStatementClose
-     *            The holdResultsOpenOverStatementClose to set.
+     * @return Returns the holdResultsOpenOverStatementClose.
+     */
+    public boolean getHoldResultsOpenOverStatementClose();
+
+    /**
+     * @param holdResultsOpenOverStatementClose The holdResultsOpenOverStatementClose to set.
      */
     public void setHoldResultsOpenOverStatementClose(boolean flag);
+
+    public boolean getIgnoreNonTxTables();
 
     /**
      * @param property
      */
     public void setIgnoreNonTxTables(boolean property);
+
+    public int getInitialTimeout();
 
     /**
      * @param property
@@ -629,22 +357,41 @@ public interface ConnectionProperties {
      */
     public void setInitialTimeout(int property) throws SQLException;
 
+    public boolean getInteractiveClient();
+
+    public void setInteractiveClient(boolean property);
+
+    /**
+     * @return Returns the isInteractiveClient.
+     */
+    public boolean getIsInteractiveClient();
+
     /**
      * @param property
      */
     public void setIsInteractiveClient(boolean property);
 
     /**
-     * @param flag
-     *            The jdbcCompliantTruncation to set.
+     * @return Returns the jdbcCompliantTruncation.
+     */
+    public boolean getJdbcCompliantTruncation();
+
+    /**
+     * @param flag The jdbcCompliantTruncation to set.
      */
     public void setJdbcCompliantTruncation(boolean flag);
 
     /**
-     * @param locatorFetchBufferSize
-     *            The locatorFetchBufferSize to set.
+     * @return Returns the dontTrackOpenResources.
+     */
+    public int getLocatorFetchBufferSize();
+
+    /**
+     * @param locatorFetchBufferSize The locatorFetchBufferSize to set.
      */
     public void setLocatorFetchBufferSize(String value) throws SQLException;
+
+    public String getLogger();
 
     /**
      * @param property
@@ -652,31 +399,49 @@ public interface ConnectionProperties {
     public void setLogger(String property);
 
     /**
-     * @param className
-     *            The loggerClassName to set.
+     * @return Returns the loggerClassName.
+     */
+    public String getLoggerClassName();
+
+    /**
+     * @param className The loggerClassName to set.
      */
     public void setLoggerClassName(String className);
 
     /**
-     * @param flag
-     *            The logSlowQueries to set.
+     * @return Returns the logSlowQueries.
+     */
+    public boolean getLogSlowQueries();
+
+    /**
+     * @param flag The logSlowQueries to set.
      */
     public void setLogSlowQueries(boolean flag);
+
+    public boolean getMaintainTimeStats();
 
     public void setMaintainTimeStats(boolean flag);
 
     /**
-     * @param sizeInBytes
-     *            The maxQuerySizeToLog to set.
+     * @return Returns the maxQuerySizeToLog.
+     */
+    public int getMaxQuerySizeToLog();
+
+    /**
+     * @param sizeInBytes The maxQuerySizeToLog to set.
      * @throws SQLException
      */
     public void setMaxQuerySizeToLog(int sizeInBytes) throws SQLException;
+
+    public int getMaxReconnects();
 
     /**
      * @param property
      * @throws SQLException
      */
     public void setMaxReconnects(int property) throws SQLException;
+
+    public int getMaxRows();
 
     /**
      * @param property
@@ -685,36 +450,59 @@ public interface ConnectionProperties {
     public void setMaxRows(int property) throws SQLException;
 
     /**
+     * Returns the number of queries that metadata can be cached if caching is
+     * enabled.
+     *
+     * @return the number of queries to cache metadata for.
+     */
+    public int getMetadataCacheSize();
+
+    /**
      * Sets the number of queries that metadata can be cached if caching is
      * enabled.
-     * 
-     * @param value
-     *            the number of queries to cache metadata for.
+     *
+     * @param value the number of queries to cache metadata for.
      * @throws SQLException
      */
     public void setMetadataCacheSize(int value) throws SQLException;
 
     /**
-     * @param noDatetimeStringSync
-     *            The noDatetimeStringSync to set.
+     * @return Returns the noDatetimeStringSync.
+     */
+    public boolean getNoDatetimeStringSync();
+
+    /**
+     * @param noDatetimeStringSync The noDatetimeStringSync to set.
      */
     public void setNoDatetimeStringSync(boolean flag);
 
+    public boolean getNullCatalogMeansCurrent();
+
     public void setNullCatalogMeansCurrent(boolean value);
+
+    public boolean getNullNamePatternMatchesAll();
 
     public void setNullNamePatternMatchesAll(boolean value);
 
     /**
-     * @param size
-     *            The packetDebugBufferSize to set.
+     * @return Returns the packetDebugBufferSize.
+     */
+    public int getPacketDebugBufferSize();
+
+    /**
+     * @param size The packetDebugBufferSize to set.
      * @throws SQLException
      */
     public void setPacketDebugBufferSize(int size) throws SQLException;
+
+    public boolean getParanoid();
 
     /**
      * @param property
      */
     public void setParanoid(boolean property);
+
+    public boolean getPedantic();
 
     /**
      * @param property
@@ -722,18 +510,28 @@ public interface ConnectionProperties {
     public void setPedantic(boolean property);
 
     /**
-     * @param cacheSize
-     *            The preparedStatementCacheSize to set.
+     * @return Returns the preparedStatementCacheSize.
+     */
+    public int getPreparedStatementCacheSize();
+
+    /**
+     * @param cacheSize The preparedStatementCacheSize to set.
      * @throws SQLException
      */
     public void setPreparedStatementCacheSize(int cacheSize) throws SQLException;
 
     /**
-     * @param cacheSqlLimit
-     *            The preparedStatementCacheSqlLimit to set.
+     * @return Returns the preparedStatementCacheSqlLimit.
+     */
+    public int getPreparedStatementCacheSqlLimit();
+
+    /**
+     * @param cacheSqlLimit The preparedStatementCacheSqlLimit to set.
      * @throws SQLException
      */
     public void setPreparedStatementCacheSqlLimit(int cacheSqlLimit) throws SQLException;
+
+    public boolean getProfileSql();
 
     /**
      * @param property
@@ -741,16 +539,26 @@ public interface ConnectionProperties {
     public void setProfileSql(boolean property);
 
     /**
-     * @param flag
-     *            The profileSQL to set.
+     * @return Returns the profileSQL flag
+     */
+    public boolean getProfileSQL();
+
+    /**
+     * @param flag The profileSQL to set.
      */
     public void setProfileSQL(boolean flag);
 
     /**
-     * @param propertiesTransform
-     *            The propertiesTransform to set.
+     * @return Returns the propertiesTransform.
+     */
+    public String getPropertiesTransform();
+
+    /**
+     * @param propertiesTransform The propertiesTransform to set.
      */
     public void setPropertiesTransform(String value);
+
+    public int getQueriesBeforeRetryMaster();
 
     /**
      * @param property
@@ -758,10 +566,14 @@ public interface ConnectionProperties {
      */
     public void setQueriesBeforeRetryMaster(int property) throws SQLException;
 
+    public boolean getReconnectAtTxEnd();
+
     /**
      * @param property
      */
     public void setReconnectAtTxEnd(boolean property);
+
+    public boolean getRelaxAutoCommit();
 
     /**
      * @param property
@@ -769,38 +581,58 @@ public interface ConnectionProperties {
     public void setRelaxAutoCommit(boolean property);
 
     /**
-     * @param millis
-     *            The reportMetricsIntervalMillis to set.
+     * @return Returns the reportMetricsIntervalMillis.
+     */
+    public int getReportMetricsIntervalMillis();
+
+    /**
+     * @param millis The reportMetricsIntervalMillis to set.
      * @throws SQLException
      */
     public void setReportMetricsIntervalMillis(int millis) throws SQLException;
+
+    public boolean getRequireSSL();
 
     /**
      * @param property
      */
     public void setRequireSSL(boolean property);
 
-    public void setRetainStatementAfterResultSetClose(boolean flag);
+    /**
+     * @return Returns the rollbackOnPooledClose.
+     */
+    public boolean getRollbackOnPooledClose();
 
     /**
-     * @param rollbackOnPooledClose
-     *            The rollbackOnPooledClose to set.
+     * @param rollbackOnPooledClose The rollbackOnPooledClose to set.
      */
     public void setRollbackOnPooledClose(boolean flag);
 
     /**
+     * Returns whether or not hosts will be picked in a round-robin fashion.
+     *
+     * @return Returns the roundRobinLoadBalance property.
+     */
+    public boolean getRoundRobinLoadBalance();
+
+    /**
      * Sets whether or not hosts will be picked in a round-robin fashion.
-     * 
-     * @param flag
-     *            The roundRobinLoadBalance property to set.
+     *
+     * @param flag The roundRobinLoadBalance property to set.
      */
     public void setRoundRobinLoadBalance(boolean flag);
 
     /**
-     * @param runningCTS13
-     *            The runningCTS13 to set.
+     * @return Returns the runningCTS13.
+     */
+    public boolean getRunningCTS13();
+
+    /**
+     * @param runningCTS13 The runningCTS13 to set.
      */
     public void setRunningCTS13(boolean flag);
+
+    public int getSecondsBeforeRetryMaster();
 
     /**
      * @param property
@@ -809,27 +641,46 @@ public interface ConnectionProperties {
     public void setSecondsBeforeRetryMaster(int property) throws SQLException;
 
     /**
+     * Returns the 'serverTimezone' property.
+     *
+     * @return the configured server timezone property.
+     */
+    public String getServerTimezone();
+
+    /**
      * @param property
      */
     public void setServerTimezone(String property);
 
     /**
-     * @param sessionVariables
-     *            The sessionVariables to set.
+     * @return Returns the sessionVariables.
+     */
+    public String getSessionVariables();
+
+    /**
+     * @param sessionVariables The sessionVariables to set.
      */
     public void setSessionVariables(String variables);
 
     /**
-     * @param millis
-     *            The slowQueryThresholdMillis to set.
+     * @return Returns the slowQueryThresholdMillis.
+     */
+    public int getSlowQueryThresholdMillis();
+
+    /**
+     * @param millis The slowQueryThresholdMillis to set.
      * @throws SQLException
      */
     public void setSlowQueryThresholdMillis(int millis) throws SQLException;
+
+    public String getSocketFactoryClassName();
 
     /**
      * @param property
      */
     public void setSocketFactoryClassName(String property);
+
+    public int getSocketTimeout();
 
     /**
      * @param property
@@ -837,10 +688,14 @@ public interface ConnectionProperties {
      */
     public void setSocketTimeout(int property) throws SQLException;
 
+    public boolean getStrictFloatingPoint();
+
     /**
      * @param property
      */
     public void setStrictFloatingPoint(boolean property);
+
+    public boolean getStrictUpdates();
 
     /**
      * @param property
@@ -848,18 +703,30 @@ public interface ConnectionProperties {
     public void setStrictUpdates(boolean property);
 
     /**
-     * @param tinyInt1isBit
-     *            The tinyInt1isBit to set.
+     * @return Returns the tinyInt1isBit.
+     */
+    public boolean getTinyInt1isBit();
+
+    /**
+     * @param tinyInt1isBit The tinyInt1isBit to set.
      */
     public void setTinyInt1isBit(boolean flag);
 
     /**
-     * @param flag
-     *            The logProtocol to set.
+     * @return Returns the logProtocol.
+     */
+    public boolean getTraceProtocol();
+
+    /**
+     * @param flag The logProtocol to set.
      */
     public void setTraceProtocol(boolean flag);
 
+    public boolean getTransformedBitIsBoolean();
+
     public void setTransformedBitIsBoolean(boolean flag);
+
+    public boolean getUseCompression();
 
     /**
      * @param property
@@ -867,68 +734,107 @@ public interface ConnectionProperties {
     public void setUseCompression(boolean property);
 
     /**
-     * @param useFastIntParsing
-     *            The useFastIntParsing to set.
+     * @return Returns the useFastIntParsing.
+     */
+    public boolean getUseFastIntParsing();
+
+    /**
+     * @param useFastIntParsing The useFastIntParsing to set.
      */
     public void setUseFastIntParsing(boolean flag);
+
+    public boolean getUseHostsInPrivileges();
 
     /**
      * @param property
      */
     public void setUseHostsInPrivileges(boolean property);
 
+    public boolean getUseInformationSchema();
+
     public void setUseInformationSchema(boolean flag);
 
     /**
-     * @param useLocalSessionState
-     *            The useLocalSessionState to set.
+     * @return Returns the useLocalSessionState.
+     */
+    public boolean getUseLocalSessionState();
+
+    /**
+     * @param useLocalSessionState The useLocalSessionState to set.
      */
     public void setUseLocalSessionState(boolean flag);
 
     /**
-     * @param useOldUTF8Behavior
-     *            The useOldUTF8Behavior to set.
+     * @return Returns the useOldUTF8Behavior.
+     */
+    public boolean getUseOldUTF8Behavior();
+
+    /**
+     * @param useOldUTF8Behavior The useOldUTF8Behavior to set.
      */
     public void setUseOldUTF8Behavior(boolean flag);
 
     /**
-     * @param useOnlyServerErrorMessages
-     *            The useOnlyServerErrorMessages to set.
+     * @return Returns the useOnlyServerErrorMessages.
+     */
+    public boolean getUseOnlyServerErrorMessages();
+
+    /**
+     * @param useOnlyServerErrorMessages The useOnlyServerErrorMessages to set.
      */
     public void setUseOnlyServerErrorMessages(boolean flag);
 
     /**
-     * @param useReadAheadInput
-     *            The useReadAheadInput to set.
+     * @return Returns the useReadAheadInput.
+     */
+    public boolean getUseReadAheadInput();
+
+    /**
+     * @param useReadAheadInput The useReadAheadInput to set.
      */
     public void setUseReadAheadInput(boolean flag);
 
+    public boolean getUseServerPreparedStmts();
+
     /**
-     * @param flag
-     *            The detectServerPreparedStmts to set.
+     * @param flag The detectServerPreparedStmts to set.
      */
     public void setUseServerPreparedStmts(boolean flag);
 
     /**
-     * @param flag
-     *            The useSqlStateCodes to set.
+     * @return Returns the useSqlStateCodes state.
+     */
+    public boolean getUseSqlStateCodes();
+
+    /**
+     * @param flag The useSqlStateCodes to set.
      */
     public void setUseSqlStateCodes(boolean flag);
+
+    public boolean getUseSSL();
 
     /**
      * @param property
      */
     public void setUseSSL(boolean property);
 
+    boolean isUseSSLExplicit();
+
+    public boolean getUseStreamLengthsInPrepStmts();
+
     /**
      * @param property
      */
     public void setUseStreamLengthsInPrepStmts(boolean property);
 
+    public boolean getUseTimezone();
+
     /**
      * @param property
      */
     public void setUseTimezone(boolean property);
+
+    public boolean getUseUltraDevWorkAround();
 
     /**
      * @param property
@@ -936,32 +842,68 @@ public interface ConnectionProperties {
     public void setUseUltraDevWorkAround(boolean property);
 
     /**
-     * @param flag
-     *            The useUnbufferedInput to set.
+     * @return Returns the useUnbufferedInput.
+     */
+    public boolean getUseUnbufferedInput();
+
+    /**
+     * @param flag The useUnbufferedInput to set.
      */
     public void setUseUnbufferedInput(boolean flag);
 
+    public boolean getUseUnicode();
+
     /**
-     * @param flag
-     *            The useUnicode to set.
+     * @param flag The useUnicode to set.
      */
     public void setUseUnicode(boolean flag);
 
     /**
+     * Returns whether or not the driver advises of proper usage.
+     *
+     * @return the value of useUsageAdvisor
+     */
+    public boolean getUseUsageAdvisor();
+
+    /**
      * Sets whether or not the driver advises of proper usage.
-     * 
-     * @param useUsageAdvisorFlag
-     *            whether or not the driver advises of proper usage.
+     *
+     * @param useUsageAdvisorFlag whether or not the driver advises of proper usage.
      */
     public void setUseUsageAdvisor(boolean useUsageAdvisorFlag);
+
+    public boolean getYearIsDateType();
 
     public void setYearIsDateType(boolean flag);
 
     /**
-     * @param zeroDateTimeBehavior
-     *            The zeroDateTimeBehavior to set.
+     * @return Returns the zeroDateTimeBehavior.
+     */
+    public String getZeroDateTimeBehavior();
+
+    /**
+     * @param zeroDateTimeBehavior The zeroDateTimeBehavior to set.
      */
     public void setZeroDateTimeBehavior(String behavior);
+
+    /**
+     * @param flag The autoReconnect to set.
+     */
+    public void setAutoReconnect(boolean flag);
+
+    public void setAutoReconnectForConnectionPools(boolean property);
+
+    public void setCapitalizeDBMDTypes(boolean property);
+
+    /**
+     * @param encoding The characterEncoding to set.
+     */
+    public void setCharacterEncoding(String encoding);
+
+    /**
+     * @param property
+     */
+    public void setDetectServerPreparedStmts(boolean property);
 
     /**
      * @return Returns the useUnbufferedInput.
@@ -1028,43 +970,41 @@ public interface ConnectionProperties {
 
     public void setPinGlobalTxToPhysicalConnection(boolean flag);
 
-    public void setGatherPerfMetrics(boolean flag);
-
     public boolean getGatherPerfMetrics();
 
-    public void setUltraDevHack(boolean flag);
+    public void setGatherPerfMetrics(boolean flag);
 
     public boolean getUltraDevHack();
 
-    public void setInteractiveClient(boolean property);
-
-    public void setSocketFactory(String name);
+    public void setUltraDevHack(boolean flag);
 
     public String getSocketFactory();
 
-    public void setUseServerPrepStmts(boolean flag);
+    public void setSocketFactory(String name);
 
     public boolean getUseServerPrepStmts();
 
-    public void setCacheCallableStmts(boolean flag);
+    public void setUseServerPrepStmts(boolean flag);
 
     public boolean getCacheCallableStmts();
 
-    public void setCachePrepStmts(boolean flag);
+    public void setCacheCallableStmts(boolean flag);
 
     public boolean getCachePrepStmts();
 
-    public void setCallableStmtCacheSize(int cacheSize) throws SQLException;
+    public void setCachePrepStmts(boolean flag);
 
     public int getCallableStmtCacheSize();
 
-    public void setPrepStmtCacheSize(int cacheSize) throws SQLException;
+    public void setCallableStmtCacheSize(int cacheSize) throws SQLException;
 
     public int getPrepStmtCacheSize();
 
-    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException;
+    public void setPrepStmtCacheSize(int cacheSize) throws SQLException;
 
     public int getPrepStmtCacheSqlLimit();
+
+    public void setPrepStmtCacheSqlLimit(int sqlLimit) throws SQLException;
 
     public boolean getNoAccessToProcedureBodies();
 
@@ -1114,9 +1054,9 @@ public interface ConnectionProperties {
 
     public void setLocalSocketAddress(String address);
 
-    public void setUseConfigs(String configs);
-
     public String getUseConfigs();
+
+    public void setUseConfigs(String configs);
 
     public boolean getGenerateSimpleParameterMetadata();
 
@@ -1274,27 +1214,27 @@ public interface ConnectionProperties {
 
     public void setCompensateOnDuplicateKeyUpdateCounts(boolean flag);
 
-    public void setUseAffectedRows(boolean flag);
-
     public boolean getUseAffectedRows();
 
-    public void setPasswordCharacterEncoding(String characterSet);
+    public void setUseAffectedRows(boolean flag);
 
     public String getPasswordCharacterEncoding();
+
+    public void setPasswordCharacterEncoding(String characterSet);
 
     public int getLoadBalanceBlacklistTimeout();
 
     public void setLoadBalanceBlacklistTimeout(int loadBalanceBlacklistTimeout) throws SQLException;
 
-    public void setRetriesAllDown(int retriesAllDown) throws SQLException;
-
     public int getRetriesAllDown();
+
+    public void setRetriesAllDown(int retriesAllDown) throws SQLException;
 
     public ExceptionInterceptor getExceptionInterceptor();
 
-    public void setExceptionInterceptors(String exceptionInterceptors);
-
     public String getExceptionInterceptors();
+
+    public void setExceptionInterceptors(String exceptionInterceptors);
 
     public boolean getQueryTimeoutKillsConnection();
 
@@ -1303,6 +1243,8 @@ public interface ConnectionProperties {
     public int getMaxAllowedPacket();
 
     boolean getRetainStatementAfterResultSetClose();
+
+    public void setRetainStatementAfterResultSetClose(boolean flag);
 
     public int getLoadBalancePingTimeout();
 
@@ -1332,41 +1274,41 @@ public interface ConnectionProperties {
 
     public void setLoadBalanceEnableJMX(boolean loadBalanceEnableJMX);
 
-    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException;
-
     public int getLoadBalanceHostRemovalGracePeriod();
 
-    public void setLoadBalanceAutoCommitStatementThreshold(int loadBalanceAutoCommitStatementThreshold) throws SQLException;
+    public void setLoadBalanceHostRemovalGracePeriod(int loadBalanceHostRemovalGracePeriod) throws SQLException;
 
     public int getLoadBalanceAutoCommitStatementThreshold();
 
-    public void setLoadBalanceAutoCommitStatementRegex(String loadBalanceAutoCommitStatementRegex);
+    public void setLoadBalanceAutoCommitStatementThreshold(int loadBalanceAutoCommitStatementThreshold) throws SQLException;
 
     public String getLoadBalanceAutoCommitStatementRegex();
 
-    public void setAuthenticationPlugins(String authenticationPlugins);
+    public void setLoadBalanceAutoCommitStatementRegex(String loadBalanceAutoCommitStatementRegex);
 
     public String getAuthenticationPlugins();
 
-    public void setDisabledAuthenticationPlugins(String disabledAuthenticationPlugins);
+    public void setAuthenticationPlugins(String authenticationPlugins);
 
     public String getDisabledAuthenticationPlugins();
 
-    public void setDefaultAuthenticationPlugin(String defaultAuthenticationPlugin);
+    public void setDisabledAuthenticationPlugins(String disabledAuthenticationPlugins);
 
     public String getDefaultAuthenticationPlugin();
 
-    public void setParseInfoCacheFactory(String factoryClassname);
+    public void setDefaultAuthenticationPlugin(String defaultAuthenticationPlugin);
 
     public String getParseInfoCacheFactory();
 
-    public void setServerConfigCacheFactory(String factoryClassname);
+    public void setParseInfoCacheFactory(String factoryClassname);
 
     public String getServerConfigCacheFactory();
 
-    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords);
+    public void setServerConfigCacheFactory(String factoryClassname);
 
     public boolean getDisconnectOnExpiredPasswords();
+
+    public void setDisconnectOnExpiredPasswords(boolean disconnectOnExpiredPasswords);
 
     public boolean getAllowMasterDownConnections();
 
@@ -1384,13 +1326,13 @@ public interface ConnectionProperties {
 
     public void setReplicationEnableJMX(boolean replicationEnableJMX);
 
-    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions);
-
     public boolean getGetProceduresReturnsFunctions();
 
-    public void setDetectCustomCollations(boolean detectCustomCollations);
+    public void setGetProceduresReturnsFunctions(boolean getProcedureReturnsFunctions);
 
     public boolean getDetectCustomCollations();
+
+    public void setDetectCustomCollations(boolean detectCustomCollations);
 
     String getConnectionAttributes() throws SQLException;
 
@@ -1402,17 +1344,17 @@ public interface ConnectionProperties {
 
     public void setAllowPublicKeyRetrieval(boolean allowPublicKeyRetrieval) throws SQLException;
 
-    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL);
-
     public boolean getDontCheckOnDuplicateKeyUpdateInSQL();
 
-    public void setSocksProxyHost(String socksProxyHost);
+    public void setDontCheckOnDuplicateKeyUpdateInSQL(boolean dontCheckOnDuplicateKeyUpdateInSQL);
 
     public String getSocksProxyHost();
 
-    public void setSocksProxyPort(int socksProxyPort) throws SQLException;
+    public void setSocksProxyHost(String socksProxyHost);
 
     public int getSocksProxyPort();
+
+    public void setSocksProxyPort(int socksProxyPort) throws SQLException;
 
     public boolean getReadOnlyPropagatesToServer();
 

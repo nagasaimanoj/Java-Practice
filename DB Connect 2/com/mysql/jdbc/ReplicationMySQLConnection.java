@@ -109,13 +109,13 @@ public class ReplicationMySQLConnection extends MultiHostMySQLConnection impleme
     }
 
     @Override
-    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
-        getThisAsProxy().setReadOnly(readOnlyFlag);
+    public boolean isReadOnly() throws SQLException {
+        return getThisAsProxy().isReadOnly();
     }
 
     @Override
-    public boolean isReadOnly() throws SQLException {
-        return getThisAsProxy().isReadOnly();
+    public void setReadOnly(boolean readOnlyFlag) throws SQLException {
+        getThisAsProxy().setReadOnly(readOnlyFlag);
     }
 
     @Override

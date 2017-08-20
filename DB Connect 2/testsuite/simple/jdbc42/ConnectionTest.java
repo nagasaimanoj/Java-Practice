@@ -23,15 +23,14 @@
 
 package testsuite.simple.jdbc42;
 
+import com.mysql.jdbc.Driver;
+import com.mysql.jdbc.MySQLConnection;
+import testsuite.BaseTestCase;
+
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.Callable;
-
-import com.mysql.jdbc.Driver;
-import com.mysql.jdbc.MySQLConnection;
-
-import testsuite.BaseTestCase;
 
 public class ConnectionTest extends BaseTestCase {
     public ConnectionTest(String name) {

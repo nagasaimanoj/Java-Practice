@@ -23,32 +23,32 @@
 
 package com.mysql.jdbc.jdbc2.optional;
 
-import java.io.PrintWriter;
-import java.io.Serializable;
-import java.sql.SQLException;
-import java.util.Iterator;
-import java.util.Properties;
+import com.mysql.jdbc.ConnectionPropertiesImpl;
+import com.mysql.jdbc.Messages;
+import com.mysql.jdbc.NonRegisteringDriver;
+import com.mysql.jdbc.SQLError;
 
 import javax.naming.NamingException;
 import javax.naming.Reference;
 import javax.naming.Referenceable;
 import javax.naming.StringRefAddr;
 import javax.sql.DataSource;
-
-import com.mysql.jdbc.ConnectionPropertiesImpl;
-import com.mysql.jdbc.Messages;
-import com.mysql.jdbc.NonRegisteringDriver;
-import com.mysql.jdbc.SQLError;
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.sql.SQLException;
+import java.util.Iterator;
+import java.util.Properties;
 
 /**
  * A JNDI DataSource for a Mysql JDBC connection
  */
 public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSource, Referenceable, Serializable {
 
-    static final long serialVersionUID = -5515846944416881264L;
-
-    /** The driver to create connections with */
+    /**
+     * The driver to create connections with
+     */
     protected final static NonRegisteringDriver mysqlDriver;
+    static final long serialVersionUID = -5515846944416881264L;
 
     static {
         try {
@@ -58,34 +58,54 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
         }
     }
 
-    /** Log stream */
+    /**
+     * Log stream
+     */
     protected transient PrintWriter logWriter = null;
 
-    /** Database Name */
+    /**
+     * Database Name
+     */
     protected String databaseName = null;
 
-    /** Character Encoding */
+    /**
+     * Character Encoding
+     */
     protected String encoding = null;
 
-    /** Hostname */
+    /**
+     * Hostname
+     */
     protected String hostName = null;
 
-    /** Password */
+    /**
+     * Password
+     */
     protected String password = null;
 
-    /** The profileSql property */
+    /**
+     * The profileSql property
+     */
     protected String profileSql = "false";
 
-    /** The JDBC URL */
+    /**
+     * The JDBC URL
+     */
     protected String url = null;
 
-    /** User name */
+    /**
+     * User name
+     */
     protected String user = null;
 
-    /** Should we construct the URL, or has it been set explicitly */
+    /**
+     * Should we construct the URL, or has it been set explicitly
+     */
     protected boolean explicitUrl = false;
 
-    /** Port number */
+    /**
+     * Port number
+     */
     protected int port = 3306;
 
     /**
@@ -97,11 +117,9 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     /**
      * Creates a new connection using the already configured username and
      * password.
-     * 
+     *
      * @return a connection to the database
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public java.sql.Connection getConnection() throws SQLException {
         return getConnection(this.user, this.password);
@@ -109,16 +127,11 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
 
     /**
      * Creates a new connection with the given username and password
-     * 
-     * @param userID
-     *            the user id to connect with
-     * @param password
-     *            the password to connect with
-     * 
+     *
+     * @param userID   the user id to connect with
+     * @param password the password to connect with
      * @return a connection to the database
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     public java.sql.Connection getConnection(String userID, String pass) throws SQLException {
         Properties props = new Properties();
@@ -137,18 +150,8 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * Sets the database name.
-     * 
-     * @param dbName
-     *            the name of the database
-     */
-    public void setDatabaseName(String dbName) {
-        this.databaseName = dbName;
-    }
-
-    /**
      * Gets the name of the database
-     * 
+     *
      * @return the name of the database for this data source
      */
     public String getDatabaseName() {
@@ -156,17 +159,17 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * Sets the log writer for this data source.
-     * 
-     * @see javax.sql.DataSource#setLogWriter(PrintWriter)
+     * Sets the database name.
+     *
+     * @param dbName the name of the database
      */
-    public void setLogWriter(PrintWriter output) throws SQLException {
-        this.logWriter = output;
+    public void setDatabaseName(String dbName) {
+        this.databaseName = dbName;
     }
 
     /**
      * Returns the log writer for this data source
-     * 
+     *
      * @return the log writer for this data source
      */
     public java.io.PrintWriter getLogWriter() {
@@ -174,16 +177,17 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * @param seconds
-     * 
-     * @throws SQLException
+     * Sets the log writer for this data source.
+     *
+     * @see javax.sql.DataSource#setLogWriter(PrintWriter)
      */
-    public void setLoginTimeout(int seconds) throws SQLException {
+    public void setLogWriter(PrintWriter output) throws SQLException {
+        this.logWriter = output;
     }
 
     /**
      * Returns the login timeout
-     * 
+     *
      * @return the login timeout
      */
     public int getLoginTimeout() {
@@ -191,28 +195,24 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
+     * @param seconds
+     * @throws SQLException
+     */
+    public void setLoginTimeout(int seconds) throws SQLException {
+    }
+
+    /**
      * Sets the password
-     * 
-     * @param pass
-     *            the password
+     *
+     * @param pass the password
      */
     public void setPassword(String pass) {
         this.password = pass;
     }
 
     /**
-     * Sets the database port.
-     * 
-     * @param p
-     *            the port
-     */
-    public void setPort(int p) {
-        this.port = p;
-    }
-
-    /**
      * Returns the port number
-     * 
+     *
      * @return the port number
      */
     public int getPort() {
@@ -220,20 +220,17 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * Sets the port number
-     * 
-     * @param p
-     *            the port
-     * 
-     * @see #setPort
+     * Sets the database port.
+     *
+     * @param p the port
      */
-    public void setPortNumber(int p) {
-        setPort(p);
+    public void setPort(int p) {
+        this.port = p;
     }
 
     /**
      * Returns the port number
-     * 
+     *
      * @return the port number
      */
     public int getPortNumber() {
@@ -241,8 +238,17 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
+     * Sets the port number
+     *
+     * @param p the port
+     * @see #setPort
+     */
+    public void setPortNumber(int p) {
+        setPort(p);
+    }
+
+    /**
      * @param ref
-     * 
      * @throws SQLException
      */
     public void setPropertiesViaRef(Reference ref) throws SQLException {
@@ -251,11 +257,9 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
 
     /**
      * Required method to support this class as a <CODE>Referenceable</CODE>.
-     * 
+     *
      * @return a Reference to this data source
-     * 
-     * @throws NamingException
-     *             if a JNDI error occurs
+     * @throws NamingException if a JNDI error occurs
      */
     public Reference getReference() throws NamingException {
         String factoryName = "com.mysql.jdbc.jdbc2.optional.MysqlDataSourceFactory";
@@ -281,22 +285,21 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * Sets the server name.
-     * 
-     * @param serverName
-     *            the server name
-     */
-    public void setServerName(String serverName) {
-        this.hostName = serverName;
-    }
-
-    /**
      * Returns the name of the database server
-     * 
+     *
      * @return the name of the database server
      */
     public String getServerName() {
         return (this.hostName != null) ? this.hostName : "";
+    }
+
+    /**
+     * Sets the server name.
+     *
+     * @param serverName the server name
+     */
+    public void setServerName(String serverName) {
+        this.hostName = serverName;
     }
 
     //
@@ -304,18 +307,8 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     //
 
     /**
-     * Sets the URL for this connection
-     * 
-     * @param url
-     *            the URL for this connection
-     */
-    public void setURL(String url) {
-        setUrl(url);
-    }
-
-    /**
      * Returns the URL for this connection
-     * 
+     *
      * @return the URL for this connection
      */
     public String getURL() {
@@ -323,21 +316,17 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * This method is used by the app server to set the url string specified
-     * within the datasource deployment descriptor. It is discovered using
-     * introspection and matches if property name in descriptor is "url".
-     * 
-     * @param url
-     *            url to be used within driver.connect
+     * Sets the URL for this connection
+     *
+     * @param url the URL for this connection
      */
-    public void setUrl(String url) {
-        this.url = url;
-        this.explicitUrl = true;
+    public void setURL(String url) {
+        setUrl(url);
     }
 
     /**
      * Returns the JDBC URL that will be used to create the database connection.
-     * 
+     *
      * @return the URL for this connection
      */
     public String getUrl() {
@@ -352,18 +341,20 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
-     * Sets the user ID.
-     * 
-     * @param userID
-     *            the User ID
+     * This method is used by the app server to set the url string specified
+     * within the datasource deployment descriptor. It is discovered using
+     * introspection and matches if property name in descriptor is "url".
+     *
+     * @param url url to be used within driver.connect
      */
-    public void setUser(String userID) {
-        this.user = userID;
+    public void setUrl(String url) {
+        this.url = url;
+        this.explicitUrl = true;
     }
 
     /**
      * Returns the configured user for this connection
-     * 
+     *
      * @return the user for this connection
      */
     public String getUser() {
@@ -371,15 +362,20 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
     }
 
     /**
+     * Sets the user ID.
+     *
+     * @param userID the User ID
+     */
+    public void setUser(String userID) {
+        this.user = userID;
+    }
+
+    /**
      * Creates a connection using the specified properties.
-     * 
-     * @param props
-     *            the properties to connect with
-     * 
+     *
+     * @param props the properties to connect with
      * @return a connection to the database
-     * 
-     * @throws SQLException
-     *             if an error occurs
+     * @throws SQLException if an error occurs
      */
     protected java.sql.Connection getConnection(Properties props) throws SQLException {
         String jdbcUrlToUse = null;
@@ -410,7 +406,7 @@ public class MysqlDataSource extends ConnectionPropertiesImpl implements DataSou
 
         Properties urlProps = mysqlDriver.parseURL(jdbcUrlToUse, null);
         if (urlProps == null) {
-            throw SQLError.createSQLException(Messages.getString("MysqlDataSource.BadUrl", new Object[] { jdbcUrlToUse }),
+            throw SQLError.createSQLException(Messages.getString("MysqlDataSource.BadUrl", new Object[]{jdbcUrlToUse}),
                     SQLError.SQL_STATE_CONNECTION_FAILURE, null);
         }
         urlProps.remove(NonRegisteringDriver.DBNAME_PROPERTY_KEY);

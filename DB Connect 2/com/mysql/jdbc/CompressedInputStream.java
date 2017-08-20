@@ -23,6 +23,9 @@
 
 package com.mysql.jdbc;
 
+import com.mysql.jdbc.log.Log;
+import com.mysql.jdbc.log.NullLogger;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,26 +33,33 @@ import java.sql.SQLException;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-import com.mysql.jdbc.log.Log;
-import com.mysql.jdbc.log.NullLogger;
-
 /**
  * Used to de-compress packets from the MySQL server when protocol-level compression is turned on.
  */
 class CompressedInputStream extends InputStream {
-    /** The packet data after it has been un-compressed */
+    /**
+     * The packet data after it has been un-compressed
+     */
     private byte[] buffer;
 
-    /** The stream we are reading from the server */
+    /**
+     * The stream we are reading from the server
+     */
     private InputStream in;
 
-    /** The ZIP inflater used to un-compress packets */
+    /**
+     * The ZIP inflater used to un-compress packets
+     */
     private Inflater inflater;
 
-    /** Connection property reference */
+    /**
+     * Connection property reference
+     */
     private ConnectionPropertiesImpl.BooleanConnectionProperty traceProtocol;
 
-    /** Connection logger */
+    /**
+     * Connection logger
+     */
     private Log log;
 
     /**
@@ -57,13 +67,15 @@ class CompressedInputStream extends InputStream {
      */
     private byte[] packetHeaderBuffer = new byte[7];
 
-    /** The position we are reading from */
+    /**
+     * The position we are reading from
+     */
     private int pos = 0;
 
     /**
      * Creates a new CompressedInputStream that reads the given stream from the
      * server.
-     * 
+     *
      * @param conn
      * @param streamFromServer
      */
@@ -107,9 +119,8 @@ class CompressedInputStream extends InputStream {
     /**
      * Retrieves and un-compressed (if necessary) the next packet from the
      * server.
-     * 
-     * @throws IOException
-     *             if an I/O error occurs
+     *
+     * @throws IOException if an I/O error occurs
      */
     private void getNextPacketFromServer() throws IOException {
         byte[] uncompressedData = null;
@@ -197,12 +208,9 @@ class CompressedInputStream extends InputStream {
     /**
      * Determines if another packet needs to be read from the server to be able
      * to read numBytes from the stream.
-     * 
-     * @param numBytes
-     *            the number of bytes to be read
-     * 
-     * @throws IOException
-     *             if an I/O error occors.
+     *
+     * @param numBytes the number of bytes to be read
+     * @throws IOException if an I/O error occors.
      */
     private void getNextPacketIfRequired(int numBytes) throws IOException {
         if ((this.buffer == null) || ((this.pos + numBytes) > this.buffer.length)) {
