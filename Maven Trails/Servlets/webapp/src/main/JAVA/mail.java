@@ -3,76 +3,43 @@ import java.util.*;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.mail.*;
-import javax.mail.internet.*;
 import javax.activation.*;
 import java.sql.*;
 
-@webServlet("/mail") 
 public class mail extends HttpServlet {
-    static Connection conn = null;
 
    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-      String fn= request.getParameter("firstname");
-      String ln= request.getParameter("lastname");
-      String date= request.getParameter("date");
-      String time= request.getParameter("time");
-      String topic= request.getParameter("topic");
-      String location= request.getParameter("location");
-      String to=request.getParameter("email");
-      String from = "dd.nayagam95@gmail.com";
-
-
-      String host = "localhost";
-      Properties properties = System.getProperties();
-      properties.setProperty("mail.smtp.host", host);
-
-      Session session = Session.getDefaultInstance(properties);
-      response.setContentType("text/html");
-
-      PrintWriter out = response.getWriter();
+      System.getProperties().setProperty("mail.smtp.host", "localhost");
       try {
-         MimeMessage message = new MimeMessage(session);
-         message.setFrom(new InternetAddress(from));
-         message.addRecipient(Message.RecipientType.TO, new InternetAddress(to));
+         javax.mail.internet.MimeMessage message = new javax.mail.internet.MimeMessage(Session.getDefaultInstance(properties));
+         message.setFrom(new InternetAddress("dd.nayagam95@gmail.com"));
+         message.addRecipient(Message.RecipientType.TO, new InternetAddress(request.getParameter("email")));
          message.setSubject("This is the Subject Line!");
          message.setText("This is actual message");
          Transport.send(message);
-         String title = "Send Email";
-         String res = "Sent message successfully....";
-         String docType = "<!doctype html public \"-//w3c//dtd html 4.0 " + "transitional//en\">";
-         
-         out.println(docType + "<html><head><title>" + title + "</title></head>"
-         +"<body bgcolor = \"#f0f0f0\">"
-         +"<h1 align = \"center\">"+ title + "</h1>"
-         +"<p align = \"center\">" + res + "</p></body></html>");
-      } catch (MessagingException mex) {
-         mex.printStackTrace();
-      }
 
-try{  
-Class.forName("com.mysql.jdbc.Driver");  
-Connection con=DriverManager.getConnection(  
-"jdbc:mysql://localhost:3306/eventreg", "root", "");  
-  
-PreparedStatement ps=con.prepareStatement(  
-"insert into eventreg values(?,?,?,?,?,?,?)");  
-  
-ps.setString(1,fn);  
-ps.setString(2,ln);
- ps.setString(3,email); 
-ps.setString(4,date);  
-ps.setString(5,time);  
-ps.setString(6,topic); 
-ps.setString(7,location); 
- 
+         response.getWriter().println("<html><body><h1>Message Successfully Sent");
+      } catch (Exception e) {
+          e.printStackTrace();
+      }
+      try{
+          Class.forName("com.mysql.jdbc.Driver");
+          PreparedStatement ps = DriverManager.getConnection("jdbc:mysql://localhost:3306/eventreg", "root", "").prepareStatement("insert into eventreg values(?,?,?,?,?,?,?)");
+          ps.setString(1,request.getParameter("firstname"));  
+          ps.setString(2,request.getParameter("lastname"));
+          ps.setString(3,request.getParameter("email")); 
+          ps.setString(4,request.getParameter("date"));  
+          ps.setString(5,request.getParameter("time"));  
+          ps.setString(6,request.getParameter("topic")); 
+          ps.setString(7,request.getParameter("location"));
           
-int i=ps.executeUpdate();  
-if(i>0)  
-out.print("You are successfully Completed the Event Registration...");  
-      
-          
-}catch (Exception e2) {System.out.println(e2);}  
-          
-   
-   }
-} 
+          if(ps.executeUpdate()>0){
+              response.getWriter().print("You are successfully Completed the Event Registration...");
+          }else{
+              response.getWriter().print("Something seems wrong");
+          }
+        }catch (Exception e) {
+          e.printStackTrace();
+        }
+    }
+}

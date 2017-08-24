@@ -1,7 +1,10 @@
 package com.gnsmk;
 
+<<<<<<< HEAD
+=======
 import java.util.*;
 
+>>>>>>> 33b134ffcfd6c8fe383a437bb67eba133b4b2029
 public class Employee {
     String name, country, id, age;
 
@@ -29,7 +32,6 @@ public class Employee {
         return this;
     }
 
-    @Override
     public String toString() {
         return "{" + id + "::" + name + "::" + age + "::" + country + "}";
     }

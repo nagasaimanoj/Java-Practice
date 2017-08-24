@@ -10,7 +10,3 @@
         <input type="text" name="topic" placeholder="topic" /><br/>
         <input type="text" name="location" placeholder="location" /><br/>
         <input type="button" name="SEND" value="submit" /><br/>
-    </form>
-</body>
-
-</html>

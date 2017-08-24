@@ -22,7 +22,6 @@ public class TernaryOperatorChallenge {
                 s += "noStress";
             }
         }
-
         System.out.println(s);
     }
 }

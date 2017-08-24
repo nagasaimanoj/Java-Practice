@@ -1,4 +1,9 @@
 <<<<<<< HEAD
+class Scope {
+    public static void main(String args[]) {
+        ((III) System.out::println).printThis("Hello World");
+=======
+<<<<<<< HEAD
 class Scope{
     static int c;
 
@@ -26,10 +31,10 @@ class Scope {
     interface div {
         int divison(int a, int b);
 >>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
+>>>>>>> 33b134ffcfd6c8fe383a437bb67eba133b4b2029
     }
+}
 
-    public static void main(String[] args){
-        ((Div)((new Scope())::divi)).divison(10, 20);
-        System.out.println("ans : " + c);
-    }
+interface III {
+    void printThis(String str);
 }

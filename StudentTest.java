@@ -26,6 +26,14 @@ public class StudentTest {
         System.out.println(getName());
     }
 
+<<<<<<< HEAD
+		Student std1 = new Student();
+		std1.name = "Paul";
+		std1.displayName();
+		System.out.println(std1.toString());
+		System.out.println(std);
+	}
+=======
 	/*
      * public String toString() { return "Student [name=" + name + ", rollno=" +
 	 * rollno + ", age=" + age + "]"; }
@@ -46,4 +54,5 @@ public class StudentTest {
         System.out.println(std);
 
     }
+>>>>>>> 33b134ffcfd6c8fe383a437bb67eba133b4b2029
 }

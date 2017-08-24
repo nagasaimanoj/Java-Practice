@@ -5,7 +5,7 @@ abstract class Test {
 }
 
 class Testing extends Test {
-    public static void main(String... a) {
+    public static void main(String[] a) {
         Test t = new Test() {
         };
         t.method();
