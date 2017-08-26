@@ -8,11 +8,7 @@ public class MultiThread2 {
         tList.add(new Thread(new SampleX(4)));
         tList.add(new Thread(new SampleX(5)));
 
-<<<<<<< HEAD
 		tList.get(0).setPriority(10);
-=======
-        tList.get(0).setPriority(10);
->>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
 
         for (Thread eachItem : tList) {
             eachItem.start();

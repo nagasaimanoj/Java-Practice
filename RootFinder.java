@@ -10,8 +10,6 @@ public class RootFinder {
             number = (start + end) / 2;
             result = number;
             tmpVar = Math.pow(number, root);
-
-<<<<<<< HEAD
 			if (tmpVar == num) {
 				result = number;
 				break;
@@ -21,29 +19,8 @@ public class RootFinder {
 				end = (start + end) / 2;
 			}
 		}
-=======
-            if (tmpVar == num) {
-                result = number;
-                break;
-            } else if (tmpVar < num) {
-                start = (start + end) / 2;
-            } else if (tmpVar > num) {
-                end = (start + end) / 2;
-            }
-
-        }
->>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
 
         System.out.println(root + " root of " + num + " is " + result);
-
-<<<<<<< HEAD
 		System.out.println("(" + result + ")^" + root + " = " + Math.pow(result, root));
 	}
-=======
-        double check = Math.pow(result, root);
-
-        System.out.println("(" + result + ")^" + root + " = " + check);
-
-    }
->>>>>>> 4d1cccb0929820a779501bd544eb3d506f76c6a3
 }

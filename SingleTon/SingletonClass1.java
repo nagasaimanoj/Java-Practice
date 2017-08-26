@@ -2,16 +2,8 @@ public class S1 {
 
     private static Si1 myObj;
 
-    /**
-     * Create private constructor
-     */
-    private SingletonClass1() {
+    private SingletonClass1() {}
 
-    }
-
-    /**
-     * Create a static method to get instance.
-     */
     public static SingletonClass1 getInstance() {
         if (myObj == null) {
             myObj = new SingletonClass1();
@@ -30,7 +22,6 @@ public class S1 {
     SingletonClass1
 
     public void getSomeThing() {
-        // do something here
         System.out.println("I am here....");
     }
 }

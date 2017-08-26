@@ -1,7 +1,6 @@
 import java.sql.*;
 
 public class DBConnect {
-
     Connection con = null;
     String driver = "com.mysql.jdbc.Driver";
     String user = "root";
@@ -22,7 +21,6 @@ public class DBConnect {
                     System.out.println("Data Inserted into database table Successfully");
                 }
             } catch (SQLException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             } finally {
                 if (connection != null) {
@@ -47,10 +45,8 @@ public class DBConnect {
         try {
             Class.forName(driver);
             con = DriverManager.getConnection(url, user, password);
-        } catch (ClassNotFoundException cnfe) {
-            cnfe.printStackTrace();
-        } catch (SQLException sqle) {
-            sqle.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return con;
     }
