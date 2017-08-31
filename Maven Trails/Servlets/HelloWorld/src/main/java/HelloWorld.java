@@ -1,13 +1,38 @@
-@javax.servlet.annotation.WebServlet("/hello")
-public class HelloWorld extends javax.servlet.http.HttpServlet {
-    public void doPost(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws java.io.IOException, javax.servlet.ServletException{
-        if(request.getParameter("username").equals("manoj")){
-            request.setAttribute("message","welcome");
-            request.getRequestDispatcher("index.jsp").forward(request,response);
-        }else{
-            request.setAttribute("message","error");
-            request.getRequestDispatcher("index.jsp").forward(request,response);
-        }
-        response.getWriter().println("<h1>welcome " + request.getParameter("username"));
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletException;
+import java.io.IOException;
+
+@WebServlet("/HelloWorld")
+public class HelloWorld extends HttpServlet {
+    private static final long serialVersionUID = 1L; //to avoid a warning
+
+    public void init() {
+        System.out.println("init() called");
+    }
+
+    // public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+    //     System.out.println("service() called");
+    //     request.setAttribute("message", "service input - " + request.getParameter("username"));
+    //     request.getRequestDispatcher("index.jsp").forward(request, response);
+    // }
+
+    public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        System.out.println("doPost() called");
+        request.setAttribute("message", "post input " + request.getParameter("username"));
+        request.getRequestDispatcher("index.jsp").forward(request, response);
+    }
+
+    public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        System.out.println("doGet() called");
+        //response.getOutputStream().println("doGet() called");
+        request.setAttribute("message", "get input " + request.getParameter("username"));
+        request.getRequestDispatcher("index.jsp").forward(request, response);
+    }
+
+    public void destroy() {
+        System.out.println("destroy() called");
     }
 }
