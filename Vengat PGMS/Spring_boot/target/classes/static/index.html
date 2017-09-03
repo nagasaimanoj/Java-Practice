@@ -1,0 +1,45 @@
+<html>
+
+<head>
+	<title>Home</title>
+</head>
+
+<body>
+	<h1>User Filter</h1>
+	<div>
+		<form action="register" method="get">
+			<input type="text" name="name" placeholder='user name' /><br/>
+			<input type="text" name="rollno" placeholder='roll num' /><br><br>
+			<input type="submit" value="Register" /> <br><br>
+		</form>
+		
+		<form action="show" method="get">
+			<input type="submit" value="Show">
+		</form>
+	</div>
+
+	<h1>Admin Filter</h1>
+	<div>
+		<form action="filter" method="get">
+			<select name="department">
+				<option selected="selected">Department..</option>
+				<option value="cse">CSE</option>
+				<option value="mech">Mech</option>
+				<option value="eee">EEE</option>
+				<option value="civil">civil</option>
+				</select>
+			<br/><br/>
+			<select name="rollno">
+				<option selected="selected">Roll No..</option>
+				<option >10001</option>
+				<option >10003</option>
+				<option >10005</option>
+				<option >10007</option>
+				<option >10009</option>
+				<br/>
+				<input type="submit" value="Filter">
+		</form>
+	</div>
+</body>
+
+</html>
