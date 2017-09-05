@@ -1,12 +1,8 @@
-package Comedy;
-
 public class Comedy2 {
-    public static void main(String[] args) {
-        Comedy2 c2 = new Comedy2();
-        c2.check();
+    static void printX(){
+        System.out.println("X");
     }
-
-    void check() {
-        Comedy1.check();
+    static{
+        System.out.println("Y");
     }
 }
