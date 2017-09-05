@@ -20,8 +20,11 @@ public class SendMessage extends HttpServlet {
         reciever = request.getParameter("reciever");
         sentMessage = request.getParameter("sentmessage");
 
-        isSuccess = DbConnect.runQuery("insert into messages_table(sender,reciever,sentmessage) values('" + sender
-                + "','" + reciever + "','" + sentMessage + "');");
+        try {
+            isSuccess = DbConnect.runQuery("insert into messages_table(sender,reciever,sentmessage) values('" + sender
+                    + "','" + reciever + "','" + sentMessage + "');");
+        } catch (Exception ex) {
+        }
 
         if (isSuccess) {
             rd = request.getRequestDispatcher("index");
@@ -33,5 +36,6 @@ public class SendMessage extends HttpServlet {
 
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         rd = request.getRequestDispatcher("index");
+        rd.forward(request, response);
     }
 }
