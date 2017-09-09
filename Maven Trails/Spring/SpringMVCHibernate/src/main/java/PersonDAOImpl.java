@@ -1,4 +1,7 @@
-@org.springframework.stereotype.Repository
+import org.hibernate.SessionFactory;
+import org.springframework.stereotype.Repository;
+
+@Repository
 public class PersonDAOImpl implements PersonDAO {
 	private org.hibernate.SessionFactory sessionFactory;
 
