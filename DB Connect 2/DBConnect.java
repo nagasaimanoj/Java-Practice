@@ -7,7 +7,7 @@ public class DBConnect {
     Connection con = null;
     String driver = "com.mysql.jdbc.Driver";
     String user = "root";
-    String password = "";
+    String password = "password";
     String url = "jdbc:mysql://localhost:3306/jdbcpractice";
 
     public Connection createConnection() {

@@ -5,7 +5,7 @@ import java.io.*;
 public class Csv {
     static String name = "", age = "", phone = "";
 
-    public static void main(String... a) {
+    public static void main(String[] a) {
         DBConnect dbc = new DBConnect();
         FileInputStream fis = null;
         int c;
