@@ -1,5 +1,5 @@
 public class Comedy1 {
-    public static void main(String args[]){
-        Comedy2.printX();
+    public static void main(String args[]) {
+        System.out.println(new Comedy2());
     }
 }
