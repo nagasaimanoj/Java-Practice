@@ -1,2 +1,0 @@
-# javaTraining
-Java Training @ KG
