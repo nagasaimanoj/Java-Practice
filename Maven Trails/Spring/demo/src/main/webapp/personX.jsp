@@ -1,30 +1,41 @@
-<html>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+    <%@ taglib uri="http://www.springframework.org/tags" prefix="spring" %>
+        <%@ taglib uri="http://www.springframework.org/tags/form" prefix="form" %>
+            <html>
 
-<head>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
-    <script>
-        var app = angular.module('myApp', []);
-        app.controller('customersCtrl', function ($scope, $http) {
-            $http.get("http://localhost:8080/").then(function (response) {
-                $scope.names = response.data;
-                console.log(response.data)
-            });
-        });
-    </script>
-</head>
+            <head>
+                <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+            </head>
 
-<body>
-    <h1>hello world</h1>
+            <body>
+                <form action="/add" method="post">
+                    <table class="w3-table w3-bordered">
+                        <tr>
+                            <td>
+                                <input type="text" name="name" style="width:100%" autofocus/>
+                            </td>
+                            <td>
+                                <input type="text" name="age" style="width:100%" />
+                            </td>
+                            <td>
+                                <input type="submit" value="Add Person" style="width:100%" />
+                            </td>
+                        </tr>
+                    </table>
+                </form>
+                <c:if test="${!empty list}">
+                    <table class="w3-table w3-bordered">
+                        <c:forEach items="${list}" var="x">
+                            <tr>
+                                <td>${x.name}
+                                </td>
+                                <td>${x.age}
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </table>
+                </c:if>
 
-    <div ng-app="myApp" ng-controller="customersCtrl">
-        <table>
-            <tr ng-repeat="x in names">
-                <td>{{ x.name }}</td>
-                <td>{{ x.age }}</td>
-            </tr>
-        </table>
+            </body>
 
-    </div>
-</body>
-
-</html>
+            </html>

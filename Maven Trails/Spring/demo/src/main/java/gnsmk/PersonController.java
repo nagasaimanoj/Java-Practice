@@ -1,29 +1,34 @@
 package gnsmk;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import java.util.List;
-import java.util.ArrayList;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import java.util.List;
+import java.util.ArrayList;
 
 @Controller
 @SpringBootApplication
 
 public class PersonController {
+	private static List<Person> personList = new ArrayList<Person>();
+
 	public static void main(String[] args) {
 		SpringApplication.run(PersonController.class, args);
 	}
 
-	@RequestMapping("/")
+	@RequestMapping(value = "/", method = RequestMethod.GET)
 	public String Hello(Model model) {
-		List<Person> li = new ArrayList<Person>();
-		li.add(new Person("manoj", 99));
-		li.add(new Person("kosu", 199));
-		li.add(new Person("kausi", 299));
-		model.addAttribute("list", li);
-		model.addAttribute("list2", li);
+		model.addAttribute("list", personList);
 		return "personX.jsp";
+	}
+
+	@RequestMapping(value = "/add", method = RequestMethod.POST)
+	public String additem(@ModelAttribute("person") Person p) {
+		personList.add(p);
+		return "redirect:/";
 	}
 }

@@ -1,23 +1,22 @@
 package gnsmk;
 
 public class Person {
-	public String name;
-	public int age;
+	private String name;
+	private int age;
 
 	public String getName() {
-		return this.name;
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	public int getAge() {
-		return this.age;
+		return age;
 	}
 
-	public Person(String temp1, int temp2) {
-		this.name = temp1;
-		this.age = temp2;
-	}
-
-	public String toString() {
-		return this.name + " - " + this.age;
+	public void setAge(int age) {
+		this.age = age;
 	}
 }
