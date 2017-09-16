@@ -31,6 +31,8 @@
                                 </td>
                                 <td>${x.age}
                                 </td>
+                                <td>
+                                    <a href="/delete/${x.id}">delete</a> </td>
                             </tr>
                         </c:forEach>
                     </table>

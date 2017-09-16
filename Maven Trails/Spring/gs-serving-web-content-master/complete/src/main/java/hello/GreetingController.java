@@ -1,13 +1,16 @@
 package hello;
 
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+@SpringBootApplication
 @RestController
 public class GreetingController {
+    public static void main(String[] args) {
+        SpringApplication.run(GreetingController.class, args);
+    }
 
     @RequestMapping("/greeting")
     public Student greeting() {
@@ -18,8 +21,7 @@ public class GreetingController {
     }
 
     @RequestMapping("/greet")
-    public String test()
-    {
+    public String test() {
         return "Hello World";
     };
 }
