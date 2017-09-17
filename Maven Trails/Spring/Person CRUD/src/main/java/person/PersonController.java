@@ -27,7 +27,7 @@ public class PersonController {
 		return "redirect:/";
 	}
 
-	@RequestMapping(value = "/delete/{id}", method = RequestMethod.DELETE)
+	@RequestMapping(value = "/delete/{id}", method = RequestMethod.GET)
 	public String delete(@PathVariable("id") Integer id) {
 		repo.delete(id);
 		return "redirect:/";
