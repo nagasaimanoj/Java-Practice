@@ -1,0 +1,5 @@
+person\CustomerRepository.class
+person\Person.class
+person\PersonApplication.class
+person\SwaggerConfig.class
+person\PersonController.class

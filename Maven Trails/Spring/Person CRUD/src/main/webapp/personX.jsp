@@ -4,40 +4,49 @@
             <html>
 
             <head>
-                <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+                <!-- Latest compiled and minified CSS -->
+                <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+                <!-- jQuery library -->
+                <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+                <!-- Latest compiled JavaScript -->
+                <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
             </head>
 
             <body>
-                <form action="/add" method="post">
-                    <table class="w3-table w3-bordered">
+                <form:form action="/add" method="post">
+                    <table class="w3-table w3-bordered" style="width:100%">
                         <tr>
                             <td>
-                                <input type="text" name="name" style="width:100%" autofocus/>
+                                <input type="text" class="form-control" name="name" autofocus required/>
                             </td>
                             <td>
-                                <input type="text" name="age" style="width:100%" />
+                                <input type="text" class="form-control" name="age" required/>
                             </td>
                             <td>
-                                <input type="submit" value="Add Person" style="width:100%" />
+                                <input type="submit" class="btn btn-primary" value="Add Person"/>
                             </td>
                         </tr>
                     </table>
-                </form>
+                </form:form>
                 <c:if test="${!empty list}">
-                    <table class="w3-table w3-bordered">
+                    <table class="w3-table w3-bordered" style="width:100%">
                         <c:forEach items="${list}" var="x">
-                            <tr>
+                            <tr style="width:100%">
                                 <td>${x.name}
                                 </td>
                                 <td>${x.age}
                                 </td>
                                 <td>
-                                    <a href="/delete/${x.id}">delete</a> </td>
+                                    <form:form action="/delete/${x.id}" method="delete">
+                                        <input class="btn btn-danger" type="submit" value="DELETE" />
+                                    </form:form>
+                                </td>
                             </tr>
                         </c:forEach>
                     </table>
                 </c:if>
-
             </body>
 
             </html>
