@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 import java.io.*;
 

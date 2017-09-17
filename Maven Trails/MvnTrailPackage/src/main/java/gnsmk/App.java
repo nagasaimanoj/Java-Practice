@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 public class App {
     public static void main(String[] args) {

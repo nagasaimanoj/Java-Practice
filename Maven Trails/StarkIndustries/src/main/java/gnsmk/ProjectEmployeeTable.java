@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 public class ProjectEmployeeTable {
     private int employeeId;

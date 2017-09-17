@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 import com.opencsv.CSVReader;
 

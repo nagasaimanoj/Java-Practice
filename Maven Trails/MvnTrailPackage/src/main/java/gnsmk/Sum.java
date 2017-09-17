@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 public class Sum {
     public int add(int x, int y) {

@@ -1,4 +1,4 @@
-package net.gnsmk;
+package gnsmk;
 
 public class Employee {
     String name = "-----";

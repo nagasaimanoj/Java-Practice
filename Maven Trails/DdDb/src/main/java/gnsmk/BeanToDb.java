@@ -1,4 +1,4 @@
-package net.gnsmk;
+package gnsmk;
 
 import java.io.*;
 import java.sql.*;

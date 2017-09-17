@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 public class EmployeeTable {
     private String id, name, date, mailId;

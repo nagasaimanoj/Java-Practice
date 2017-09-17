@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 class LineByLine {
     static boolean isSuccess = false;

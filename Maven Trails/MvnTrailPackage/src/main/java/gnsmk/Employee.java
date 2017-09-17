@@ -1,13 +1,8 @@
-package com.gnsmk;
-
-import java.util.*;
+package gnsmk;
 
 public class Employee {
-    String name, country, id, age;
 
-    public String getId() {
-        return id;
-    }
+    String id, name, age, country;
 
     public Employee setId(String id) {
         this.id = id;
@@ -29,6 +24,7 @@ public class Employee {
         return this;
     }
 
+    @Override
     public String toString() {
         return "{" + id + "::" + name + "::" + age + "::" + country + "}";
     }

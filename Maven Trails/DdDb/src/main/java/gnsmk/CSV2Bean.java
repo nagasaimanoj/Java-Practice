@@ -1,4 +1,4 @@
-package net.gnsmk;
+package gnsmk;
 
 import com.opencsv.*;
 import com.opencsv.bean.*;

@@ -1,4 +1,4 @@
-package com.gnsmk;
+package gnsmk;
 
 public class CsvToBeans {
 	public static void main(String[] args) throws java.io.IOException {
