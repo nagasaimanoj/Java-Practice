@@ -30,15 +30,12 @@ public class PersonController {
 		return "person";
 	}
 
-	//For add and update person both
 	@RequestMapping(value = "/person/add", method = RequestMethod.POST)
 	public String addPerson(@ModelAttribute("person") Person p) {
 
 		if (p.getId() == 0) {
-			//new person, add it
 			this.personService.addPerson(p);
 		} else {
-			//existing person, call update
 			this.personService.updatePerson(p);
 		}
 		return "redirect:/persons";
