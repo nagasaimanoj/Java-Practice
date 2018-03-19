@@ -1,6 +1,5 @@
 import java.util.List;
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 
 class Product {
     int id;
@@ -11,6 +10,9 @@ class Product {
         this.id = id;
         this.name = name;
         this.price = price;
+    }
+    public String toString(){
+        return "id : " + this.id + "; name : " + this.name + "; price : " + this.price;
     }
 }
 
@@ -25,13 +27,6 @@ public class JavaStreamExample {
 
         laptopsList.stream()
             .filter(p -> p.price > 25000)
-            .flatMap(p -> p.price)
-            .forEach(System.out::println);
-        System.out.println("-----------------------");
-        laptopsList.stream()
-            .filter(p -> p.price > 25000)
-            .map(p -> p.price)
-            .collect(Collectors.toList())
             .forEach(System.out::println);
     }
 }
