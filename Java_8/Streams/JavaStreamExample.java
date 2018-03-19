@@ -1,4 +1,5 @@
-import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 class Product {
@@ -22,9 +23,15 @@ public class JavaStreamExample {
         laptopsList.add(new Product(4, "Sony Laptop", 28000f));
         laptopsList.add(new Product(5, "Apple Laptop", 90000f));
 
-        laptopsList.stream().filter(p -> p.price > 25000).flatMap(p -> p.price).forEach(System.out::println);
+        laptopsList.stream()
+            .filter(p -> p.price > 25000)
+            .flatMap(p -> p.price)
+            .forEach(System.out::println);
         System.out.println("-----------------------");
-        laptopsList.stream().filter(p -> p.price > 25000).map(p -> p.price).collect(Collectors.toList())
-                .forEach(System.out::println);
+        laptopsList.stream()
+            .filter(p -> p.price > 25000)
+            .map(p -> p.price)
+            .collect(Collectors.toList())
+            .forEach(System.out::println);
     }
 }
