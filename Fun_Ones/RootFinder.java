@@ -1,31 +1,31 @@
-public class HelloWorld {
+public class RootFinder {
 
-    public static void main(String[] args) {
+	public static void main(String[] args) {
+		Double num, root, start, end, mid_val, result;
 
-    Double num = new Double(81);
-	Double root = new Double(5);
-	Double start = new Double(0);
-	Double end = num;
-	Double i = new Double(0);
-	Double number = new Double(0);
-	Double tmpVar = new Double(0);
-    Double result = (start + end) / 2;
-	    
-    for (i = 1.0; i < 1000000.0; i++) {
-        number = (start + end) / 2;
-        result = number;
-        tmpVar = Math.pow(number, root);
-		if (tmpVar == num) {
-			result = number;
-			break;
-		} else if (tmpVar < num) {
-			start = (start + end) / 2;
-		} else{
-			end = (start + end) / 2;
+		num = 10d;
+		root = 3d;
+		mid_val = 0d;
+
+		if (root != 0) {
+			start = 0d;
+			end = num;
+
+			mid_val = 0d;
+
+			while (mid_val != (start + end) / 2) {
+				mid_val = (start + end) / 2;
+				result = Math.pow(mid_val, root);
+
+				if (result < num) {
+					start = mid_val;
+				} else if (result > num) {
+					end = mid_val;
+				} else {
+					break;
+				}
+			}
 		}
-	}
-
-    System.out.println(root + " root of " + num + " is " + result);
-	System.out.println("(" + result + ")^" + root + " = " + Math.pow(result, root));
+		System.out.println(num + "power of " + root + " = " + mid_val);
 	}
 }
